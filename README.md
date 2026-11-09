@@ -6,6 +6,8 @@ Qargi is a set of Claude Code skills and a CLI that dispatch one-off, task-scope
 reviewable patches. An agent works on one task in its own clone and never pushes; the dispatching session verifies the result and applies it. Local
 members are the default and cloud agents are used only when you ask for them in that request; each runs on a runtime the project names for that surface.
 
+Shipped runtimes are `claude-code` (local) and `claude-platform` (cloud) for Claude, and `codex` (local) for OpenAI Codex.
+
 ## Quick start
 
 ```sh

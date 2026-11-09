@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- A Codex provider (`lib/providers/codex.json`), so a project can dispatch local members to OpenAI Codex (`codex exec`) through the same provider extension points as the shipped Claude providers. Write members run under Codex's workspace-write sandbox and read-only members under its read-only sandbox; the read-only barrier is declared unverified, so the review role is not served on this provider yet. Members run the signed-in account's default model: the definition accepts only the account-default model id and refuses any other rather than ignoring it.
+
 ## [0.2.6] - 2026-11-07
 
 ### Added
