@@ -71,6 +71,7 @@
 6 bash tests/test_changelog_renumber.sh
 4 python3 tests/test_cloud.py
 6 bash tests/conformance.sh claude-platform
+1 bash tests/conformance.sh codex
 2 python3 tests/test_report.py
 1 python3 tests/test_noticed.py
 8 python3 tests/test_render.py
@@ -103,3 +104,4 @@
 19 bash tests/test_gates.sh
 1 python3 tests/test_backlog.py
 14 bash tests/test_backlog.sh
+5 bash tests/test_nested_plan.sh
