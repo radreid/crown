@@ -1,0 +1,172 @@
+{
+  "agents": null,
+  "barrier": {
+    "kind": "sandbox-args"
+  },
+  "capabilities": {
+    "fixed_tool_allowlist_per_agent": {
+      "note": "codex exec exposes no per-agent tool allowlist flag",
+      "source": "codex exec --help",
+      "value": "no",
+      "verified_on": null
+    },
+    "mcp": {
+      "note": "not configured",
+      "source": "this definition",
+      "value": "no",
+      "verified_on": null
+    },
+    "memory_stores": {
+      "note": "--ephemeral is passed, so no session files persist",
+      "source": "codex exec --help",
+      "value": "no",
+      "verified_on": null
+    },
+    "per_dispatch_effort_override": {
+      "note": "not wired in this definition",
+      "source": "codex exec --help",
+      "value": "no",
+      "verified_on": null
+    },
+    "per_dispatch_model_override": {
+      "note": "the dispatch argv passes no --model; the signed-in account's default model is used",
+      "source": "codex exec --help",
+      "value": "no",
+      "verified_on": null
+    },
+    "read_only_barrier": {
+      "note": "the Codex OS sandbox in read-only mode. Observed, not verified: that the sandbox really holds is not yet attested; attest it after the first live read-only run, and until then this capability counts as not supported",
+      "source": "codex exec --help (--sandbox read-only)",
+      "value": "yes",
+      "verified_on": null
+    },
+    "session_budget_ceiling": {
+      "note": "codex exec exposes no budget ceiling flag",
+      "source": "codex exec --help",
+      "value": "no",
+      "verified_on": null
+    },
+    "skills": {
+      "note": "no skills resources are linked for this runtime",
+      "source": "this definition",
+      "value": "no",
+      "verified_on": null
+    }
+  },
+  "description": "OpenAI Codex CLI (codex exec), the local command-line runtime: a member is dispatched non-interactively in its own clone and its work returns as patches; a read-only member is held by the Codex sandbox in read-only mode, a write member by workspace-write mode",
+  "dispatch": {
+    "argv": [
+      "codex",
+      "exec",
+      "--ephemeral",
+      "-C",
+      "{clone}",
+      "-"
+    ],
+    "class_argv": {
+      "read-only": [
+        "--sandbox",
+        "read-only"
+      ],
+      "write": [
+        "--sandbox",
+        "workspace-write"
+      ]
+    },
+    "cwd": "{clone}",
+    "env_pass": [
+      "CODEX_HOME",
+      "http_proxy",
+      "https_proxy",
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "ALL_PROXY",
+      "all_proxy",
+      "no_proxy",
+      "NO_PROXY"
+    ],
+    "mode": "command",
+    "output": {
+      "format": "text"
+    },
+    "prompt": {
+      "via": "stdin"
+    },
+    "timeout_s": 1800
+  },
+  "family": null,
+  "kind": "provider",
+  "models": {
+    "effort": null,
+    "pattern": "^account-default$",
+    "tiers": {
+      "*": {
+        "alias": null,
+        "model": "account-default",
+        "source": "no --model is passed in the dispatch argv: codex exec uses the signed-in account's default model (codex exec --help); no model id is asserted by this definition",
+        "verified_on": null
+      }
+    }
+  },
+  "notes": {
+    "barrier": "The barrier is Codex's own sandbox flags (workspace-write or read-only); this runtime has no qargi guard hook. qargi local verify \u2014 refs unchanged, tree clean \u2014 is the backstop, and the read-only class counts as not supported until a live read-only run attests that the sandbox holds.",
+    "environment": "Every member receives CODEX_HOME, which holds the account's Codex login, and the standard proxy variables: the member runs as the signed-in account over the host's network route. Both are passed on purpose.",
+    "models": "Model selection is not wired: the dispatch passes no --model and every member runs the signed-in account's default model. The pattern accepts only the account-default id, so a role that names another model id is refused, not silently ignored; to change the model, change the Codex account's default."
+  },
+  "provider": "codex",
+  "renderers": {
+    "agent": {
+      "engine": "map",
+      "fields": [
+        {
+          "from": "name",
+          "refuse_if_missing": true,
+          "to": "name"
+        },
+        {
+          "from": "description",
+          "refuse_if_missing": true,
+          "to": "description"
+        },
+        {
+          "from": "body",
+          "refuse_if_missing": true,
+          "to": "developer_instructions"
+        },
+        {
+          "to": "sandbox_mode",
+          "value": "workspace-write",
+          "when": {
+            "class": "write"
+          }
+        },
+        {
+          "to": "sandbox_mode",
+          "value": "read-only",
+          "when": {
+            "class": "read-only"
+          }
+        }
+      ],
+      "format": "toml",
+      "path": "{name}.toml"
+    }
+  },
+  "resources": {
+    "agents": {
+      "ext": ".toml",
+      "items": "file-per-item",
+      "link": {
+        "project": "none",
+        "user": "none"
+      },
+      "project_dir": ".codex/agents",
+      "user_dir": "~/.codex/agents"
+    }
+  },
+  "schema": 2,
+  "session": {
+    "render_target": "codex"
+  },
+  "surface": "local"
+}
