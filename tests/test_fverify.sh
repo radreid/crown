@@ -6,11 +6,11 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app QARGI_LEAD=lead-one
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app CROWN_LEAD=lead-one
 mkdir -p "$HOME" "$T/c/projects" "$T/s"
 R=$T/app; git init -q -b master "$R"; git init -q --bare "$T/origin.git"
 echo 0.1.0 > "$R/VERSION"; printf '# Changelog\n\n## [Unreleased]\n' > "$R/CHANGELOG.md"
@@ -38,15 +38,15 @@ tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # --- 1. status says why the result is stale, and what to do
 $F start why >/dev/null 2>&1
 out=$($F status why 2>&1)
-grep -q "full suite: not run on this branch" <<<"$out" && grep -q "next: qargi feature verify why" <<<"$out" && ok "status of a feature never verified names the next step" || no "never verified: $out"
+grep -q "full suite: not run on this branch" <<<"$out" && grep -q "next: crown feature verify why" <<<"$out" && ok "status of a feature never verified names the next step" || no "never verified: $out"
 task a1; task a2; $F merge why agent/a1 >/dev/null 2>&1; $F verify why >/dev/null 2>&1
 out=$($F status why 2>&1)
-grep -q "full suite: pass at this head" <<<"$out" && ! grep -q "next: qargi feature verify" <<<"$out" && ! grep -q "^  why: " <<<"$out" && ok "a current result says nothing more" || no "current: $out"
+grep -q "full suite: pass at this head" <<<"$out" && ! grep -q "next: crown feature verify" <<<"$out" && ! grep -q "^  why: " <<<"$out" && ok "a current result says nothing more" || no "current: $out"
 ran=$(git -C "$R" rev-parse --short feature/why)
 $F merge why agent/a2 >/dev/null 2>&1; m1=$(git -C "$R" rev-parse --short feature/why)
 out=$($F status why 2>&1)
 grep -q "full suite: pass at an older head ($ran)" <<<"$out" && grep -q "why: feature/why moved after that run by 1 commit(s):" <<<"$out" \
-  && grep -q "    $m1 Merge branch 'agent/a2' into feature/why (a branch was merged in)" <<<"$out" && grep -q "next: qargi feature verify why" <<<"$out" \
+  && grep -q "    $m1 Merge branch 'agent/a2' into feature/why (a branch was merged in)" <<<"$out" && grep -q "next: crown feature verify why" <<<"$out" \
   && ok "after a task merge it names the merge commit and the next step" || no "after merge: $out"
 $F verify why >/dev/null 2>&1; devcommit d1; $F sync why >/dev/null 2>&1; m2=$(git -C "$R" rev-parse --short feature/why)
 out=$($F status why 2>&1)
@@ -110,14 +110,14 @@ out=$($F finish pd3 2>&1)
 
 # --- 4. verify warns, and goes on, when another suite may be running
 $F start wn >/dev/null 2>&1; task g1; $F merge wn agent/g1 >/dev/null 2>&1
-warns() { grep -c '^qargi: warning: \(another whole-suite run\|the local run\|tests/run.sh is running\)' <<<"$1" || true; }
+warns() { grep -c '^crown: warning: \(another whole-suite run\|the local run\|tests/run.sh is running\)' <<<"$1" || true; }
 out=$($F verify wn 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(warns "$out")" = 0 ] && ok "nothing else running: no warning" || no "quiet verify rc=$rc: $out"
 # a whole-suite run of the project in progress (a live pid in the busy directory)
 sleep 60 & spid=$!
 mkdir -p "$T/s/busy"; echo "$spid" > "$T/s/busy/app.verify.other.pid"
 out=$($F verify wn 2>&1); rc=$?
-[ $rc = 0 ] && grep -q "^qargi: warning: another whole-suite run of app is in progress (verify.other, pid $spid)" <<<"$out" && grep -q '^full suite: pass' <<<"$out" && ok "a live whole-suite run of the project: a warning, and the verify goes on" || no "busy warning rc=$rc: $out"
+[ $rc = 0 ] && grep -q "^crown: warning: another whole-suite run of app is in progress (verify.other, pid $spid)" <<<"$out" && grep -q '^full suite: pass' <<<"$out" && ok "a live whole-suite run of the project: a warning, and the verify goes on" || no "busy warning rc=$rc: $out"
 kill "$spid" 2>/dev/null; wait "$spid" 2>/dev/null
 out=$($F verify wn 2>&1)
 [ "$(warns "$out")" = 0 ] && ok "a pid file whose process is gone is ignored" || no "dead pid: $out"
@@ -126,12 +126,12 @@ rm -f "$T/s/busy/app.verify.other.pid"
 RUN=$T/run1; mkdir -p "$RUN/clone/.git" "$RUN/out"; echo x > "$RUN/started"; echo y > "$RUN/clone/.git/index"
 jq -nc --arg r "$RUN" --arg p "$R" '{run:$r, slug:"x", repo:$p}' > "$T/s/local-runs.jsonl"
 out=$($F verify wn 2>&1)
-grep -q "^qargi: warning: the local run $RUN of app had activity in the last 10 minutes" <<<"$out" && ok "a local run of the repository with a recent file: a warning" || no "recent run: $out"
+grep -q "^crown: warning: the local run $RUN of app had activity in the last 10 minutes" <<<"$out" && ok "a local run of the repository with a recent file: a warning" || no "recent run: $out"
 find "$RUN" -exec touch -d '3 hours ago' {} +
 out=$($F verify wn 2>&1)
 [ "$(warns "$out")" = 0 ] && ok "the same run, quiet for hours: no warning" || no "old run: $out"
-touch "$RUN/clone/.git/index"; out=$(QARGI_ACTIVE_MINUTES=0 $F verify wn 2>&1)
-[ "$(warns "$out")" = 0 ] && ok "QARGI_ACTIVE_MINUTES sets how recent counts" || no "minutes: $out"
+touch "$RUN/clone/.git/index"; out=$(CROWN_ACTIVE_MINUTES=0 $F verify wn 2>&1)
+[ "$(warns "$out")" = 0 ] && ok "CROWN_ACTIVE_MINUTES sets how recent counts" || no "minutes: $out"
 jq -nc --arg r "$RUN" --arg p "$R" --arg c "2026-01-01T00:00:00Z" '{run:$r, slug:"x", repo:$p, cleaned:$c}' > "$T/s/local-runs.jsonl"
 out=$($F verify wn 2>&1)
 [ "$(warns "$out")" = 0 ] && ok "a cleaned run is not counted" || no "cleaned run: $out"
@@ -148,19 +148,19 @@ if [ -d /proc/$$ ]; then
   (cd "$R/sleeper" && exec bash tests/run.sh) & rpid=$!
   for _ in $(seq 20); do
     out=$($F verify wn 2>&1); rc=$?
-    grep -q "^qargi: warning: tests/run.sh is running" <<<"$out" && break
+    grep -q "^crown: warning: tests/run.sh is running" <<<"$out" && break
     sleep 0.5
   done
-  [ $rc = 0 ] && grep -q "^qargi: warning: tests/run.sh is running in this repository (pid $rpid, in $R/sleeper)" <<<"$out" && ok "a tests/run.sh running in the repository: a warning" || no "process warning rc=$rc: $out"
+  [ $rc = 0 ] && grep -q "^crown: warning: tests/run.sh is running in this repository (pid $rpid, in $R/sleeper)" <<<"$out" && ok "a tests/run.sh running in the repository: a warning" || no "process warning rc=$rc: $out"
   out=$($REL verify 0.9.1 2>&1); rc=$?
-  [ $rc = 0 ] && grep -q "^qargi: warning: tests/run.sh is running in this repository (pid $rpid" <<<"$out" && grep -q '^full suite: pass' <<<"$out" && ok "release verify warns the same way and goes on" || no "release warning rc=$rc: $out"
+  [ $rc = 0 ] && grep -q "^crown: warning: tests/run.sh is running in this repository (pid $rpid" <<<"$out" && grep -q '^full suite: pass' <<<"$out" && ok "release verify warns the same way and goes on" || no "release warning rc=$rc: $out"
   kill "$opid" "$rpid" 2>/dev/null; wait "$opid" "$rpid" 2>/dev/null
   out=$($F verify wn 2>&1)
   [ "$(warns "$out")" = 0 ] && ok "and nothing once it has ended" || no "after: $out"
   # a process that exits between the listing and the read: the function says no and prints nothing (the shell opens a redirection before
   # a 2>/dev/null written after it applies, so the "no such file" of the open has to be silenced by a group)
   gone=4194305   # above the largest pid_max of Linux, so no such process
-  bash -c '. "$1/lib/gitflow.sh"; suite_cmdline "$2"' _ "${DA%/bin/qargi}" "$gone" 2>"$T/gone.err"; rc=$?
+  bash -c '. "$1/lib/gitflow.sh"; suite_cmdline "$2"' _ "${DA%/bin/crown}" "$gone" 2>"$T/gone.err"; rc=$?
   [ $rc = 1 ] && [ ! -s "$T/gone.err" ] && ok "suite_cmdline of a pid that is gone: status 1, nothing on standard error" || no "gone pid rc=$rc: $(cat "$T/gone.err")"
 fi
 

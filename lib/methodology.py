@@ -2,8 +2,8 @@
 """Methodologies: the way a project is developed and released, as data.
 
 A methodology is a directory with methodology.json and a scaffold/ directory of file templates. One ships with
-qargi (<tool>/methodologies/gitflow); yours live under <config>/methodologies/NAME/. A name is one lower-case token,
-unique across both places. This module only reads: `qargi project new|adopt` write, and only through a plan.
+crown (<tool>/methodologies/gitflow); yours live under <config>/methodologies/NAME/. A name is one lower-case token,
+unique across both places. This module only reads: `crown project new|adopt` write, and only through a plan.
 
   methodology.py list
   methodology.py show NAME
@@ -22,7 +22,7 @@ output is the template's {{^gates}} part, which is what it was before gates exis
 "pattern" (a regular expression the whole value must match). A scaffold entry may say "env": "section" (the file holds the
 Development environment section) or "targets" (the file holds the bootstrap and doctor targets of a task runner): project attach
 and adopt then treat the entry as present when the repository already has the piece in another file.
-The optional after_release list names the steps that follow a release, each {id, when, next, help}: `qargi release finish` ends with
+The optional after_release list names the steps that follow a release, each {id, when, next, help}: `crown release finish` ends with
 "next: NEXT" ({version} replaced) for each step whose `when`, a dotted project answer such as site.enabled, is true.
 """
 import json, os, re, sys, datetime
@@ -41,7 +41,7 @@ GATE_LOOP = re.compile(r"^\{\{#gate\}\}\n(.*?)^\{\{/gate\}\}(?:\n|\Z)", re.M | r
 
 def usage_exit(msg):
     """A usage error: the message on stderr and exit 2, as the other verbs do."""
-    print(msg if msg.startswith("qargi: ") else "qargi: " + msg, file=sys.stderr)
+    print(msg if msg.startswith("crown: ") else "crown: " + msg, file=sys.stderr)
     raise SystemExit(2)
 
 
@@ -85,7 +85,7 @@ def shadowing():
 def load(name):
     f = find(name)
     if not f:
-        raise SystemExit("qargi: no methodology named %s (qargi methodology list)" % name)
+        raise SystemExit("crown: no methodology named %s (crown methodology list)" % name)
     with open(os.path.join(f[1], "methodology.json")) as fh:
         data = json.load(fh)
     return f[0], f[1], data
@@ -149,8 +149,8 @@ def problems(name):
         if not (isinstance(s.get("when"), str) and re.fullmatch(r"[a-z_]+(\.[a-z_]+)*", s["when"])):
             bad.append("%s: after_release step %s: when is the dotted name of a project answer that must be true (for example site.enabled)" % (name, s.get("id")))
         nx = s.get("next")
-        if not (isinstance(nx, str) and nx.startswith("qargi ") and "\n" not in nx):
-            bad.append("%s: after_release step %s: next is the one qargi command line to run next ({version} stands for the version)" % (name, s.get("id")))
+        if not (isinstance(nx, str) and nx.startswith("crown ") and "\n" not in nx):
+            bad.append("%s: after_release step %s: next is the one crown command line to run next ({version} stands for the version)" % (name, s.get("id")))
     if len(aids) != len(set(aids)):
         bad.append("%s: after_release step ids are unique" % name)
     ids = [o.get("id") for o in (m.get("deployment") or {}).get("options", [])]
@@ -167,25 +167,25 @@ def render(name, given):
     where, d, m = load(name)
     bad = problems(name)
     if bad:
-        raise SystemExit("qargi: " + "; ".join(bad))
+        raise SystemExit("crown: " + "; ".join(bad))
     params = {}
     for k, spec in (m.get("params") or {}).items():
         v = given.get(k, spec.get("default"))
         if k == "year" and not v:
             v = str(datetime.date.today().year)
         if v in (None, "") and spec.get("required"):
-            raise SystemExit("qargi: --param %s=VALUE is required (%s)" % (k, spec.get("help", "")))
+            raise SystemExit("crown: --param %s=VALUE is required (%s)" % (k, spec.get("help", "")))
         params[k] = "" if v is None else str(v)
         if spec.get("pattern") and not re.fullmatch(spec["pattern"], params[k]):
-            raise SystemExit("qargi: --param %s=%s: not of the form %s (%s)" % (k, params[k], spec["pattern"], spec.get("help", "")))
+            raise SystemExit("crown: --param %s=%s: not of the form %s (%s)" % (k, params[k], spec["pattern"], spec.get("help", "")))
     unknown = sorted(set(given) - set(params))
     if unknown:
-        raise SystemExit("qargi: unknown parameter %s (this methodology has: %s)" % (", ".join(unknown), ", ".join(params)))
+        raise SystemExit("crown: unknown parameter %s (this methodology has: %s)" % (", ".join(unknown), ", ".join(params)))
     if not re.fullmatch(r"[a-z][a-z0-9]{0,23}", params.get("project", "")):
-        raise SystemExit("qargi: project: one lower-case token (letters, digits)")
+        raise SystemExit("crown: project: one lower-case token (letters, digits)")
     for k, v in params.items():
         if G.has_line_break(v):
-            raise SystemExit("qargi: %s is one line" % k)
+            raise SystemExit("crown: %s is one line" % k)
     gates = declared_gates(params.get("gates", ""))
     out = []
     for item in m.get("scaffold") or []:
@@ -206,10 +206,10 @@ def declared_gates(value):
     try:
         data = json.loads(value)
     except ValueError as e:
-        raise SystemExit("qargi: --param gates=...: not JSON (%s); an array of {name, command, tier}" % e)
+        raise SystemExit("crown: --param gates=...: not JSON (%s); an array of {name, command, tier}" % e)
     bad = G.problems(data)
     if bad:
-        raise SystemExit("qargi: --param gates=...: " + "; ".join(bad))
+        raise SystemExit("crown: --param gates=...: " + "; ".join(bad))
     return G.select(data or [], list(G.TIERS))
 
 
@@ -237,7 +237,7 @@ def main(argv):
             print("%-12s %-9s %s" % (n, where, m.get("description", "")))
     elif verb == "show":
         if not rest:
-            usage_exit("usage: qargi methodology show NAME")
+            usage_exit("usage: crown methodology show NAME")
         where, d, m = load(rest[0])
         print("methodology: %s (%s, %s)\ndir: %s\n" % (m.get("name"), where, "version %s" % m.get("version"), d))
         print(m.get("description", ""))
@@ -276,7 +276,7 @@ def main(argv):
         sys.exit(rc)
     elif verb == "files":
         if not rest:
-            usage_exit("usage: qargi methodology files NAME --param k=v ...")
+            usage_exit("usage: crown methodology files NAME --param k=v ...")
         given, i = {}, 1
         while i < len(rest):
             if rest[i] == "--param" and i + 1 < len(rest) and "=" in rest[i + 1]:
@@ -284,17 +284,17 @@ def main(argv):
                 given[k] = v
                 i += 2
             else:
-                usage_exit("qargi: unknown option %s" % rest[i])
+                usage_exit("crown: unknown option %s" % rest[i])
         print(json.dumps(render(rest[0], given), indent=2))
     elif verb == "deployment":
         if not rest:
-            usage_exit("usage: qargi methodology deployment NAME [ID]")
+            usage_exit("usage: crown methodology deployment NAME [ID]")
         where, d, m = load(rest[0])
         opts = (m.get("deployment") or {}).get("options", [])
         if len(rest) > 1:
             o = next((x for x in opts if x["id"] == rest[1]), None)
             if not o:
-                raise SystemExit("qargi: no deployment option %s (%s)" % (rest[1], ", ".join(x["id"] for x in opts)))
+                raise SystemExit("crown: no deployment option %s (%s)" % (rest[1], ", ".join(x["id"] for x in opts)))
             print("%s: %s\ncan be done for you: %s\n\n%s" % (o["id"], o.get("title", ""), "yes" if o.get("automatable") else "no", o["instructions"]))
         else:
             print((m.get("deployment") or {}).get("note", ""))
@@ -302,7 +302,7 @@ def main(argv):
             for o in opts:
                 print("%-16s %s%s" % (o["id"], o.get("title", ""), "  (can be done for you)" if o.get("automatable") else ""))
     else:
-        usage_exit("usage: qargi methodology list|show|check|files|deployment ...")
+        usage_exit("usage: crown methodology list|show|check|files|deployment ...")
 
 
 if __name__ == "__main__":

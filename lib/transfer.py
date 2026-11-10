@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi export / qargi import: move a project's qargi setup between machines, or keep a copy.
+"""crown export / crown import: move a project's crown setup between machines, or keep a copy.
 
   transfer.py export [--project P[,P]] [--only LIST] [--out FILE] [--no-encrypt | --password-file F]
   transfer.py import FILE [--project P[,P]] [--only LIST] [--mode merge|overwrite|replace] [--password-file F] [--dry-run]
@@ -20,8 +20,8 @@ FORMAT = 1
 MAX_ARCHIVE = 256 * 1024 * 1024
 CONF = P.conf()
 STATE = P.state()
-TTY_IN = os.environ.get("QARGI_TTY_IN", "/dev/tty")
-TTY_OUT = os.environ.get("QARGI_TTY_OUT", "/dev/tty")
+TTY_IN = os.environ.get("CROWN_TTY_IN", "/dev/tty")
+TTY_OUT = os.environ.get("CROWN_TTY_OUT", "/dev/tty")
 
 # component -> (archive folder, what it holds, selected by default)
 COMPONENTS = {
@@ -45,7 +45,7 @@ MODE_TEXT = {"merge": "add what is missing, keep everything that exists",
 
 
 def F(name):
-    """An option of an external tool (ant, gpg), spelled out here so it is not mistaken for one of qargi's own."""
+    """An option of an external tool (ant, gpg), spelled out here so it is not mistaken for one of crown's own."""
     return "--" + name
 
 
@@ -54,7 +54,7 @@ class Stop(Exception):
 
 
 def die(msg, code=1):
-    print("qargi: " + msg, file=sys.stderr)
+    print("crown: " + msg, file=sys.stderr)
     raise SystemExit(code)
 
 
@@ -91,7 +91,7 @@ def interactive():
 def ask(prompt, default=""):
     tin, tout = tty()
     if not tin:
-        die("this needs a terminal: run it in a terminal (from Claude Code: ! qargi ...), or give every answer as an option")
+        die("this needs a terminal: run it in a terminal (from Claude Code: ! crown ...), or give every answer as an option")
     tout.write(prompt + (" [%s] " % default if default else " "))
     tout.flush()
     line = tin.readline()
@@ -372,7 +372,7 @@ def is_exec(item):
 
 
 def build_archive(items, comps, projects):
-    manifest = {"format": FORMAT, "qargi": version(), "created": now(), "projects": projects, "components": {}, "files": {}}
+    manifest = {"format": FORMAT, "crown": version(), "created": now(), "projects": projects, "components": {}, "files": {}}
     for comp in comps:
         manifest["components"][comp] = sum(1 for k in items if k.startswith(COMPONENTS[comp][0] + "/"))
     for path, item in items.items():
@@ -409,10 +409,10 @@ def cmd_export(args):
         elif a == F("out"): out = args[i + 1]; i += 2
         elif a == F("password-file"): pwfile = args[i + 1]; i += 2
         elif a == F("no-encrypt"): noenc = True; i += 1
-        else: die("unknown option %s (qargi help export)" % a, 2)
+        else: die("unknown option %s (crown help export)" % a, 2)
     allp = project_files()
     if not allp:
-        die("no project is stored yet: qargi help project")
+        die("no project is stored yet: crown help project")
     if projects_arg:
         projects = parse_list(projects_arg, allp, "project")
     elif len(allp) == 1 or not interactive():
@@ -469,7 +469,7 @@ def cmd_export(args):
         die("the archive would be larger than %d MB" % (MAX_ARCHIVE >> 20))
     if password:
         data = encrypt(data, password)
-    name = out or "qargi-export-%s.tar.gz%s" % (datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ"), ".gpg" if password else "")
+    name = out or "crown-export-%s.tar.gz%s" % (datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ"), ".gpg" if password else "")
     if os.path.exists(name):
         die("%s exists: give another --out" % name)
     write_file(name, data, 0o600)
@@ -526,15 +526,15 @@ def read_tar(raw):
                     die("the archive unpacks to more than %d MB: refusing it" % (MAX_ARCHIVE >> 20))
                 files[ti.name] = tf.extractfile(ti).read()
     except (tarfile.TarError, OSError, EOFError) as e:
-        die("this is not a qargi archive (%s)" % e)
+        die("this is not a crown archive (%s)" % e)
     if "manifest.json" not in files:
-        die("this is not a qargi archive: no manifest.json")
+        die("this is not a crown archive: no manifest.json")
     try:
         manifest = json.loads(files.pop("manifest.json"))
     except ValueError:
         die("the manifest is not valid JSON")
     if manifest.get("format") != FORMAT:
-        die("this archive is format %s; this qargi reads format %d (update qargi)" % (manifest.get("format"), FORMAT))
+        die("this archive is format %s; this crown reads format %d (update crown)" % (manifest.get("format"), FORMAT))
     listed = manifest.get("files") or {}
     if set(listed) != set(files):
         die("the archive and its manifest disagree about the files: refusing it")
@@ -545,7 +545,7 @@ def read_tar(raw):
     for p in files:
         mode = listed[p].get("mode")
         if mode is None:
-            die("%s has no mode in the manifest (an archive made by an older qargi): export it again" % p)
+            die("%s has no mode in the manifest (an archive made by an older crown): export it again" % p)
         if not isinstance(mode, str) or not re.fullmatch(r"0[67]00", mode):
             die("%s has a mode that is not valid (%r): refusing the archive" % (p, str(mode)[:20]))
         out[p] = (files[p], listed[p].get("project"), mode == "0700" and p.startswith("config/packs/"))
@@ -765,11 +765,11 @@ def cmd_import(args):
         elif a == F("mode"): mode_arg = args[i + 1]; i += 2
         elif a == F("password-file"): pwfile = args[i + 1]; i += 2
         elif a == F("dry-run"): dry = True; i += 1
-        elif a.startswith("-"): die("unknown option %s (qargi help import)" % a, 2)
+        elif a.startswith("-"): die("unknown option %s (crown help import)" % a, 2)
         elif file is None: file = a; i += 1
         else: die("one archive at a time")
     if not file:
-        die("usage: qargi import FILE [--dry-run] (qargi help import)", 2)
+        die("usage: crown import FILE [--dry-run] (crown help import)", 2)
     if mode_arg and mode_arg not in MODES:
         die("--mode is one of: %s" % ", ".join(MODES))
     if not dry and not interactive():
@@ -779,11 +779,11 @@ def cmd_import(args):
     if bad:
         die("the archive holds a name that is not valid for its folder (%r): refusing it" % bad[0][:80])
     for path, keys in gate_answers(archive):
-        print("note: %s would add or change %s, which only qargi provider enable|disable|accept store (a plan token and an approval); the stored value stays, none is added" % (path, ", ".join(keys)), file=sys.stderr)
+        print("note: %s would add or change %s, which only crown provider enable|disable|accept store (a plan token and an approval); the stored value stays, none is added" % (path, ", ".join(keys)), file=sys.stderr)
     out = tty()[1] or sys.stdout
     present = [c for c in ORDER if manifest["components"].get(c)]
     aprojects = manifest.get("projects") or []
-    print("Archive from %s, qargi %s: projects %s" % (manifest.get("created", "?"), manifest.get("qargi", "?"), ", ".join(aprojects) or "none"))
+    print("Archive from %s, crown %s: projects %s" % (manifest.get("created", "?"), manifest.get("crown", "?"), ", ".join(aprojects) or "none"))
     for c in present:
         print("  %-12s %d file(s)  %s" % (c, manifest["components"][c], COMPONENTS[c][1]))
     if only:
@@ -849,9 +849,9 @@ def cmd_import(args):
     audit("import", "%s from %s: %d added, %d changed, %d removed, %d appended" % (",".join(comps), os.path.basename(file), done["add"], done["change"], done["delete"], done["append"]), approval)
     print("\nDone: %d added, %d changed, %d removed. Backup of what was replaced: %s" % (done["add"], done["change"], done["delete"], bdir))
     if "memories" in comps:
-        print("Check the stores with: qargi memory lint STORE_ID")
+        print("Check the stores with: crown memory lint STORE_ID")
     if "config" in comps:
-        print("The project answers were imported as they were (apart from models.extensions and models.accept_no_barrier): check paths and ids with: qargi project show NAME")
+        print("The project answers were imported as they were (apart from models.extensions and models.accept_no_barrier): check paths and ids with: crown project show NAME")
     return 0
 
 
@@ -862,10 +862,10 @@ def main(argv):
     try:
         return cmd_export(argv[1:]) if argv[0] == "export" else cmd_import(argv[1:])
     except Stop as e:
-        print("qargi: stopped (%s); nothing was changed by this step" % e, file=sys.stderr)
+        print("crown: stopped (%s); nothing was changed by this step" % e, file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\nqargi: interrupted", file=sys.stderr)
+        print("\ncrown: interrupted", file=sys.stderr)
         return 130
 
 

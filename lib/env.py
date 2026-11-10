@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""qargi env: what a repository declares about its development environment, read from files it already has.
+"""crown env: what a repository declares about its development environment, read from files it already has.
 
-qargi defines no file format for this. A project declares its environment with
+crown defines no file format for this. A project declares its environment with
   - a section of AGENTS.md (or README.md) headed "Development environment", "Environment" or "Setup";
   - version pins in the standard files (go.mod, .tool-versions, mise.toml [tools], .python-version, .nvmrc,
     package.json engines) and .gitmodules for submodules;
@@ -12,11 +12,11 @@ The project's answers (outside the repository) may override the commands derived
   strings: doctor lines the owner accepts on this host).
 
   env.py show [--project P] [--repo DIR] [--json]    print what was detected and the commands in effect
-  env.py check [--project P] [--repo DIR] [--timeout SECONDS] [--json]    run the doctor, add the qargi layer, print the verdict (lib/env_check.py)
+  env.py check [--project P] [--repo DIR] [--timeout SECONDS] [--json]    run the doctor, add the crown layer, print the verdict (lib/env_check.py)
 
 Detection (show) only reads files. Nothing is executed (make, just, task and mise are never run; their files are parsed
 as text), and no git command is run. A file that is a symbolic link leaving the repository, is not a regular file or
-is larger than 1 MB is not read. check runs the doctor command and reads the qargi layer: see lib/env_check.py.
+is larger than 1 MB is not read. check runs the doctor command and reads the crown layer: see lib/env_check.py.
 
   env.py plan [--project P] [--repo DIR] --approve-exec NAME                          run the dry run, show it, print a plan token
   env.py apply [--project P] [--repo DIR] --plan T --approved WORDS --approve-exec NAMES [--allow-root]    run the bootstrap once
@@ -423,7 +423,7 @@ def repo_root_of(path):
 
 
 class Problem(Exception):
-    """The project or the repository asked for cannot be used (the message is printed after "qargi: "; the exit status is 2)."""
+    """The project or the repository asked for cannot be used (the message is printed after "crown: "; the exit status is 2)."""
 
 
 def resolve(project, repo):
@@ -433,9 +433,9 @@ def resolve(project, repo):
     if project is not None:
         answers = answers_of(project)
         if answers is None:
-            raise Problem("no such project '%s' (qargi project list)" % project)
+            raise Problem("no such project '%s' (crown project list)" % project)
     elif repo is None:
-        project = os.environ.get("QARGI_PROJECT") or project_for_dir(os.getcwd())
+        project = os.environ.get("CROWN_PROJECT") or project_for_dir(os.getcwd())
         answers = answers_of(project) if project else None
         project = project if answers is not None else None
     else:
@@ -467,12 +467,12 @@ def show(argv):
             as_json = True
             i += 1
         else:
-            print("usage: qargi env show [--project P] [--repo DIR] [--json]", file=sys.stderr)
+            print("usage: crown env show [--project P] [--repo DIR] [--json]", file=sys.stderr)
             return 2
     try:
         project, answers, repo = resolve(project, repo)
     except Problem as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
     d = effective(repo, answers)
     d["project"] = project
@@ -484,12 +484,12 @@ def main(argv):
     if argv[:1] == ["show"]:
         return show(argv[1:])
     if argv[:1] == ["check"]:
-        import env_check                       # runs the doctor and reads the qargi layer; kept in its own file
+        import env_check                       # runs the doctor and reads the crown layer; kept in its own file
         return env_check.check(argv[1:])
     if argv[:1] in (["plan"], ["apply"]):
         import env_apply                       # not at the top: reading files (show) needs none of it
         return env_apply.main(argv[0], argv[1:])
-    print("usage: env.py show|check|plan|apply ...   (qargi help env)", file=sys.stderr)
+    print("usage: env.py show|check|plan|apply ...   (crown help env)", file=sys.stderr)
     return 2
 
 

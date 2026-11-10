@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# qargi provider accept: record that you accept a provider surface that has no read-only barrier (lib/provider.py runs this
+# crown provider accept: record that you accept a provider surface that has no read-only barrier (lib/provider.py runs this
 # for the verb; the other provider verbs are Python).
 #
 #   provider.sh accept NAME --surface S --no-barrier --asked "<your words>" [--project P]       plan: what would be recorded, and a token
 #   provider.sh accept NAME --surface S --no-barrier --asked "<your words>" [--project P] --plan TOKEN --approved "<your go-ahead>"
 #
 # Applied, it writes models.accept_no_barrier.S = {by, at, reason} to the project's stored answers (lib/gated_answers.py, which
-# validates them; qargi project set refuses the key) and one line to the audit log. The reason is the --asked words. The enforcement points (qargi agent add for a
+# validates them; crown project set refuses the key) and one line to the audit log. The reason is the --asked words. The enforcement points (crown agent add for a
 # member that only reviews, provision for a read-only role, session start, local prepare) refuse a read-only role on a surface
 # whose barrier is not supported until this is recorded. Members and agents cannot use it (the guard refuses the verb).
 . "$(dirname "$0")/lib.sh"
 
 here=$(dirname "$(readlink -f "$0")")
-usage='usage: qargi provider accept NAME --surface local|cloud --no-barrier --asked "<your words>" [--project P] [--plan TOKEN --approved "<your go-ahead>"]'
+usage='usage: crown provider accept NAME --surface local|cloud --no-barrier --asked "<your words>" [--project P] [--plan TOKEN --approved "<your go-ahead>"]'
 verb=${1:-}; shift || true
 [ "$verb" = accept ] || usage_die "$usage"
 NAME='' SURFACE='' NOBAR='' PROJ='' ASKED='' APPROVED='' PLAN_ARG=''
@@ -37,7 +37,7 @@ done
 # the barrier of the project's runtime as composed with the extensions the project enabled: one an extension provides and has verified counts
 state=$(python3 -I "$here/provider.py" effective "$NAME" "$SURFACE" read_only_barrier ${PROJ:+--project "$PROJ"}) || exit 1
 [ -n "$PROJ" ] || usage_die "no project: give --project P (the project whose answers record the acceptance)"
-valid_project "$PROJ" && [ -f "$DA_CONF/projects/$PROJ.json" ] || die "no stored answers for project '$PROJ' (qargi project list)"
+valid_project "$PROJ" && [ -f "$DA_CONF/projects/$PROJ.json" ] || die "no stored answers for project '$PROJ' (crown project list)"
 
 if [ "$state" != no ]; then
   echo "nothing to accept: $NAME has a read-only barrier on $SURFACE ($state)"
@@ -57,7 +57,7 @@ if [ -z "$APPROVED" ] || [ -z "$PLAN_ARG" ]; then
   exit 0
 fi
 
-QARGI_NESTED='' need_plan "$token"
+CROWN_NESTED='' need_plan "$token"
 rec=$(jq -nc --arg b "$(id -un)" --arg t "$(now)" --arg r "$ASKED" '{by: $b, at: $t, reason: $r}')
 audit_log provider:accept "$NAME $SURFACE $PROJ"
 python3 -I "$here/gated_answers.py" store "$PROJ" "models.accept_no_barrier.$SURFACE" "$rec" --conf "$DA_CONF" >/dev/null || die "could not record it in the answers of $PROJ; nothing changed"

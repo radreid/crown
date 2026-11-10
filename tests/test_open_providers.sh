@@ -15,15 +15,15 @@ ROOT=$PWD
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
 T=$(mktemp -d); fail=0
-export QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T TMPDIR=$T/tmp
+export CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T TMPDIR=$T/tmp
 mkdir -p "$T/tmp" "$T/bin" "$T/c/projects" "$T/s"
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 skip() { echo "skip $1"; }
-DA=$ROOT/bin/qargi
+DA=$ROOT/bin/crown
 FIX=$ROOT/tests/open-providers
 LC="git -c user.name=t -c user.email=t@example.net"
 LIB=$T/c/packs/providers
-# a member run (a directory `qargi local prepare` made) may hold this test; the verbs that change a checkout refuse inside one
+# a member run (a directory `crown local prepare` made) may hold this test; the verbs that change a checkout refuse inside one
 cd "$T" || exit 1
 
 tokp() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
@@ -141,14 +141,14 @@ flow() {   # (the 6th argument is the name of the member made: member names are 
   case $ext in
     .toml)
       d=$(toml "$f")
-      jq -e '.name == "'"$mem"'" and .model == "fc-main" and .effort == "m" and .mode == "write" and .tools == ["sh","cat","ed","tee"] and (.description | startswith("A qargi member")) and (.prompt | startswith("You are a qargi member"))' <<<"$d" >/dev/null \
+      jq -e '.name == "'"$mem"'" and .model == "fc-main" and .effort == "m" and .mode == "write" and .tools == ["sh","cat","ed","tee"] and (.description | startswith("A crown member")) and (.prompt | startswith("You are a crown member"))' <<<"$d" >/dev/null \
         && ok "$rt: the file parses as TOML; the balanced tier is the model, effort goes through the runtime's table, tools are renamed, the body is the prompt" || no "$rt toml fields: $d"
       out=$("$DA" agent add quick --roles build --effort xhigh --project "$p" 2>&1); d=$(toml "$MD/quick$ext")
       { jq -e 'has("effort") | not' <<<"$d" >/dev/null && grep -q "effort: omitted" <<<"$out"; } && ok "$rt: an effort the runtime has no value for is left out, with a note" || no "$rt xhigh: $out $d"
       ;;
     .md)
       d=$(mdfm "$f")
-      jq -e '.name == "'"$mem"'" and .model == "md-large" and (has("effort") | not) and .tools == "run_shell, open_file, patch_file, create_file, grep_tree" and (.description | startswith("A qargi member")) and (.body | startswith("You are a qargi member")) and .hooks.before_tool == "qargi __guard --provider fakemd"' <<<"$d" >/dev/null \
+      jq -e '.name == "'"$mem"'" and .model == "md-large" and (has("effort") | not) and .tools == "run_shell, open_file, patch_file, create_file, grep_tree" and (.description | startswith("A crown member")) and (.body | startswith("You are a crown member")) and .hooks.before_tool == "crown __guard --provider fakemd"' <<<"$d" >/dev/null \
         && ok "$rt: the file parses as markdown with front matter; the balanced tier is the model, effort is dropped (no control), tools are renamed, the hook is the guard" || no "$rt md fields: $d"
       ;;
   esac
@@ -156,13 +156,13 @@ flow() {   # (the 6th argument is the name of the member made: member names are 
 
   # DRIFT: edited by hand
   printf '# edited by hand\n' >> "$f"
-  "$DA" agent list | grep -q "^$p  *$mem .*$mem$ext (DRIFT: qargi agent refresh $mem --project $p)\$" && ok "$rt: a hand edit of the file is DRIFT" || no "$rt drift: $("$DA" agent list | grep " $mem ")"
+  "$DA" agent list | grep -q "^$p  *$mem .*$mem$ext (DRIFT: crown agent refresh $mem --project $p)\$" && ok "$rt: a hand edit of the file is DRIFT" || no "$rt drift: $("$DA" agent list | grep " $mem ")"
   "$DA" agent refresh "$mem" >/dev/null 2>&1; "$DA" agent list | grep " $mem " | grep -q '(' && no "$rt: refresh kept the flag" || ok "$rt: refresh renders it again and clears the flag"
 
   # STALE: the definition changed and was sealed again
   jq '.renderers.agent.fields += [{from:"abilities", to:"serves", transform:[{join:" "}]}]' "$LIB/$rt/definition.json" > "$T/d.json" && cp "$T/d.json" "$LIB/$rt/definition.json"
   seal "$rt"
-  "$DA" agent list | grep -q "^$p  *$mem .*$mem$ext (STALE: qargi agent refresh $mem --project $p)\$" && ok "$rt: a definition changed and sealed again makes its members STALE" || no "$rt stale: $("$DA" agent list | grep " $mem ")"
+  "$DA" agent list | grep -q "^$p  *$mem .*$mem$ext (STALE: crown agent refresh $mem --project $p)\$" && ok "$rt: a definition changed and sealed again makes its members STALE" || no "$rt stale: $("$DA" agent list | grep " $mem ")"
   "$DA" agent models --project "$p" --json | jq -e '[.members[] | select(.name == "'"$mem"'")] | length == 1 and (.[0].state == ["STALE"])' >/dev/null && ok "$rt: agent models says so too" || no "$rt models stale"
   "$DA" agent refresh "$mem" >/dev/null 2>&1
   { ! "$DA" agent list | grep " $mem " | grep -q '('; } && grep -q "serves" "$f" && ok "$rt: refresh renders the new definition" || no "$rt refresh: $("$DA" agent list | grep " $mem ")"
@@ -202,7 +202,7 @@ out=$("$DA" local run "$RUN" --dry-run --effort max 2>&1)
 
 # a read-only member and run need a barrier or the project's acceptance
 out=$("$DA" agent add judge --roles review --project "$P" 2>&1); rc=$?
-{ [ $rc = 2 ] && grep -q "no read-only barrier on local" <<<"$out" && grep -q "qargi provider accept fakecli --surface local --no-barrier --project $P" <<<"$out" && [ ! -e "$T/s/render/$P/fakecli.agents/judge.toml" ]; } && ok "fakecli: a read-only member is refused (exit 2) with the accept command, and nothing is written" || no "fakecli review refused: rc=$rc $out"
+{ [ $rc = 2 ] && grep -q "no read-only barrier on local" <<<"$out" && grep -q "crown provider accept fakecli --surface local --no-barrier --project $P" <<<"$out" && [ ! -e "$T/s/render/$P/fakecli.agents/judge.toml" ]; } && ok "fakecli: a read-only member is refused (exit 2) with the accept command, and nothing is written" || no "fakecli review refused: rc=$rc $out"
 out=$("$DA" local prepare --repo "$REPO" --base main --slug r0 --scratch "$T" --role review 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q "no read-only barrier on local" <<<"$out"; } && ok "fakecli: and local prepare will not start a read-only run" || no "fakecli review prepare: rc=$rc $out"
 ACC=(fakecli --surface local --no-barrier --asked "the fixture runtime has no barrier" --project "$P")
@@ -227,7 +227,7 @@ out=$("$DA" local run "$RUN" --dry-run 2>&1); rc=$?
 "$DA" agent for build --project "$P" --json | jq -e '.member == "worker" and .model_id == "md-large" and .model == "large"' >/dev/null && ok "fakemd: agent for names the member and its model for the session to dispatch" || no "fakemd agent for: $("$DA" agent for build --project "$P" --json 2>&1)"
 out=$("$DA" agent add judge-md --roles review --project "$P" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$("$DA" provider effective fakemd local read_only_barrier)" = yes ]; } && ok "fakemd: its hook barrier was verified by check, so a read-only member needs no acceptance" || no "fakemd review: rc=$rc $out"
-jq -e '.hooks.before_tool == "qargi __guard --provider fakemd --class read-only"' <<<"$(mdfm "$T/s/render/$P/fakemd.agents/judge-md.md")" >/dev/null && ok "fakemd: and its hook line carries the class" || no "fakemd hook line: $(cat "$T/s/render/$P/fakemd.agents/judge-md.md")"
+jq -e '.hooks.before_tool == "crown __guard --provider fakemd --class read-only"' <<<"$(mdfm "$T/s/render/$P/fakemd.agents/judge-md.md")" >/dev/null && ok "fakemd: and its hook line carries the class" || no "fakemd hook line: $(cat "$T/s/render/$P/fakemd.agents/judge-md.md")"
 out=$("$DA" provider check fakemd 2>&1)
 grep -q "^ok   barrier-hook: [0-9]* corpus calls" <<<"$out" && ok "fakemd: check ran the shipped barrier corpus through __guard --provider fakemd" || no "fakemd barrier-hook: $out"
 
@@ -241,13 +241,13 @@ guard() { # CLASS TOOL KEY VALUE: one call through the hook; the payload is made
 }
 deny() { # CLASS TOOL KEY VALUE WORDS: exit 0, a JSON deny on stdout whose reason has WORDS
   local out rc; out=$(guard "$1" "$2" "$3" "$4" 2>"$T/gerr"); rc=$?
-  [ $rc = 0 ] && [ ! -s "$T/gerr" ] && jq -e --arg w "$5" '.decision == "deny" and (.reason | startswith("qargi guard: ")) and (.reason | contains($w))' <<<"$out" >/dev/null
+  [ $rc = 0 ] && [ ! -s "$T/gerr" ] && jq -e --arg w "$5" '.decision == "deny" and (.reason | startswith("crown guard: ")) and (.reason | contains($w))' <<<"$out" >/dev/null
 }
 pass() { local out rc; out=$(guard "$1" "$2" "$3" "$4" 2>"$T/gerr"); rc=$?; [ $rc = 0 ] && [ -z "$out" ] && [ ! -s "$T/gerr" ]; }
 deny '' run_shell cmd "git push origin main" "Agents never push" && ok "fakemd guard: git push is a JSON deny with exit 0" || no "guard push"
 deny '' run_shell cmd "gh pr list" "gh is not available" && ok "fakemd guard: so is gh" || no "guard gh"
 deny '' patch_file target "$T/c/packs/skills/x/SKILL.md" "a protected location" && ok "fakemd guard: a write into the pack library is denied (a path pointer of the definition)" || no "guard library write"
-deny '' run_shell cmd "qargi skill new x" "changes a skill" && ok "fakemd guard: and a verb that changes a skill" || no "guard skill verb"
+deny '' run_shell cmd "crown skill new x" "changes a skill" && ok "fakemd guard: and a verb that changes a skill" || no "guard skill verb"
 pass '' run_shell cmd "ls -la && git status" && ok "fakemd guard: an ordinary call passes with nothing printed" || no "guard pass ls"
 pass '' patch_file target "$GR/clone/src/a.go" && ok "fakemd guard: a write in the clone passes for a write run" || no "guard pass write"
 deny read-only patch_file target "$GR/clone/src/a.go" "under the read-only class" && ok "fakemd guard: --class read-only denies a write in the clone" || no "guard ro write"

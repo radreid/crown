@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Memory tiers, slice 2: writing a tier. `qargi memory init TIER` and `qargi memory move PATH --from T --to T` (lib/tierwrite.sh,
-planned and applied by lib/tierplan.py), and the plan helpers they share with `memplan split`. Offline: tempdir QARGI_HOME,
-QARGI_CONF and QARGI_STATE, directories for the dir tiers, a JSONL fixture (QARGI_CANON_FIXTURE_DIR) for the cloud tier and a
+"""Memory tiers, slice 2: writing a tier. `crown memory init TIER` and `crown memory move PATH --from T --to T` (lib/tierwrite.sh,
+planned and applied by lib/tierplan.py), and the plan helpers they share with `memplan split`. Offline: tempdir CROWN_HOME,
+CROWN_CONF and CROWN_STATE, directories for the dir tiers, a JSONL fixture (CROWN_CANON_FIXTURE_DIR) for the cloud tier and a
 fake `ant` that only answers `auth status` (the fixture is the store). The fixtures and the Env come from test_tiers.py.
 Run: python3 tests/test_tierplan.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
@@ -56,11 +56,11 @@ class Base(unittest.TestCase):
         return m.group(1)
 
     def init(self, e, tier, approve=True):
-        r = e.qargi("memory", "init", tier, "--project", P)
+        r = e.crown("memory", "init", tier, "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         if not approve:
             return r
-        r = e.qargi("memory", "init", tier, "--project", P, "--plan", self.token_of(r), "--approved", "test")
+        r = e.crown("memory", "init", tier, "--project", P, "--plan", self.token_of(r), "--approved", "test")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         return r
 
@@ -69,7 +69,7 @@ class Init(Base):
     def test_without_approved_it_prints_a_plan_and_changes_nothing(self):
         e = self.mk()
         before = e.snap()
-        r = e.qargi("memory", "init", "shared", "--project", P)
+        r = e.crown("memory", "init", "shared", "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertRegex(r.stdout, r"plan only, nothing was changed; plan token: [0-9a-f]{12}   \(apply with: --plan [0-9a-f]{12} --approved \"\.\.\.\"\)")
         self.assertEqual(e.snap(), before)
@@ -77,10 +77,10 @@ class Init(Base):
 
     def test_a_wrong_token_is_refused_and_writes_nothing(self):
         e = self.mk()
-        r = e.qargi("memory", "init", "shared", "--project", P, "--plan", "000000000000", "--approved", "test")
+        r = e.crown("memory", "init", "shared", "--project", P, "--plan", "000000000000", "--approved", "test")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(e.d("shared")))
-        r = e.qargi("memory", "init", "shared", "--project", P, "--approved", "test")        # --approved without --plan
+        r = e.crown("memory", "init", "shared", "--project", P, "--approved", "test")        # --approved without --plan
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(e.d("shared")))
 
@@ -94,7 +94,7 @@ class Init(Base):
         self.assertRegex(files["/CANON.md"], r"(?m)^canon: 2$")
         for f in ("/README.md", "/shared/INDEX.md", "/roles/build/INDEX.md", "/roles/write/INDEX.md", "/_template.md"):
             self.assertIn(f, files)
-        c = e.qargi("memory", "check", "--project", P)
+        c = e.crown("memory", "check", "--project", P)
         self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
         self.assertIn("== tier shared (dir %s)" % e.d("shared"), c.stdout)
         self.assertRegex(c.stdout.strip().splitlines()[-1], r"^0 fail, \d+ warn, 1 tiers checked$")
@@ -121,7 +121,7 @@ class Init(Base):
         e = self.mk()
         self.init(e, "shared")
         before = e.snap()
-        r = e.qargi("memory", "init", "shared", "--project", P)
+        r = e.crown("memory", "init", "shared", "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("tier shared is already initialised at %s; nothing to do" % e.d("shared"), r.stdout + r.stderr)
         self.assertNotIn("plan token", r.stdout)
@@ -132,9 +132,9 @@ class Init(Base):
         put(e.d("shared"), {"/mine.txt": "keep me\n"})
         before = e.snap()
         for extra in ((), ("--plan", "000000000000", "--approved", "test")):
-            r = e.qargi("memory", "init", "shared", "--project", P, *extra)
+            r = e.crown("memory", "init", "shared", "--project", P, *extra)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-            self.assertIn("not empty and not a canon-2 store; use qargi canon plan or another path", r.stdout + r.stderr)
+            self.assertIn("not empty and not a canon-2 store; use crown canon plan or another path", r.stdout + r.stderr)
         self.assertEqual(e.snap(), before)
 
     def test_an_interrupted_init_is_finished_by_a_rerun(self):
@@ -156,28 +156,28 @@ class Init(Base):
             self.assertEqual(again[f], c)
         for f in order[2:] + ["/CANON.md"]:
             self.assertEqual(again[f], files[f])
-        c = e.qargi("memory", "check", "--project", P)
+        c = e.crown("memory", "check", "--project", P)
         self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
 
     def test_a_marker_of_another_version_is_refused(self):
         e = self.mk()
         put(e.d("shared"), {"/CANON.md": "# Canon\n\ncanon: 1\nkind: memory\nproject: shared\nroles: build write\n"})
         before = e.snap()
-        r = e.qargi("memory", "init", "shared", "--project", P)
+        r = e.crown("memory", "init", "shared", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("not empty and not a canon-2 store; use qargi canon plan or another path", r.stdout + r.stderr)
+        self.assertIn("not empty and not a canon-2 store; use crown canon plan or another path", r.stdout + r.stderr)
         self.assertEqual(e.snap(), before)
 
     def test_the_cloud_tier_is_not_created_here(self):
         e = self.mk()
-        r = e.qargi("memory", "init", "cloud", "--project", P)
+        r = e.crown("memory", "init", "cloud", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("the cloud tier is created by qargi provision", r.stdout + r.stderr)
+        self.assertIn("the cloud tier is created by crown provision", r.stdout + r.stderr)
 
     def test_a_bad_tier_is_a_usage_error(self):
         e = self.mk()
         for args in (("memory", "init", "frobnicate", "--project", P), ("memory", "init", "--project", P)):
-            r = e.qargi(*args)
+            r = e.crown(*args)
             self.assertEqual(r.returncode, 2, args)
             self.assertNotIn("not implemented yet", r.stderr)
             self.assertIn("usage", r.stderr.lower())
@@ -189,20 +189,20 @@ class Init(Base):
             base = os.path.join(e.tmp, "ov")
             e.write_answers(dict(e.answers, memory=dict(e.answers["memory"], tiers={"shared": {"path": base}, "system": {"path": base + inner}})))
             for tier in ("shared", "system"):                         # the answers overlap, so neither tier may be created
-                r = e.qargi("memory", "init", tier, "--project", P)
+                r = e.crown("memory", "init", tier, "--project", P)
                 self.assertEqual(r.returncode, 1, (inner, tier, r.stdout + r.stderr))
                 self.assertFalse(os.path.exists(base), (inner, tier))
 
     def test_the_repo_tier_needs_a_git_checkout(self):
         e = self.mk()                                                 # the repo directory is not a git work tree
-        r = e.qargi("memory", "init", "repo", "--project", P)
+        r = e.crown("memory", "init", "repo", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(e.d("repo")))
         self.git_repo(e)
         a = json.loads(json.dumps(e.answers))
         a["repo"]["path"] = ""
         e.write_answers(a)
-        r = e.qargi("memory", "init", "repo", "--project", P)
+        r = e.crown("memory", "init", "repo", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertFalse(os.path.exists(e.d("repo")))
 
@@ -211,9 +211,9 @@ class Init(Base):
         self.git_repo(e)
         outside = os.path.join(e.tmp, "outside")
         os.makedirs(outside)
-        os.symlink(outside, os.path.join(e.repo, "qargi"))
+        os.symlink(outside, os.path.join(e.repo, "crown"))
         for extra in ((), ("--plan", "000000000000", "--approved", "test")):
-            r = e.qargi("memory", "init", "repo", "--project", P, *extra)
+            r = e.crown("memory", "init", "repo", "--project", P, *extra)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertEqual(os.listdir(outside), [])
 
@@ -221,15 +221,15 @@ class Init(Base):
         e = self.mk()
         self.git_repo(e)
         head = git(e.repo, "rev-parse", "HEAD").stdout
-        r = e.qargi("memory", "init", "repo", "--project", P)
+        r = e.crown("memory", "init", "repo", "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("WARNING: this writes into the repository checkout %s at qargi/memory; qargi never commits it: review and commit it yourself, or ignore it in git." % e.repo, r.stdout)
+        self.assertIn("WARNING: this writes into the repository checkout %s at crown/memory; crown never commits it: review and commit it yourself, or ignore it in git." % e.repo, r.stdout)
         self.assertFalse(os.path.exists(e.d("repo")))
-        r = e.qargi("memory", "init", "repo", "--project", P, "--plan", self.token_of(r), "--approved", "test")
+        r = e.crown("memory", "init", "repo", "--project", P, "--plan", self.token_of(r), "--approved", "test")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("nothing was committed", r.stdout)
         st = git(e.repo, "status", "--porcelain", "--untracked-files=all").stdout
-        self.assertIn("?? qargi/memory/CANON.md", st)
+        self.assertIn("?? crown/memory/CANON.md", st)
         self.assertEqual(git(e.repo, "rev-parse", "HEAD").stdout, head)
         self.assertEqual(git(e.repo, "log", "--oneline").stdout.count("\n"), 1)
         self.assertEqual(git(e.repo, "diff", "--cached", "--name-only").stdout, "")     # and nothing staged either
@@ -282,12 +282,12 @@ class Move(Base):
         return e
 
     def plan(self, e, path, frm="project", to="shared"):
-        return e.qargi("memory", "move", path, "--from", frm, "--to", to, "--project", P)
+        return e.crown("memory", "move", path, "--from", frm, "--to", to, "--project", P)
 
     def apply(self, e, path, frm="project", to="shared"):
         r = self.plan(e, path, frm, to)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        r2 = e.qargi("memory", "move", path, "--from", frm, "--to", to, "--project", P, "--plan", self.token_of(r), "--approved", "test")
+        r2 = e.crown("memory", "move", path, "--from", frm, "--to", to, "--project", P, "--plan", self.token_of(r), "--approved", "test")
         self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
         return r2
 
@@ -318,7 +318,7 @@ class Move(Base):
         self.assertRegex(dst["/roles/build/INDEX.md"], r"(?m)^\| r\.md \|[^|\n]*\| always \|$")
         self.assertNotRegex(src["/roles/build/INDEX.md"], r"(?m)^\| r\.md \|")
         self.assertRegex(src["/roles/build/INDEX.md"], r"(?m)^\| sub/a\.md \|")       # the other rows stay
-        c = e.qargi("memory", "check", "--project", P)
+        c = e.crown("memory", "check", "--project", P)
         self.assertEqual(c.returncode, 0, c.stdout + c.stderr)
 
     def test_a_prefix_moves_every_note_under_it(self):
@@ -372,7 +372,7 @@ class Move(Base):
         self.assertEqual(self.plan(e, "/roles/build/r.md", "project", "project").returncode, 1)
         r = self.plan(e, "/roles/build/r.md", "project", "system")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("tier system is missing: qargi memory init system", r.stdout + r.stderr)
+        self.assertIn("tier system is missing: crown memory init system", r.stdout + r.stderr)
         r = self.plan(e, "/roles/build/r.md", "project", "cloud")        # the store has no fixture: unreachable
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertRegex(r.stdout + r.stderr, r"tier cloud is unreachable|unreachable \(")
@@ -385,7 +385,7 @@ class Move(Base):
         before = e.snap()
         r = self.plan(e, "/roles/build/r.md")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("refused: /roles/build/r.md is also in tier shared; resolve it first (qargi memory check)", r.stdout + r.stderr)
+        self.assertIn("refused: /roles/build/r.md is also in tier shared; resolve it first (crown memory check)", r.stdout + r.stderr)
         self.assertEqual(e.snap(), before)
         r = self.plan(e, "/roles/build")                                  # one colliding note refuses the whole prefix
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
@@ -396,7 +396,7 @@ class Move(Base):
         before = e.snap()
         r = self.plan(e, "/roles/build/r.md")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn("refused: /roles/build/r.md is also in tier cloud; resolve it first (qargi memory check)", r.stdout + r.stderr)
+        self.assertIn("refused: /roles/build/r.md is also in tier cloud; resolve it first (crown memory check)", r.stdout + r.stderr)
         self.assertEqual(e.snap(), before)
 
     def test_a_stale_source_fails_the_apply_with_nothing_written(self):
@@ -422,7 +422,7 @@ class Move(Base):
         tok = self.token_of(r)
         put(e.d("project"), {"/roles/build/r.md": NOTE + "\nedited after the plan\n"})
         before = e.snap()
-        r = e.qargi("memory", "move", "/roles/build/r.md", "--from", "project", "--to", "shared", "--project", P, "--plan", tok, "--approved", "test")
+        r = e.crown("memory", "move", "/roles/build/r.md", "--from", "project", "--to", "shared", "--project", P, "--plan", tok, "--approved", "test")
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertEqual(e.snap(), before)
 
@@ -439,7 +439,7 @@ class Move(Base):
         put(e.d("repo"), seed_files(P))
         r = self.plan(e, "/roles/build/r.md", "project", "repo")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("WARNING: this writes into the repository checkout %s at qargi/memory; qargi never commits it" % e.repo, r.stdout)
+        self.assertIn("WARNING: this writes into the repository checkout %s at crown/memory; crown never commits it" % e.repo, r.stdout)
 
     def test_the_cloud_as_the_source(self):
         e = self.two(cloud={**seed_files(P), "/roles/build/c.md": NOTE})

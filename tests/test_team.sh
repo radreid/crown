@@ -6,9 +6,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
+export CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
 mkdir -p "$T/c/projects" "$T/s" "$T/bin" "$FAKE/mem" "$FAKE/ref" "$FAKE/blobs" "$T/repo"
 # A fake ant: memory stores are directories (file name = path with / as ~), output files come from $FAKE/files.jsonl.
 cat > "$T/bin/ant" <<'EOF'
@@ -65,7 +65,7 @@ echo "$out" | grep -q "^  CLONE: /workspace/build\$" && echo "$out" | grep -q "^
 . tests/fakeprov.sh
 copy_tool "$PWD" "$T/tool"; fake_runtime "$PWD" "$T/tool" otherplat cloud '.notes = {"output-dir": "/srv/out", "clone-dir": "/srv/clones"}'
 jq '.project = "alpha2" | .models.provider.cloud = "otherplat"' "$T/c/projects/alpha.json" > "$T/c/projects/alpha2.json"
-out2=$("$T/tool/bin/qargi" team brief alpha2 code-docs --task t --done d --base feature/x 2>&1)
+out2=$("$T/tool/bin/crown" team brief alpha2 code-docs --task t --done d --base feature/x 2>&1)
 echo "$out2" | grep -q "^  OUT: /srv/out\$" && echo "$out2" | grep -q "^  CLONE: /srv/clones/build\$" && ! echo "$out2" | grep -q "mnt/session" && ok "the brief takes both directories from the project's cloud runtime, not from the core" || no "brief other runtime: $out2"
 jq '.project = "alpha3" | del(.models)' "$T/c/projects/alpha.json" > "$T/c/projects/alpha3.json"
 out3=$($DA team brief alpha3 code-docs --task t --done d --base feature/x 2>&1); rc3=$?
@@ -88,7 +88,7 @@ for f in "$A" "$T/s/provision/alpha-lead/agents/alpha-lead/deployment-standby.ya
 done; ok "the rendered front matter has no colon in a plain scalar"
 grep -q "Team code-docs" "$A" && grep -q "Scopes: write: site/" "$A" && grep -q "Standards for the reviewer: shared/rules/rules.md" "$A" && ok "the lead's prompt carries the team definition" || no "teams block"
 grep -q "never push" "$A" && ok "the lead's prompt says it never pushes" || no "lead push rule"
-grep -q "You are a qargi agent" "$A" && no "the lead got the worker contract" || ok "the lead does not get the worker contract"
+grep -q "You are a crown agent" "$A" && no "the lead got the worker contract" || ok "the lead does not get the worker contract"
 $DA provision plan --project alpha --role build >/dev/null 2>&1; grep -q "multiagent" "$T/s/provision/alpha-build/agents/alpha-build/agent.md" && no "a worker got a multiagent block" || ok "a worker has no multiagent block"
 
 # --- a team's outputs are split per member
@@ -116,9 +116,9 @@ $DA collect sesn_y "$T/solo" >/dev/null 2>&1; [ -f "$T/solo/manifest.json" ] && 
 # instance of the session in the tracker; with no record only the base name is kept
 echo '{"sesn_k":{"instance":"alpha2-build"}}' > "$T/s/sessions.json"
 mkdir -p "$T/known" "$T/unknown"; : > "$FAKE/files.jsonl"; add k1 '{"status":"DONE"}' "/srv/out/manifest.json"; add k2 'n' "/srv/out/notes/n.txt"
-QARGI_CONF=$T/c QARGI_STATE=$T/s "$T/tool/bin/qargi" collect sesn_k "$T/known" >/dev/null 2>&1
+CROWN_CONF=$T/c CROWN_STATE=$T/s "$T/tool/bin/crown" collect sesn_k "$T/known" >/dev/null 2>&1
 [ -f "$T/known/manifest.json" ] && [ -f "$T/known/notes/n.txt" ] && ok "collect strips the output directory of the session's cloud runtime, as its definition names it" || no "known collect: $(cd "$T/known" && find . -type f | tr '\n' ' ')"
-"$T/tool/bin/qargi" collect sesn_u "$T/unknown" >/dev/null 2>&1; rm -f "$T/c/projects/alpha2.json"
+"$T/tool/bin/crown" collect sesn_u "$T/unknown" >/dev/null 2>&1; rm -f "$T/c/projects/alpha2.json"
 [ -f "$T/unknown/manifest.json" ] && [ -f "$T/unknown/n.txt" ] && ok "a session the tracker does not know is collected by base names" || no "unknown collect: $(cd "$T/unknown" && find . -type f | tr '\n' ' ')"
 
 # --- the team check

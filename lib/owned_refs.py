@@ -4,9 +4,9 @@
   owned_refs.py match ANSWERS_FILE REFNAME [--base BRANCH]...     exit 0 and print the pattern when REFNAME is a declared owned ref, 1 when not
                                                                   (ANSWERS_FILE - reads the answers from standard input)
 
-runs.owned_refs is a list of glob patterns for full ref names (["refs/heads/foo-*"]). `qargi local verify` and `local clean` accept a change of a
+runs.owned_refs is a list of glob patterns for full ref names (["refs/heads/foo-*"]). `crown local verify` and `local clean` accept a change of a
 ref that matches one, in either phase, and name the pattern ("accepted: refs/heads/foo-* (owned by the runtime, per runs.owned_refs)"). It is the
-lead's answer: the guard refuses `qargi project set` of it to a member. The harness's own bridge branches (worktree-bridge-NAME) stay built in.
+lead's answer: the guard refuses `crown project set` of it to a member. The harness's own bridge branches (worktree-bridge-NAME) stay built in.
 
 A pattern is hardened so that it cannot become a way round the ref check:
   - it is a full ref name: refs/NAMESPACE/REST, NAMESPACE with no glob character, and only letters, digits, . _ - / and the globs * and ?

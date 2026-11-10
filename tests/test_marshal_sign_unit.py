@@ -75,7 +75,7 @@ class Canonical(unittest.TestCase):
         p = M.signed_payload('proj', 'feat', 'done', 0, None, None, {'x': 1})
         d = json.loads(p)
         self.assertEqual(sorted(d), ['feature', 'kind', 'lead', 'ns', 'parent', 'project', 'record_sha256', 'rev', 'v'])
-        self.assertEqual((d['v'], d['ns'], d['kind'], d['rev'], d['parent'], d['lead']), (1, 'qargi-marshal', 'done', 0, None, None))
+        self.assertEqual((d['v'], d['ns'], d['kind'], d['rev'], d['parent'], d['lead']), (1, 'crown-marshal', 'done', 0, None, None))
         self.assertEqual(len(d['record_sha256']), 64)
         self.assertEqual(p, M.signed_payload('proj', 'feat', 'done', 0, None, None, {'x': 1}))
         self.assertNotEqual(p, M.signed_payload('proj', 'feat', 'done', 0, None, None, {'x': 2}))
@@ -97,7 +97,7 @@ class Sign(Base):
 
     def test_key_is_0600_and_line_is_signers_format(self):
         self.assertEqual(stat.S_IMODE(os.stat(self.key).st_mode), 0o600)
-        self.assertRegex(self.line, r'^alice@laptop namespaces="qargi-marshal" ssh-ed25519 [A-Za-z0-9+/]+=*$')
+        self.assertRegex(self.line, r'^alice@laptop namespaces="crown-marshal" ssh-ed25519 [A-Za-z0-9+/]+=*$')
         self.assertTrue(os.path.isfile(self.key + '.pub'))
 
     def test_keygen_never_overwrites(self):
@@ -239,7 +239,7 @@ class Timeout(Base):
     def test_slow_tool_is_killed(self):
         slow = self.fake('exec sleep 30\n')
         arm = M.sign(self.payload, self.key)
-        with env(QARGI_MARSHAL_KEYGEN=slow, QARGI_MARSHAL_SIGN_TIMEOUT='0.5'):
+        with env(CROWN_MARSHAL_KEYGEN=slow, CROWN_MARSHAL_SIGN_TIMEOUT='0.5'):
             ok, why = M.verify(self.payload, arm, self.signers, 'alice@laptop')
             self.assertFalse(ok)
             self.assertIn('timed out', why)
@@ -249,7 +249,7 @@ class Timeout(Base):
 
     def test_missing_tool(self):
         arm = M.sign(self.payload, self.key)
-        with env(QARGI_MARSHAL_KEYGEN=os.path.join(self.tmp, 'absent')):
+        with env(CROWN_MARSHAL_KEYGEN=os.path.join(self.tmp, 'absent')):
             ok, why = M.verify(self.payload, arm, self.signers, 'alice@laptop')
             self.assertFalse(ok)
             self.assertTrue(why)
@@ -259,7 +259,7 @@ class Timeout(Base):
     def test_tool_that_prints_junk_does_not_pass(self):
         junk = self.fake('cat >/dev/null\necho Good signature for anyone\nexit 0\n')
         arm = M.sign(self.payload, self.key)
-        with env(QARGI_MARSHAL_KEYGEN=junk):
+        with env(CROWN_MARSHAL_KEYGEN=junk):
             # find-principals prints nothing the signer matches
             self.assertFalse(M.verify(self.payload, arm, self.signers, 'alice@laptop')[0])
             with self.assertRaises(M.SignError):
@@ -273,7 +273,7 @@ class Argv(Base):
         with open(self.key) as f:
             secret = [ln.strip() for ln in f if ln.strip() and not ln.startswith('-----')]
         self.assertTrue(secret)
-        with env(QARGI_MARSHAL_KEYGEN=spy):
+        with env(CROWN_MARSHAL_KEYGEN=spy):
             arm = M.sign(self.payload, self.key)
             self.assertTrue(M.verify(self.payload, arm, self.signers, 'alice@laptop')[0])
         with open(log) as f:
@@ -300,10 +300,10 @@ class Signers(Base):
 
     def test_add_refuses_what_is_not_a_signer_line(self):
         key = M.signers_list(self.signers)[0][2]
-        bad = ('', 'alice@laptop ssh-ed25519 ' + key, '-x namespaces="qargi-marshal" ssh-ed25519 ' + key,
-               'x@y namespaces="*" ssh-ed25519 ' + key, 'x@y namespaces="qargi-marshal" ssh-rsa ' + key,
-               'x@y namespaces="qargi-marshal" ssh-ed25519 ' + key + '\nz@y namespaces="qargi-marshal" ssh-ed25519 ' + key,
-               'x@y namespaces="qargi-marshal",cert-authority ssh-ed25519 ' + key, 'x@y namespaces="qargi-marshal" ssh-ed25519 !!', None)
+        bad = ('', 'alice@laptop ssh-ed25519 ' + key, '-x namespaces="crown-marshal" ssh-ed25519 ' + key,
+               'x@y namespaces="*" ssh-ed25519 ' + key, 'x@y namespaces="crown-marshal" ssh-rsa ' + key,
+               'x@y namespaces="crown-marshal" ssh-ed25519 ' + key + '\nz@y namespaces="crown-marshal" ssh-ed25519 ' + key,
+               'x@y namespaces="crown-marshal",cert-authority ssh-ed25519 ' + key, 'x@y namespaces="crown-marshal" ssh-ed25519 !!', None)
         for b in bad:
             with self.assertRaises(M.SignError, msg=repr(b)):
                 M.signers_add(self.signers, b)
@@ -480,7 +480,7 @@ class Cli(unittest.TestCase):
         rc, out, err = self.run_cli('keygen', '--key', self.key, '--principal', 'alice@laptop')
         self.assertEqual((rc, err), (0, ''))
         line = out.decode().strip()
-        self.assertRegex(line, r'^alice@laptop namespaces="qargi-marshal" ssh-ed25519 ')
+        self.assertRegex(line, r'^alice@laptop namespaces="crown-marshal" ssh-ed25519 ')
         self.assertEqual(self.run_cli('signers', 'add', '--file', self.signers, '--line', line)[0], 0)
         rc, out, _ = self.run_cli('signers', 'list', '--file', self.signers)
         self.assertEqual((rc, out.decode().split()[0]), (0, 'alice@laptop'))

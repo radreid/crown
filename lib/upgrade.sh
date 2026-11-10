@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# qargi upgrade: move the installed tool (the root-owned checkout install.sh recorded, for example /opt/qargi) to a newer
-# branch or tag of its origin, relink it, and say which members need `qargi agent refresh`.
+# crown upgrade: move the installed tool (the root-owned checkout install.sh recorded, for example /opt/crown) to a newer
+# branch or tag of its origin, relink it, and say which members need `crown agent refresh`.
 #
 #   upgrade.sh [--branch B | --tag T]                         plan: fetch, show what would change and print a plan token
 #   upgrade.sh [--branch B | --tag T] --plan TOKEN --approved "<your go-ahead>"    apply exactly that plan
 #
 # Without --branch or --tag the checkout's current branch is used. A branch on the current branch moves only forward
 # (merge --ff-only); another branch is checked out at the fetched tip; a tag is checked out detached. The git commands that
-# write into the root-owned checkout run through sudo (QARGI_SUDO names another command, '' none); install.sh --user then
+# write into the root-owned checkout run through sudo (CROWN_SUDO names another command, '' none); install.sh --user then
 # runs as you. Members and agents cannot use it (the guard refuses the verb). Nothing is pushed anywhere.
 # A members file (agents.json) that is not in the current shape is warned about, in the plan and after the upgrade: every agent verb refuses it.
 # The warning changes nothing: the file is not read further, moved or rewritten here.
@@ -15,7 +15,7 @@
 
 BRANCH='' TAG=''
 shape_warning() { # -> a line telling that every agent verb refuses the members file, when it is not in the current shape (see members_shape_ok in lib.sh)
-  members_shape_ok || echo "qargi: warning: $MEMBERS_FILE is not in the current shape, so every agent verb refuses it (add, list, models, for, rename, refresh, remove) and no member can be dispatched: move it aside (mv $MEMBERS_FILE $MEMBERS_FILE.old) and add the members again with qargi agent add NAME --project P"
+  members_shape_ok || echo "crown: warning: $MEMBERS_FILE is not in the current shape, so every agent verb refuses it (add, list, models, for, rename, refresh, remove) and no member can be dispatched: move it aside (mv $MEMBERS_FILE $MEMBERS_FILE.old) and add the members again with crown agent add NAME --project P"
 }
 while [ $# -gt 0 ]; do
   case $1 in
@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do
     --tag) need_val "$1" $#; TAG=$2; shift 2;;
     --plan) need_val "$1" $#; PLAN_ARG=$2; shift 2;;
     --approved) need_val "$1" $#; APPROVED=$2; shift 2;;
-    *) usage_die "usage: qargi upgrade [--branch B | --tag T] [--plan TOKEN --approved \"...\"]";;
+    *) usage_die "usage: crown upgrade [--branch B | --tag T] [--plan TOKEN --approved \"...\"]";;
   esac
 done
 PLAN_ARG=${PLAN_ARG:-}; APPROVED=${APPROVED:-}
@@ -34,10 +34,10 @@ for v in "$BRANCH" "$TAG"; do
 done
 
 root=$(python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import paths; print(paths.installed_tool_root() or "")' "$(dirname "$(readlink -f "$0")")")
-[ -n "$root" ] && [ -d "$root/.git" ] || die "no installed tool is recorded (install.json): install it first, for example sudo git clone https://github.com/rett/qargi /opt/qargi && /opt/qargi/install.sh --user"
+[ -n "$root" ] && [ -d "$root/.git" ] || die "no installed tool is recorded (install.json): install it first, for example sudo git clone https://github.com/radreid/crown /opt/crown && /opt/crown/install.sh --user"
 [ -x "$root/install.sh" ] || die "$root has no install.sh"
 
-SUDO=${QARGI_SUDO-sudo}
+SUDO=${CROWN_SUDO-sudo}
 if [ -w "$root/.git" ]; then SUDO=''; fi
 g() { git -c safe.directory="$root" -C "$root" "$@"; }             # read as you
 gw() { if [ -n "$SUDO" ]; then $SUDO git -c safe.directory="$root" -C "$root" "$@"; else g "$@"; fi; }   # write (root-owned checkout)
@@ -78,5 +78,5 @@ else gw checkout --quiet -B "$BRANCH" "$ref" || die "could not check out $label"
 "$root/install.sh" --user || die "the checkout moved but install.sh --user failed; run $root/install.sh --user yourself"
 echo "upgraded $root to $label $(g rev-parse --short HEAD) (approved: $APPROVED)"
 if ! members_shape_ok; then shape_warning; exit 0; fi
-n=$(jq -r '(.projects // {}) | to_entries[] | .key as $p | .value | keys[] | "qargi agent refresh " + . + " --project " + $p' "$MEMBERS_FILE" 2>/dev/null || true)
+n=$(jq -r '(.projects // {}) | to_entries[] | .key as $p | .value | keys[] | "crown agent refresh " + . + " --project " + $p' "$MEMBERS_FILE" 2>/dev/null || true)
 [ -z "$n" ] || printf 'members to refresh if the member definition changed:\n%s\n' "$(sed 's/^/  /' <<<"$n")"

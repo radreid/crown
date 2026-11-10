@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""qargi doctor, lib/doctor.py: the read-only check of the host. logind and loginctl are fakes (QARGI_BUSCTL, QARGI_LOGINCTL) that record what they
-were asked; the run temporary parent is a directory of the test (QARGI_RUN_TMP), never the real one; the project is invented. Nothing waits for a
+"""crown doctor, lib/doctor.py: the read-only check of the host. logind and loginctl are fakes (CROWN_BUSCTL, CROWN_LOGINCTL) that record what they
+were asked; the run temporary parent is a directory of the test (CROWN_RUN_TMP), never the real one; the project is invented. Nothing waits for a
 fixed time. Offline. Run: python3 tests/test_doctor.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, shutil, stat, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import doctor as D  # noqa: E402
 
@@ -28,7 +28,7 @@ case "$FAKE_LINGER" in
 esac
 """
 ALLOW_ALL_GUARD = "#!/bin/sh\ncat >/dev/null\nexit 0\n"
-ROW = "app  worker  build,write  m/high  /x/worker.md (STALE, DRIFT: qargi agent refresh worker --project app)\napp  reviewer  review  m/high  /x/reviewer.md\n"
+ROW = "app  worker  build,write  m/high  /x/worker.md (STALE, DRIFT: crown agent refresh worker --project app)\napp  reviewer  review  m/high  /x/reviewer.md\n"
 
 
 def script(path, text):
@@ -68,20 +68,20 @@ class Base(unittest.TestCase):
         self.t = tempfile.mkdtemp(prefix="doctor.")
         self.fakes = os.path.join(self.t, "fakes")
         self.shm = os.path.join(self.t, "shm")
-        for d in (self.fakes, self.shm, os.environ["QARGI_CONF"] + "/projects"):
+        for d in (self.fakes, self.shm, os.environ["CROWN_CONF"] + "/projects"):
             os.makedirs(d, exist_ok=True)
         self.log = os.path.join(self.t, "calls.log")
         open(self.log, "w").close()
         script(os.path.join(self.fakes, "busctl"), BUSCTL)
         script(os.path.join(self.fakes, "loginctl"), LOGINCTL)
-        os.symlink(BIN, os.path.join(self.fakes, "qargi"))                    # the guard a member calls from PATH is this checkout's
+        os.symlink(BIN, os.path.join(self.fakes, "crown"))                    # the guard a member calls from PATH is this checkout's
         self.env = dict(os.environ, PATH=self.fakes + os.pathsep + os.environ["PATH"], FAKE_LOG=self.log, FAKE_IPC="false", FAKE_LINGER="no",
-                        QARGI_BUSCTL=os.path.join(self.fakes, "busctl"), QARGI_LOGINCTL=os.path.join(self.fakes, "loginctl"),
-                        QARGI_RUN_TMP=self.shm, QARGI_DOCTOR_MIN_FREE="0")
+                        CROWN_BUSCTL=os.path.join(self.fakes, "busctl"), CROWN_LOGINCTL=os.path.join(self.fakes, "loginctl"),
+                        CROWN_RUN_TMP=self.shm, CROWN_DOCTOR_MIN_FREE="0")
 
     def tearDown(self):
         shutil.rmtree(self.t, ignore_errors=True)
-        p = os.path.join(os.environ["QARGI_CONF"], "projects", "app.json")
+        p = os.path.join(os.environ["CROWN_CONF"], "projects", "app.json")
         if os.path.exists(p):
             os.remove(p)
 
@@ -105,11 +105,11 @@ class Base(unittest.TestCase):
     def project(self, **answers):
         a = {"schema": 1, "project": "app", "repo": {"url": "https://example.net/acme/app", "path": ""}, "models": {"provider": {"local": "claude-code"}}, "roles": {}}
         a.update(answers)
-        with open(os.path.join(os.environ["QARGI_CONF"], "projects", "app.json"), "w") as f:
+        with open(os.path.join(os.environ["CROWN_CONF"], "projects", "app.json"), "w") as f:
             json.dump(a, f)
 
     def orphan(self, name, days_old, link=False):
-        p = os.path.join(self.shm, "qargi-run." + name)
+        p = os.path.join(self.shm, "crown-run." + name)
         if link:
             os.symlink(self.t, p)
             return p
@@ -145,7 +145,7 @@ class RemoveIpc(Base):
 
     def test_what_cannot_be_read_is_unknown_never_a_warning(self):
         cases = [dict(FAKE_IPC="fail"), dict(FAKE_IPC="garbage"), dict(FAKE_IPC="true", FAKE_LINGER="fail"), dict(FAKE_IPC="true", FAKE_LINGER="garbage"),
-                 dict(QARGI_BUSCTL=os.path.join(self.t, "no-such-busctl")), dict(FAKE_IPC="true", QARGI_LOGINCTL=os.path.join(self.t, "no-such-loginctl"))]
+                 dict(CROWN_BUSCTL=os.path.join(self.t, "no-such-busctl")), dict(FAKE_IPC="true", CROWN_LOGINCTL=os.path.join(self.t, "no-such-loginctl"))]
         for env in cases:
             rc, out, _ = self.doctor("--strict", **env)
             self.assertEqual(self.lines(out)["remove-ipc"][0], "unknown", "%s: %s" % (env, out))
@@ -158,7 +158,7 @@ class Guard(Base):
         self.assertEqual(self.lines(out)["guard"][0], "ok", out)
         self.assertIn("refuses git push", out)
 
-    def test_qargi_missing_from_path_warns_with_the_fix(self):
+    def test_crown_missing_from_path_warns_with_the_fix(self):
         with mock.patch.object(D.shutil, "which", return_value=None):
             c = D.check_guard(None)
         self.assertEqual(c["status"], "warn")
@@ -168,7 +168,7 @@ class Guard(Base):
     def test_a_hook_that_allows_everything_warns(self):
         d = os.path.join(self.t, "lax")
         os.makedirs(d)
-        script(os.path.join(d, "qargi"), ALLOW_ALL_GUARD)
+        script(os.path.join(d, "crown"), ALLOW_ALL_GUARD)
         with mock.patch.dict(os.environ, {"PATH": d}):
             c = D.check_guard(None)
         self.assertEqual(c["status"], "warn", c)
@@ -187,7 +187,7 @@ class Guard(Base):
         self.assertEqual(c["status"], "warn", c)
         self.assertIn("worker STALE+DRIFT", c["detail"])
         self.assertNotIn("reviewer", c["detail"])
-        self.assertEqual(c["fix"], ["fix: qargi agent refresh worker --project app"])
+        self.assertEqual(c["fix"], ["fix: crown agent refresh worker --project app"])
 
     def test_members_that_are_current_are_ok(self):
         real = D.run
@@ -208,15 +208,15 @@ class Shm(Base):
         a, b = self.orphan("AAAAAA", 5), self.orphan("BBBBBB", 3)
         new, link = self.orphan("NEWNEW", 0), self.orphan("LINKED", 0, link=True)
         named = self.orphan("NAMED1", 9)
-        os.makedirs(os.environ["QARGI_STATE"], exist_ok=True)
-        with open(os.path.join(os.environ["QARGI_STATE"], "local-runs.jsonl"), "w") as f:
+        os.makedirs(os.environ["CROWN_STATE"], exist_ok=True)
+        with open(os.path.join(os.environ["CROWN_STATE"], "local-runs.jsonl"), "w") as f:
             f.write(json.dumps({"run": os.path.join(self.t, "run-gone"), "tmpdir": named}) + "\n")
         before = tree(self.shm)
         rc, out, _ = self.doctor()
         st, text = self.lines(out)["shm"]
         self.assertEqual((rc, st), (0, "warn"), out)
         self.assertIn("2 orphaned", text)
-        self.assertIn("qargi local clean --orphans", text)
+        self.assertIn("crown local clean --orphans", text)
         self.assertEqual(tree(self.shm), before, "doctor removed or touched something")
         for p in (a, b, new, link, named):
             self.assertTrue(os.path.lexists(p), p)
@@ -224,14 +224,14 @@ class Shm(Base):
     def test_the_count_is_the_listing_of_clean_orphans(self):
         self.orphan("AAAAAA", 5)
         self.orphan("FRESHF", 5)
-        with open(os.path.join(self.shm, "qargi-run.FRESHF", "g"), "w") as f:                    # an old directory with a file that is new: kept
+        with open(os.path.join(self.shm, "crown-run.FRESHF", "g"), "w") as f:                    # an old directory with a file that is new: kept
             f.write("new")
         r = subprocess.run([BIN, "local", "clean", "--orphans"], capture_output=True, text=True, env=self.env)
         self.assertEqual(sum(1 for line in r.stdout.splitlines() if line.startswith("orphan ")), 1, r.stdout)
         self.assertIn("1 orphaned", self.doctor()[1])
 
     def test_little_free_space_warns(self):
-        rc, out, _ = self.doctor(QARGI_DOCTOR_MIN_FREE="101")
+        rc, out, _ = self.doctor(CROWN_DOCTOR_MIN_FREE="101")
         st, text = self.lines(out)["shm"]
         self.assertEqual(st, "warn", out)
         self.assertIn("less than 101% is free", text)
@@ -239,15 +239,15 @@ class Shm(Base):
     def test_the_default_limit_is_ten_percent(self):
         class St:
             f_frsize, f_blocks, f_bavail = 1024, 1000, 99
-        env = {k: v for k, v in os.environ.items() if k != "QARGI_DOCTOR_MIN_FREE"}
-        with mock.patch.dict(os.environ, env, clear=True), mock.patch.dict(os.environ, {"QARGI_RUN_TMP": self.shm}), mock.patch.object(D.os, "statvfs", return_value=St):
+        env = {k: v for k, v in os.environ.items() if k != "CROWN_DOCTOR_MIN_FREE"}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.dict(os.environ, {"CROWN_RUN_TMP": self.shm}), mock.patch.object(D.os, "statvfs", return_value=St):
             low = D.check_shm()
             St.f_bavail = 100
             enough = D.check_shm()
         self.assertEqual((low["status"], enough["status"]), ("warn", "ok"), (low, enough))
 
     def test_a_parent_that_is_not_a_directory_is_unknown(self):
-        rc, out, _ = self.doctor(QARGI_RUN_TMP=os.path.join(self.t, "nowhere"))
+        rc, out, _ = self.doctor(CROWN_RUN_TMP=os.path.join(self.t, "nowhere"))
         self.assertEqual(self.lines(out)["shm"][0], "unknown", out)
 
 
@@ -295,7 +295,7 @@ class WindowSource(Base):
 
     def test_the_project_in_effect_is_used(self):
         self.project(roles={"write": {"model": "plain-model"}})
-        rc, out, _ = self.doctor(QARGI_PROJECT="app")
+        rc, out, _ = self.doctor(CROWN_PROJECT="app")
         self.assertEqual(self.lines(out)["window-source"][0], "warn", out)
 
 
@@ -334,39 +334,39 @@ class Command(Base):
         before = tree(self.shm)
         self.doctor("--json")
         self.assertEqual(tree(self.shm), before)
-        self.assertFalse(os.path.exists(os.path.join(os.environ["QARGI_STATE"], "audit.log")))
+        self.assertFalse(os.path.exists(os.path.join(os.environ["CROWN_STATE"], "audit.log")))
 
-    def test_nothing_is_created_or_changed_on_a_host_that_never_ran_qargi(self):
-        """The data directories of qargi are absent (as on a new host): doctor makes none of them, nor their files, and does not change the mode of anything."""
+    def test_nothing_is_created_or_changed_on_a_host_that_never_ran_crown(self):
+        """The data directories of crown are absent (as on a new host): doctor makes none of them, nor their files, and does not change the mode of anything."""
         home = os.path.join(self.t, "home")
         os.makedirs(home)
         conf, state = os.path.join(self.t, "d", "conf"), os.path.join(self.t, "d", "state")
         self.orphan("AAAAAA", 5)                                  # the orphan scan reads the registry of the state directory, which is not there
         for args in ((), ("--json",)):
             before = snapshot(home, conf, state, os.path.join(self.t, "d"))
-            rc, out, err = self.doctor(*args, HOME=home, QARGI_CONF=conf, QARGI_STATE=state)
+            rc, out, err = self.doctor(*args, HOME=home, CROWN_CONF=conf, CROWN_STATE=state)
             self.assertEqual(rc, 0, out + err)
-            self.assertIn("qargi-run", out)                           # the scan did run
+            self.assertIn("crown-run", out)                           # the scan did run
             self.assertEqual(snapshot(home, conf, state, os.path.join(self.t, "d")), before, args)
         self.assertFalse(os.path.lexists(conf) or os.path.lexists(state))
 
     def test_nothing_is_created_in_the_home_when_no_location_is_named(self):
-        """Without QARGI_CONF, QARGI_STATE and QARGI_HOME the data is under HOME/.qargi: doctor leaves HOME as it was (no .qargi, no chmod of it)."""
+        """Without CROWN_CONF, CROWN_STATE and CROWN_HOME the data is under HOME/.crown: doctor leaves HOME as it was (no .crown, no chmod of it)."""
         home = os.path.join(self.t, "home")
         os.makedirs(home)
-        env = {k: v for k, v in self.env.items() if k not in ("QARGI_CONF", "QARGI_STATE", "QARGI_HOME")}
+        env = {k: v for k, v in self.env.items() if k not in ("CROWN_CONF", "CROWN_STATE", "CROWN_HOME")}
         env["HOME"] = home
         self.orphan("AAAAAA", 5)
         before = snapshot(home)
         r = subprocess.run([BIN, "doctor"], capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("qargi-run", r.stdout)
+        self.assertIn("crown-run", r.stdout)
         self.assertEqual(snapshot(home), before)
-        self.assertFalse(os.path.lexists(os.path.join(home, ".qargi")))
+        self.assertFalse(os.path.lexists(os.path.join(home, ".crown")))
 
     def test_the_conf_and_state_directories_are_left_as_they_are_with_a_project(self):
-        """A project is named and the directories exist with modes qargi would not set (755), with a members file but no registry: nothing is created, no mode changes."""
-        conf, state = os.environ["QARGI_CONF"], os.environ["QARGI_STATE"]
+        """A project is named and the directories exist with modes crown would not set (755), with a members file but no registry: nothing is created, no mode changes."""
+        conf, state = os.environ["CROWN_CONF"], os.environ["CROWN_STATE"]
         os.makedirs(state, exist_ok=True)
         for d in (conf, state):
             os.chmod(d, 0o755)
@@ -386,7 +386,7 @@ class Command(Base):
     def test_a_project_on_a_host_with_no_members_file_makes_none(self):
         """No agents.json: no member is recorded on this host, which the member check says (ok), not that the members could not be read; the file is not made by asking."""
         self.project()
-        conf = os.environ["QARGI_CONF"]
+        conf = os.environ["CROWN_CONF"]
         self.assertFalse(os.path.exists(os.path.join(conf, "agents.json")))
         rc, out, err = self.doctor("app")
         self.assertEqual(rc, 0, out + err)
@@ -404,7 +404,7 @@ class Command(Base):
     def test_help_describes_it(self):
         r = subprocess.run([BIN, "doctor", "--help"], capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0)
-        for word in ("--strict", "--json", "QARGI_BUSCTL", "RemoveIPC", "remove-ipc.conf"):
+        for word in ("--strict", "--json", "CROWN_BUSCTL", "RemoveIPC", "remove-ipc.conf"):
             self.assertIn(word, " ".join(r.stdout.split()), word)
 
 

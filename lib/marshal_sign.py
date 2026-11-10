@@ -20,7 +20,7 @@ list (never a shell), with a timeout, in a scratch directory of mode 0700. The p
   hw_load(file) / hw_record(file, name, rev, oid) / hw_check(marks, name, rev, oid, is_ancestor, same) / hw_drop(file, name)
                                the accepted high-water mark {name: [rev, oid]}
 
-Environment: QARGI_MARSHAL_KEYGEN the key tool (default ssh-keygen; tests inject a fake); QARGI_MARSHAL_SIGN_TIMEOUT seconds
+Environment: CROWN_MARSHAL_KEYGEN the key tool (default ssh-keygen; tests inject a fake); CROWN_MARSHAL_SIGN_TIMEOUT seconds
 for one call of it (default 10).
 
 Command line (the shell and the tests; python3 -I, standard library only):
@@ -32,7 +32,7 @@ Command line (the shell and the tests; python3 -I, standard library only):
 Exit status 2: the call itself is wrong (message on stderr)."""
 import argparse, fcntl, getpass, hashlib, json, os, re, shutil, signal, socket, stat, subprocess, sys, tempfile
 
-NS = 'qargi-marshal'
+NS = 'crown-marshal'
 PAYLOAD_V = 1
 KINDS = ('features', 'done')
 MAX_ARMOR = 2048          # the signature block
@@ -58,7 +58,7 @@ def principal_ok(p):
 
 def timeout_secs():
     try:
-        t = float(os.environ.get('QARGI_MARSHAL_SIGN_TIMEOUT', '10'))
+        t = float(os.environ.get('CROWN_MARSHAL_SIGN_TIMEOUT', '10'))
     except ValueError:
         return 10.0
     return t if t > 0 else 10.0
@@ -172,7 +172,7 @@ def armor_from_message(message):
 # ---- the key tool --------------------------------------------------------------------------------------------------
 
 def keygen_bin():
-    return os.environ.get('QARGI_MARSHAL_KEYGEN') or 'ssh-keygen'
+    return os.environ.get('CROWN_MARSHAL_KEYGEN') or 'ssh-keygen'
 
 
 def _run(args, data=None):
@@ -416,7 +416,7 @@ def signers_list(path):
 
 
 def signers_add(path, line):
-    """Add one signers line (`PRINCIPAL namespaces="qargi-marshal" ssh-ed25519 KEY`). A principal that is already listed is an
+    """Add one signers line (`PRINCIPAL namespaces="crown-marshal" ssh-ed25519 KEY`). A principal that is already listed is an
     error: remove it first (a key is replaced, never silently). Atomic."""
     if not isinstance(line, str) or not SIGNER_RE.fullmatch(line.strip()):
         raise SignError('not a signers line: PRINCIPAL namespaces="%s" ssh-ed25519 KEY' % NS)

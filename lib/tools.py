@@ -6,17 +6,17 @@
   {"kind": "submodule", "name": "acme-test", "path": "vendor/acme-test"}                       a submodule of the repository the member's clone needs
 
 apt (and pip) packages stay the plain lists roles.<role>.apt and roles.<role>.pip: the cloud environment installs them and the project's own
-bootstrap owns them on a host; nothing in them is pinned, hashed or checked out. The tools list is what qargi itself installs, checks or checks out:
-  - qargi env plan lists the tools of every role with their state here and env apply installs the go tools (go named in --approve-exec) and the
+bootstrap owns them on a host; nothing in them is pinned, hashed or checked out. The tools list is what crown itself installs, checks or checks out:
+  - crown env plan lists the tools of every role with their state here and env apply installs the go tools (go named in --approve-exec) and the
     binaries (the file's sha256 must be the declared one) after the bootstrap (lib/env_apply.py);
-  - qargi env check reports a tool that is missing, at another version, or a binary whose sha256 differs (lib/env_check.py);
-  - qargi local prepare checks the declared submodules out in the member's clone from the lead's copy of their objects, offline (checkout below);
+  - crown env check reports a tool that is missing, at another version, or a binary whose sha256 differs (lib/env_check.py);
+  - crown local prepare checks the declared submodules out in the member's clone from the lead's copy of their objects, offline (checkout below);
   - the cloud provision adds the go tools to the environment's go packages (lib/provision.sh).
 A member may not set roles.<role>.tools (lib/guard.py): the lead installs and runs what it names.
 
   tools.py checkout --answers FILE --role ROLE --clone DIR --copies DIR [--source REPO]
       for each submodule entry of the role: find the commit the clone's HEAD records for its path, take the objects from the lead's checkout
-      (REPO/PATH, else its modules directory), copy them to DIR/NAME.git (a mirror with no remote; the commit pinned under refs/heads/qargi-pin)
+      (REPO/PATH, else its modules directory), copy them to DIR/NAME.git (a mirror with no remote; the commit pinned under refs/heads/crown-pin)
       and run git submodule update --init in the clone from that copy, with the push URL disabled. Nothing is fetched from a remote: a commit
       that is not in REPO, or no --source (the run was cloned from a URL), is a note on stderr and the submodule is left alone. Prints
       SUBMODULES=path,... for the ones checked out. Exit 0 (2: usage).
@@ -244,14 +244,14 @@ def status(t, repo=None):
         if s is None:
             return "missing", "no submodule at %s in the repository (%s; .gitmodules and HEAD name none)" % (t["path"], where)
         if s == "-":
-            return "missing", "submodule %s is not initialised (git submodule update --init -- %s; a member clone gets it from qargi local prepare)" % (t["path"], t["path"])
+            return "missing", "submodule %s is not initialised (git submodule update --init -- %s; a member clone gets it from crown local prepare)" % (t["path"], t["path"])
         if s == " ":
             return "ok", "submodule %s is at the commit HEAD records" % t["path"]
         return "wrong", "submodule %s is %s (git submodule update -- %s)" % (t["path"], "at another commit than HEAD records" if s == "+" else "in a merge conflict", t["path"])
     name = binary_name(t)
     file, on_path = find(t)
     if file is None:
-        return "missing", "%s is not installed (%s: %s; qargi env apply installs it)" % (name, where, label(t))
+        return "missing", "%s is not installed (%s: %s; crown env apply installs it)" % (name, where, label(t))
     if t["kind"] == "binary":
         if sha256_of(file) != t["sha256"]:
             return "wrong", "%s at %s is not the file %s pins (sha256 differs; version %s)" % (name, file, where, t["version"])
@@ -268,7 +268,7 @@ def status(t, repo=None):
     return "ok", "%s %s at %s" % (name, t["version"], file)
 
 
-# ---- installing (qargi env apply) ----------------------------------------------------------------------------------------------
+# ---- installing (crown env apply) ----------------------------------------------------------------------------------------------
 
 def install_go(t, go, cwd):
     """go install NAME@VERSION with go's own variables kept; (exit status, last lines of output)."""
@@ -294,7 +294,7 @@ def install_binary(t):
     h, size = hashlib.sha256(), 0
     try:
         with os.fdopen(fd, "wb") as out:
-            req = urllib.request.Request(t["url"], headers={"User-Agent": "qargi"})
+            req = urllib.request.Request(t["url"], headers={"User-Agent": "crown"})
             with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as resp:  # noqa: S310 (an http(s) URL the answers declare; the sha256 is checked)
                 for block in iter(lambda: resp.read(1 << 20), b""):
                     size += len(block)
@@ -315,7 +315,7 @@ def install_binary(t):
     return 0, dest
 
 
-# ---- qargi local prepare: the submodules in a member's clone -------------------------------------------------------------------------
+# ---- crown local prepare: the submodules in a member's clone -------------------------------------------------------------------------
 
 def git(*args, cwd=None, git_dir=None):
     """(exit, stdout, stderr) of a git command: no prompt, no fsmonitor."""
@@ -385,7 +385,7 @@ def checkout(entries, clone, copies, source=None):
             continue
         copy = os.path.join(copies, gname + ".git")
         os.makedirs(os.path.dirname(copy), exist_ok=True)
-        steps = (("clone", "-q", "--mirror", "--no-hardlinks", src, copy), ("--git-dir", copy, "update-ref", "refs/heads/qargi-pin", sha),
+        steps = (("clone", "-q", "--mirror", "--no-hardlinks", src, copy), ("--git-dir", copy, "update-ref", "refs/heads/crown-pin", sha),
                  ("--git-dir", copy, "remote", "remove", "origin"), ("-C", clone, "config", "submodule.%s.url" % gname, copy),
                  ("-C", clone, "submodule", "update", "-q", "--init", "--", path), ("-C", os.path.join(clone, path), "remote", "set-url", "--push", "origin", "DISABLED"))
         failed = None
@@ -420,14 +420,14 @@ def main(argv):
         with open(opts["--answers"]) as f:
             answers = json.load(f)
     except (OSError, ValueError) as e:
-        print("qargi: note: the answers could not be read (%s); no submodule checked out" % e, file=sys.stderr)
+        print("crown: note: the answers could not be read (%s); no submodule checked out" % e, file=sys.stderr)
         return 0
     entries = [t for t in declared(answers, opts["--role"]) if t["kind"] == "submodule"]
     if not entries:
         return 0
     done, notes = checkout(entries, opts["--clone"], opts["--copies"], opts.get("--source"))
     for n in notes:
-        print("qargi: note: " + n, file=sys.stderr)
+        print("crown: note: " + n, file=sys.stderr)
     if done:
         print("SUBMODULES=" + ",".join(done))
     return 0

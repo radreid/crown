@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Teams: a lead and the role agents it coordinates on one task (opt-in; see the qargi-team skill).
+# Teams: a lead and the role agents it coordinates on one task (opt-in; see the crown-team skill).
 #   team.sh brief PROJECT TEAM --task TEXT --done CMD [--base BRANCH] [--write-done CMD] [--review-done CMD]
 #       prints the TEAM brief for the lead (a cloud lead session or this session acting as lead)
 #   team.sh check RUN_DIR
@@ -27,7 +27,7 @@ brief() {
   valid_project "$project" || usage_die "usage: team.sh brief PROJECT TEAM --task TEXT --done CMD"
   local f=$DA_CONF/projects/$project.json
   [ -f "$f" ] || die "no stored answers for $project"
-  jq -e --arg t "$team" '.teams[$t]' "$f" >/dev/null 2>&1 || die "project $project has no team '$team' (qargi project show $project)"
+  jq -e --arg t "$team" '.teams[$t]' "$f" >/dev/null 2>&1 || die "project $project has no team '$team' (crown project show $project)"
   [ -n "$task" ] && [ -n "$done_cmd" ] || usage_die "brief needs --task TEXT and --done CMD (an executable check for the builder's part)"
   local build_base; build_base=$(jq -r '.roles.build.base // empty' "$f")
   if [ -z "$base" ]; then
@@ -58,7 +58,7 @@ brief() {
 
 check() {
   local dir=${1:-} rc=0 d r
-  [ -d "$dir" ] || usage_die "usage: team.sh check RUN_DIR (a directory made by: qargi collect SID DIR)"
+  [ -d "$dir" ] || usage_die "usage: team.sh check RUN_DIR (a directory made by: crown collect SID DIR)"
   for d in "$dir"/*/; do
     r=$(basename "$d")
     [ "$r" != lead ] || continue

@@ -26,7 +26,7 @@ case $verb in
       authurl=${url/https:\/\//https://x-access-token@}
       if timeout 60 git ls-remote "$authurl" HEAD >/dev/null 2>"$tmp/read.err" </dev/null; then echo "read:  ok (the token can read $url)"; else echo "read:  FAILED (the token cannot read $url)"; exit 3; fi
       git -C "$tmp" init -q -b probe && git -C "$tmp" -c user.name=probe -c user.email=probe@example.invalid commit -q --allow-empty -m probe
-      if timeout 60 git -C "$tmp" push --dry-run "$authurl" HEAD:refs/heads/qargi-write-probe >/dev/null 2>&1 </dev/null; then
+      if timeout 60 git -C "$tmp" push --dry-run "$authurl" HEAD:refs/heads/crown-write-probe >/dev/null 2>&1 </dev/null; then
         echo "write: the token CAN push (not read-only)"; exit 4
       else echo "write: refused (the token is read-only, as it should be)"; fi
     ); rc=$?
@@ -81,7 +81,7 @@ case $verb in
       ( git_auth_env "$tmp/tok"
         d=$(mktemp -d "$tmp/p.XXXXXX")
         git -C "$d" init -q -b probe 2>/dev/null && git -C "$d" -c user.name=probe -c user.email=probe@example.invalid commit -q --allow-empty -m probe
-        timeout 30 git -C "$d" push --dry-run "https://x-access-token@github.com/$1.git" HEAD:refs/heads/agent/qargi-write-probe >/dev/null 2>&1 </dev/null )
+        timeout 30 git -C "$d" push --dry-run "https://x-access-token@github.com/$1.git" HEAD:refs/heads/agent/crown-write-probe >/dev/null 2>&1 </dev/null )
     }
     wrote=0; probe_write "$slug" && wrote=1
     [ "$wrote" = 1 ] || die "the token cannot push to $slug: grant Contents (read and write) for this repository"
@@ -103,7 +103,7 @@ case $verb in
     echo "plan: store the token in $dest (mode 600); create the vault $PROJECT-vault-lead with a bearer credential for the GitHub tool; attach it to the lead's deployment; record it in the project answers (lead.push)"
     tok_plan=$(printf '%s|%s|%s' "$PROJECT" "$slug" "$dest" | plan_token)
     if [ -z "$APPROVED" ]; then echo "plan token: $tok_plan   (apply with: --plan $tok_plan --approved \"<the user's go-ahead>\" --asked \"...\"; nothing was changed)"; exit 0; fi
-    need_asked; ant_ok; QARGI_NESTED='' need_plan "$tok_plan"; audit_log credential-setup "$PROJECT lead-push $slug"
+    need_asked; ant_ok; CROWN_NESTED='' need_plan "$tok_plan"; audit_log credential-setup "$PROJECT lead-push $slug"
     mkdir -p "$(dirname "$dest")"; chmod 700 "$(dirname "$dest")"
     ( umask 077; printf '%s' "$tok" > "$dest" ); chmod 600 "$dest"
     vname=$PROJECT-vault-lead
@@ -125,6 +125,6 @@ case $verb in
       ant beta:deployments update --deployment-id "$did" --vault-id "$vs" </dev/null >/dev/null 2>&1 || die "could not attach the vault to the lead's deployment $did"
     fi
     echo "done: token file $dest, vault $vid, grant recorded (lead.push: agent branches and pull requests; merges asked of you; no releases through this tool)"
-    echo "next: qargi packs apply $PROJECT-lead (adds the GitHub tool to the lead agent) and qargi instances refresh-prompt $PROJECT-lead (adds its Push section); each shows a plan first";;
+    echo "next: crown packs apply $PROJECT-lead (adds the GitHub tool to the lead agent) and crown instances refresh-prompt $PROJECT-lead (adds its Push section); each shows a plan first";;
   *) usage_die "usage: cred.sh check PROJECT | setup lead-push PROJECT";;
 esac

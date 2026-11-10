@@ -8,11 +8,11 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app QARGI_LEAD=lead-one
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app CROWN_LEAD=lead-one
 mkdir -p "$HOME" "$T/c/projects" "$T/s"
 R=$T/app; git init -q -b master "$R"
 echo 0.1.0 > "$R/VERSION"; printf '# Changelog\n\n## [Unreleased]\n' > "$R/CHANGELOG.md"
@@ -148,9 +148,9 @@ jobs:
 setgates "[$(gate lint "$(g lint)" feature),$(gate 'Unit tests' "$(g unit)" feature)]"
 : > "$LOG"
 out=$($REL verify 0.9.0 2>&1); rc=$?
-[ $rc = 0 ] && grep -q '^qargi: warning: CI job deploy (Deploy to staging) in .github/workflows/ci.yml matches no declared gate name' <<<"$out" \
+[ $rc = 0 ] && grep -q '^crown: warning: CI job deploy (Deploy to staging) in .github/workflows/ci.yml matches no declared gate name' <<<"$out" \
   && ! grep -q 'warning: CI job lint' <<<"$out" && ! grep -q 'warning: CI job unit' <<<"$out" && ok "a warning names each job that matches no gate (by id or by name); the verify goes on" || no "warn rc=$rc: $out"
-grep -q '^qargi: note: CI job matrix in .github/workflows/ci.yml: its name cannot be read' <<<"$out" && ! grep -q 'warning: CI job matrix' <<<"$out" && ok "a name that cannot be read is a note, not a warning" || no "unknown: $out"
+grep -q '^crown: note: CI job matrix in .github/workflows/ci.yml: its name cannot be read' <<<"$out" && ! grep -q 'warning: CI job matrix' <<<"$out" && ok "a name that cannot be read is a note, not a warning" || no "unknown: $out"
 [ "$(tr '\n' ' ' < "$LOG")" = "lint unit " ] && ok "the gates ran" || no "gates after warning: $(cat "$LOG")"
 : > "$LOG"
 out=$($REL verify 0.9.0 --strict 2>&1); rc=$?
@@ -164,7 +164,7 @@ out=$($F verify gt --strict 2>&1); rc=$?
 unset_gates
 jq --arg c "$(g tc)" '.test_command = $c' "$P" > "$P.new" && mv "$P.new" "$P"
 out=$($REL verify 0.9.0 2>&1); rc=$?
-[ $rc = 0 ] && [ "$(grep -c '^qargi: warning: CI job' <<<"$out")" = 3 ] && ok "workflows and no gate declared: every job is named as matching no gate, and test_command runs" || no "no gates, workflows rc=$rc: $out"
+[ $rc = 0 ] && [ "$(grep -c '^crown: warning: CI job' <<<"$out")" = 3 ] && ok "workflows and no gate declared: every job is named as matching no gate, and test_command runs" || no "no gates, workflows rc=$rc: $out"
 devfile .github/workflows/flow.yml 'jobs: {a: {runs-on: x}}'
 out=$($REL verify 0.9.0 --strict 2>&1); rc=$?
 grep -q 'note: CI workflow .github/workflows/flow.yml: its jobs cannot be read' <<<"$out" && ok "a workflow whose jobs cannot be read is a note" || no "flow note: $out"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# How qargi degrades on a provider that cannot do something: a surface with no read-only barrier refuses read-only roles until
-# the project records `qargi provider accept`; a provider with no effort control drops effort; one that cannot override the model
+# How crown degrades on a provider that cannot do something: a surface with no read-only barrier refuses read-only roles until
+# the project records `crown provider accept`; a provider with no effort control drops effort; one that cannot override the model
 # per dispatch refuses a profile whose model is not the member's. Hermetic: a copy of the tool in a temporary root holds the
 # fake providers (the families nobarrier and nomodel), so the shipped descriptors are never changed. Offline. Run: tests/test_provider_degrade.sh
 set -u
@@ -10,15 +10,15 @@ cd "$(dirname "$0")/.." || exit 1
 SRC=$PWD
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T FAKE=$T/fake
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T FAKE=$T/fake
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/bin" "$FAKE"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
 # the tool, copied: the fake providers live in the copy only
 TOOL=$T/tool; mkdir -p "$TOOL"
 copy_tool "$SRC" "$TOOL"
-DA=$TOOL/bin/qargi
+DA=$TOOL/bin/crown
 # nobarrier: no read-only barrier on either surface, no effort control. nomodel: claude, but the model cannot be set per dispatch on local.
 # Each is a family of two runtimes (NAME-local, NAME-cloud) built from the shipped claude-code and claude-platform (tests/fakeprov.sh).
 # shellcheck source=fakeprov.sh
@@ -84,16 +84,16 @@ store alpha "$(fam nobarrier)"
 # --- the helper: require-barrier
 rb() { python3 -I "$TOOL/lib/provider.py" require-barrier "$@"; }
 out=$(rb nobarrier-cloud cloud --project alpha 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'qargi provider accept nobarrier-cloud --surface cloud --no-barrier --project alpha --asked' <<<"$out"; } && ok "require-barrier: exit 2 and the exact accept command" || no "require-barrier refusal: rc=$rc $out"
+{ [ "$rc" = 2 ] && grep -q 'crown provider accept nobarrier-cloud --surface cloud --no-barrier --project alpha --asked' <<<"$out"; } && ok "require-barrier: exit 2 and the exact accept command" || no "require-barrier refusal: rc=$rc $out"
 out=$(rb claude-code local 2>&1); rc=$?
 { [ "$rc" = 0 ] && [ "$(grep -c 'partial read-only barrier' <<<"$out")" = 1 ]; } && ok "a partial barrier passes and prints its note once" || no "partial: rc=$rc $out"
 [ -z "$(rb claude-platform cloud --project gamma 2>&1)" ] && no "claude cloud passed with nothing accepted" || ok "claude on cloud is refused until accepted"
 
 # --- the four enforcement points: refused until accepted, each surface on its own
 refused() { # name rc output: the exit was 2 and the message carries the accept command for the surface
-  [ "$2" = 2 ] && grep -q "qargi provider accept $4 --surface $5 --no-barrier --project $6 --asked" <<<"$3" && ok "$1" || no "$1 (rc=$2: $3)"
+  [ "$2" = 2 ] && grep -q "crown provider accept $4 --surface $5 --no-barrier --project $6 --asked" <<<"$3" && ok "$1" || no "$1 (rc=$2: $3)"
 }
-# 1. qargi agent add: a member that only reviews is read-only, on the local surface
+# 1. crown agent add: a member that only reviews is read-only, on the local surface
 out=$("$DA" agent add judge --roles review --project alpha 2>&1); rc=$?
 refused "agent add: a reviewing member is refused where local has no barrier" "$rc" "$out" nobarrier-local local alpha
 { [ "$(jq '[(.projects // {})[] | keys[]] | index("judge") != null' "$T/c/agents.json")" = false ] && [ ! -e "$T/repo-alpha/.claude/agents/judge.md" ]; } && ok "and nothing was made" || no "judge was made"

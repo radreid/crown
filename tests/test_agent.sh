@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Members: qargi agent add | list | for | rename | remove, in a throwaway home. Run: tests/test_agent.sh
+# Members: crown agent add | list | for | rename | remove, in a throwaway home. Run: tests/test_agent.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s
 mkdir -p "$HOME" "$T/c/projects"
 # there is no default provider: the provider is a project's models.provider, and a member belongs to a project (no user-level members).
-# pbase is the project most members below belong to and the one in effect (QARGI_PROJECT)
+# pbase is the project most members below belong to and the one in effect (CROWN_PROJECT)
 git init -q "$T/repop"
 jq -n --arg p "$T/repop" '{schema:1,project:"pbase",repo:{url:"https://github.com/example/pbase",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/pbase.json"
-export QARGI_PROJECT=pbase
+export CROWN_PROJECT=pbase
 A=$T/repop/.claude/agents
 fm() { $DA agent for "$@" --json 2>/dev/null | jq -r .member; }   # the member name only
 has_member() { jq -e --arg n "$1" '[(.projects // {})[] | keys[]] | index($n) != null' "$T/c/agents.json" >/dev/null; }
@@ -23,7 +23,7 @@ out=$($DA agent add forge --project pbase --roles build,test 2>&1) && [ -f "$A/f
 { cat <<'EOS'
 ---
 name: forge
-description: "A qargi member for one task at a time (roles: build, test). Works in its own clone and returns patches or a report. Dispatched only by /qargi-task or /qargi-team; never pushes."
+description: "A crown member for one task at a time (roles: build, test). Works in its own clone and returns patches or a report. Dispatched only by /crown-task or /crown-team; never pushes."
 model: claude-sonnet-5-5
 effort: high
 tools: Bash, Read, Edit, Write, Grep, Glob, Monitor, TaskStop, ToolSearch, Skill
@@ -32,7 +32,7 @@ hooks:
     - matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep"
       hooks:
         - type: command
-          command: qargi __guard
+          command: crown __guard
           timeout: 20
           onFailure: block
 ---
@@ -53,7 +53,7 @@ jq -e --arg h "$h" --arg f "$A/forge.md" '.projects.pbase.forge | .provider == "
   && ok "the record keeps the runtime, the surface, the path, the hash of the file and the hash of what it was made from" || no "record: $(jq -c .projects.pbase.forge "$T/c/agents.json")"
 $DA agent list | grep -q "forge .*forge.md$" && ok "list shows no state for a current member" || no "list current: $($DA agent list | head -2)"
 grep -q '^name: forge$' "$A/forge.md" && grep -q 'build, test' "$A/forge.md" && grep -q '^model: claude-sonnet-5-5$' "$A/forge.md" && grep -q '^effort: high$' "$A/forge.md" && ok "it carries the name, abilities and model" || no "rendered: $(head -5 "$A/forge.md")"
-grep -q 'matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep"' "$A/forge.md" && grep -q 'command: qargi __guard$' "$A/forge.md" && ok "the guard covers Bash and the edit tools" || no "hook"
+grep -q 'matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep"' "$A/forge.md" && grep -q 'command: crown __guard$' "$A/forge.md" && ok "the guard covers Bash and the edit tools" || no "hook"
 grep -q 'onFailure: block$' "$A/forge.md" && grep -q '^ *timeout: [0-9]' "$A/forge.md" && ok "the guard hook blocks when it fails or times out" || no "hook failure setting"
 ! grep -q '{{' "$A/forge.md" && ok "no placeholder is left" || no "placeholder left"
 $DA agent add scribe --project pbase --roles write --model opus --effort medium >/dev/null 2>&1 && grep -q '^model: opus$' "$A/scribe.md" && ok "model is the one given" || no "model"
@@ -69,7 +69,7 @@ touch "$A/taken.md"; $DA agent add taken --project pbase >/dev/null 2>&1 && no "
 [ -z "$(fm build)$(fm test)$(fm write)" ] && ok "for: members named forge, scribe or omni serve nobody; only the bases (worker, reviewer) are dispatched" || no "for named members: $(fm build) $(fm write)"
 $DA agent for review >/dev/null 2>&1 && no "a member that can write was returned for review: $($DA agent for review)" || ok "for: a member serving build and review (write class) never serves review"
 $DA agent list | grep -q "^pbase  *scribe  *write  *opus/medium" && ok "list shows abilities, project, model and effort" || no "list: $($DA agent list)"
-$DA agent add judge --project pbase --roles review >/dev/null 2>&1 && grep -q 'command: qargi __guard --class read-only$' "$A/judge.md" && ok "a member that only reviews is read-only by class in its hook" || no "review class"
+$DA agent add judge --project pbase --roles review >/dev/null 2>&1 && grep -q 'command: crown __guard --class read-only$' "$A/judge.md" && ok "a member that only reviews is read-only by class in its hook" || no "review class"
 ! grep -q -- '--class' "$A/forge.md" && ! grep -q -- '--class' "$A/scribe.md" 2>/dev/null && ok "a member with other abilities names no class" || no "class on a writer"
 $DA agent remove judge >/dev/null 2>&1
 
@@ -80,7 +80,7 @@ jq -n --arg p "$T/repo" '{schema:1,project:"alpha",repo:{url:"https://github.com
 $DA agent add smith --roles build --project alpha >/dev/null 2>&1 && [ -f "$T/repo/.claude/agents/smith.md" ] && ok "--project puts it in the repository" || no "project add"
 grep -qx '/.claude/agents/smith.md' "$T/repo/.git/info/exclude" && [ -z "$(git -C "$T/repo" status --porcelain)" ] && ok "and hides it from git" || no "exclude"
 $DA agent add worker --project alpha >/dev/null 2>&1
-[ "$(cd "$T/repo" && QARGI_PROJECT='' fm build)" = worker ] && [ -z "$(fm build)" ] && [ "$(fm build --project alpha)" = worker ] && ok "for resolves the members of the project in effect, and of no other" || no "project for"
+[ "$(cd "$T/repo" && CROWN_PROJECT='' fm build)" = worker ] && [ -z "$(fm build)" ] && [ "$(fm build --project alpha)" = worker ] && ok "for resolves the members of the project in effect, and of no other" || no "project for"
 $DA agent remove worker --project alpha >/dev/null 2>&1
 
 $DA agent rename forge anvil >/dev/null 2>&1 && [ -f "$A/anvil.md" ] && [ ! -e "$A/forge.md" ] && grep -q '^name: anvil$' "$A/anvil.md" && jq -e '.projects.pbase | has("anvil") and (has("forge") | not)' "$T/c/agents.json" >/dev/null && ok "rename moves the definition and the record" || no "rename"
@@ -92,37 +92,37 @@ $DA agent refresh anvil 2>&1 | grep -q "is current" && ok "refresh of a current 
 $DA agent refresh nobody >/dev/null 2>&1 && no "refresh of an unknown member" || ok "refresh refuses an unknown member"
 $DA agent remove anvil >/dev/null 2>&1 && [ ! -e "$A/anvil.md" ] && [ ! -e "$C/anvil.md" ] && jq -e '.projects.pbase | has("anvil") | not' "$T/c/agents.json" >/dev/null && ok "remove deletes the definition, its copy in config and the record" || no "remove"
 $DA agent remove omni >/dev/null 2>&1; $DA agent for review >/dev/null 2>&1 && no "for found a removed member" || ok "for fails, with a hint, when no member serves the ability"
-$DA agent for review 2>&1 | grep -q "qargi agent add reviewer --project pbase" && ok "the hint names the command" || no "hint"
+$DA agent for review 2>&1 | grep -q "crown agent add reviewer --project pbase" && ok "the hint names the command" || no "hint"
 
 # DRIFT: the file was edited by hand; STALE: it is not what the definition renders today (or nothing is on record)
 $DA agent add drifty --project pbase --roles build >/dev/null 2>&1; cp "$A/drifty.md" "$T/drifty.keep"
 printf '\nA line added by hand.\n' >> "$A/drifty.md"
-$DA agent list | grep -q "drifty .*drifty.md (DRIFT: qargi agent refresh drifty --project pbase)$" && ok "list: an edited file is DRIFT, with the fix" || no "list drift: $($DA agent list | grep drifty)"
+$DA agent list | grep -q "drifty .*drifty.md (DRIFT: crown agent refresh drifty --project pbase)$" && ok "list: an edited file is DRIFT, with the fix" || no "list drift: $($DA agent list | grep drifty)"
 $DA agent models --json | jq -e '.members[] | select(.name == "drifty") | .state == ["DRIFT"] and (.flags | any(startswith("DRIFT")))' >/dev/null && $DA agent models --json | jq -e '.warnings | any(.name == "drifty" and (.message | startswith("DRIFT")))' >/dev/null \
   && ok "models: the member has state DRIFT, a flag and a warning" || no "models drift: $($DA agent models --json | jq -c '.members[] | select(.name == "drifty")')"
 $DA agent models | grep drifty | grep -q 'DRIFT' && ok "and the text view shows it" || no "models text drift"
 out=$($DA agent refresh drifty 2>&1); grep -q 'edits made to the file by hand are gone' <<<"$out" && cmp -s "$A/drifty.md" "$T/drifty.keep" && ok "refresh replaces an edited file and says so" || no "refresh drift: $out"
 $DA agent list | grep drifty | grep -q 'DRIFT\|STALE' && no "still flagged after refresh" || ok "and the flag is gone"
 jq 'del(.projects.pbase.drifty.render) | del(.projects.pbase.drifty.provider)' "$T/c/agents.json" > "$T/a.json" && mv "$T/a.json" "$T/c/agents.json"
-$DA agent list | grep -q "drifty .*drifty.md (STALE: qargi agent refresh drifty --project pbase)$" && ok "list: a member with no render on record (made before) is STALE, with the fix" || no "list stale: $($DA agent list | grep drifty)"
+$DA agent list | grep -q "drifty .*drifty.md (STALE: crown agent refresh drifty --project pbase)$" && ok "list: a member with no render on record (made before) is STALE, with the fix" || no "list stale: $($DA agent list | grep drifty)"
 $DA agent models --json | jq -e '.members[] | select(.name == "drifty") | .state == ["STALE"] and (.flags | any(startswith("STALE") and contains("agent refresh drifty")))' >/dev/null && ok "models: STALE with the fix in the flag" || no "models stale"
 out=$($DA agent refresh drifty 2>&1); grep -q 'is current' <<<"$out" && jq -e '.projects.pbase.drifty.render.hash != null and .projects.pbase.drifty.provider == "claude-code"' "$T/c/agents.json" >/dev/null && ! $DA agent list | grep drifty | grep -q 'STALE' && ok "refresh of an identical file only records the render" || no "refresh stale: $out"
 jq '.projects.pbase.drifty.render.inputs_hash = "0000000000000000000000000000000000000000000000000000000000000000"' "$T/c/agents.json" > "$T/a.json" && mv "$T/a.json" "$T/c/agents.json"
-$DA agent list | grep -q "drifty .*(STALE: qargi agent refresh drifty --project pbase)$" && ok "an inputs hash that is not today's is STALE" || no "stale hash"
+$DA agent list | grep -q "drifty .*(STALE: crown agent refresh drifty --project pbase)$" && ok "an inputs hash that is not today's is STALE" || no "stale hash"
 $DA agent refresh drifty >/dev/null 2>&1
 # MISSING: the runtime's file is gone (a cleaned checkout, a fresh clone); the copy in config is what refresh writes it from
 cmp -s "$C/drifty.md" "$A/drifty.md" && ok "the copy in config is the render, byte for byte" || no "copy: $(ls -R "$T/c/agents" 2>&1)"
 rm -rf "$A" "$T/repop/.git/info/exclude"   # a cleaned checkout: no agents directory, no exclude file
-$DA agent list | grep -q "drifty .*drifty.md (MISSING: qargi agent refresh drifty --project pbase)$" && ok "list: a file that is gone is MISSING, with the fix" || no "list missing: $($DA agent list | grep drifty)"
+$DA agent list | grep -q "drifty .*drifty.md (MISSING: crown agent refresh drifty --project pbase)$" && ok "list: a file that is gone is MISSING, with the fix" || no "list missing: $($DA agent list | grep drifty)"
 $DA agent models --json | jq -e '.members[] | select(.name == "drifty") | .state == ["MISSING"] and (.flags | any(startswith("MISSING") and contains("agent refresh drifty --project pbase")))' >/dev/null && ok "models: MISSING with the fix in the flag" || no "models missing: $($DA agent models --json | jq -c '.members[] | select(.name == "drifty")')"
 out=$($DA agent refresh drifty 2>&1); rc=$?
 { [ $rc = 0 ] && grep -q 'refreshed member drifty' <<<"$out" && cmp -s "$C/drifty.md" "$A/drifty.md"; } && ok "refresh writes the file again, the same bytes as the copy" || no "refresh missing: rc=$rc $out"
 grep -qx '/.claude/agents/drifty.md' "$T/repop/.git/info/exclude" && [ -z "$(git -C "$T/repop" status --porcelain)" ] && ok "and hides it from git again" || no "refresh exclude: $(cat "$T/repop/.git/info/exclude" 2>&1)"
 $DA agent list | grep drifty | grep -q '(' && no "still flagged after the file came back: $($DA agent list | grep drifty)" || ok "and the member is current"
 $DA agent refresh scribe >/dev/null 2>&1
-# the copy in config is qargi's render: gone or edited, the member is STALE and refresh writes it again
+# the copy in config is crown's render: gone or edited, the member is STALE and refresh writes it again
 rm -f "$C/drifty.md"
-$DA agent list | grep -q "drifty .*drifty.md (STALE: qargi agent refresh drifty --project pbase)$" && ok "list: a copy gone from config is STALE, with the fix" || no "list no copy: $($DA agent list | grep drifty)"
+$DA agent list | grep -q "drifty .*drifty.md (STALE: crown agent refresh drifty --project pbase)$" && ok "list: a copy gone from config is STALE, with the fix" || no "list no copy: $($DA agent list | grep drifty)"
 out=$($DA agent refresh drifty 2>&1); { grep -q 'is current' <<<"$out" && cmp -s "$C/drifty.md" "$A/drifty.md"; } && ok "refresh of a current file writes the copy again and says the member is current" || no "refresh copy: $out"
 echo "edited" >> "$C/drifty.md"
 $DA agent list | grep -q "drifty .*(STALE: " && ok "a copy edited by hand is STALE" || no "edited copy: $($DA agent list | grep drifty)"
@@ -149,7 +149,7 @@ toml() { python3 -c 'import tomllib,sys,json; print(json.dumps(tomllib.load(open
 out=$($DA agent add tomler --roles build,test --project tomlp 2>&1); F=$T/repo-t/.fake/agents/tomler.toml
 [ -f "$F" ] && ok "faketoml: the file is where its definition says (.fake/agents, .toml)" || no "faketoml add: $out"
 tj=$(toml "$F")
-jq -e '.name == "tomler" and .model == "fake-m" and .effort == "h" and .mode == "write" and .tools == ["sh","cat","ed","tee"] and (.description | startswith("A qargi member")) and (.prompt | startswith("You are a qargi member")) and (.prompt | contains("`skills` directory"))' <<<"$tj" >/dev/null \
+jq -e '.name == "tomler" and .model == "fake-m" and .effort == "h" and .mode == "write" and .tools == ["sh","cat","ed","tee"] and (.description | startswith("A crown member")) and (.prompt | startswith("You are a crown member")) and (.prompt | contains("`skills` directory"))' <<<"$tj" >/dev/null \
   && ok "faketoml: it parses as TOML with the fields mapped (model from the tier, effort through its table, tools renamed, the body as the prompt)" || no "faketoml fields: $tj"
 grep -q "optional tool 'search_text' has no native name" <<<"$out" && ok "faketoml: a tool it cannot name is dropped with a note" || no "tool note: $out"
 grep -qx '/.fake/agents/tomler.toml' "$T/repo-t/.git/info/exclude" && [ -z "$(git -C "$T/repo-t" status --porcelain)" ] && ok "faketoml: hidden from git by the path its definition gives" || no "faketoml exclude"
@@ -157,11 +157,11 @@ jq -e '.projects.tomlp.tomler | .provider == "faketoml" and .render.path == "tom
 out=$($DA agent add tomler2 --roles build --effort xhigh --project tomlp 2>&1); tj=$(toml "$T/repo-t/.fake/agents/tomler2.toml")
 { jq -e 'has("effort") | not' <<<"$tj" >/dev/null && grep -q "effort: omitted" <<<"$out"; } && ok "faketoml: an effort the runtime has no value for is left out, with a note" || no "xhigh: $out $tj"
 printf '# hand\n' >> "$F"
-$DA agent list | grep -q "tomler .*tomler.toml (DRIFT: qargi agent refresh tomler --project tomlp)$" && ok "faketoml: a hand edit is DRIFT" || no "faketoml drift: $($DA agent list | grep tomler)"
+$DA agent list | grep -q "tomler .*tomler.toml (DRIFT: crown agent refresh tomler --project tomlp)$" && ok "faketoml: a hand edit is DRIFT" || no "faketoml drift: $($DA agent list | grep tomler)"
 $DA agent refresh tomler --project tomlp >/dev/null 2>&1; $DA agent list | grep 'tomler ' | grep -q 'DRIFT' && no "refresh kept DRIFT" || ok "faketoml: refresh clears it"
 jq '.renderers.agent.fields += [{from:"abilities", to:"serves", transform:[{join:" "}]}]' "$LIB/definition.json" > "$T/d.json" && mv "$T/d.json" "$LIB/definition.json"
 python3 -I tests/handseal.py "$LIB"                             # and the edit is sealed again: a changed definition, not a changed pack
-$DA agent list | grep -q "tomler .*tomler.toml (STALE: qargi agent refresh tomler --project tomlp)$" && ok "faketoml: a changed definition makes the member STALE" || no "faketoml stale: $($DA agent list | grep tomler)"
+$DA agent list | grep -q "tomler .*tomler.toml (STALE: crown agent refresh tomler --project tomlp)$" && ok "faketoml: a changed definition makes the member STALE" || no "faketoml stale: $($DA agent list | grep tomler)"
 $DA agent models --project tomlp --json | jq -e '[.members[] | select(.state == ["STALE"] and (.name | startswith("tomler")))] | length == 2' >/dev/null && ok "models: and so are the other members of that runtime" || no "models stale count"
 $DA agent refresh tomler --project tomlp >/dev/null 2>&1; [ "$(toml "$F" | jq -r .serves)" = "build test" ] && ok "faketoml: refresh renders the new definition" || no "faketoml refresh: $(toml "$F")"
 $DA agent list | grep 'tomler ' | grep -q 'STALE' && no "tomler still STALE" || ok "and the member is current again"
@@ -208,7 +208,7 @@ while read -r p m; do $DA agent remove "$m" --project "$p" >/dev/null 2>&1; done
 rm -rf "$A"
 out=$($DA agent add bare 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q -- '--project NAME' <<<"$out" && ! grep -q -- '--user' <<<"$out" && [ ! -e "$A/bare.md" ] && ! has_member bare; } && ok "add without --project is refused (exit 2), says so, and writes nothing" || no "bare add: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent add bare --roles build 2>&1); rc=$?
+out=$(CROWN_PROJECT='' $DA agent add bare --roles build 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q -- '--project NAME' <<<"$out"; } && ok "and so it is with no project in effect either" || no "bare add, no project in effect: rc=$rc $out"
 out=$($DA agent add lvl --roles build --user 2>&1); rc=$?
 { [ $rc != 0 ] && grep -q 'unknown option --user' <<<"$out" && [ ! -e "$A/lvl.md" ] && ! has_member lvl; } && ok "--user is an unknown option of add and writes nothing" || no "add --user: rc=$rc $out"
@@ -226,33 +226,33 @@ out=$($DA agent list --project alpha); { grep -q '^alpha  *worker ' <<<"$out" &&
 out=$($DA agent list --project nowhere); { grep -q 'no members' <<<"$out" && grep -q 'nowhere' <<<"$out"; } && ok "list --project of a project with none says so" || no "list --project none: $out"
 [ "$(fm build --project alpha)" = worker ] && [ "$(fm build --project pbase)" = worker ] && ok "for resolves worker in each project" || no "for in two projects"
 out=$($DA agent add worker --project alpha 2>&1); rc=$?; { [ $rc != 0 ] && grep -q 'exists already' <<<"$out"; } && ok "a name is unique within its project" || no "duplicate in a project: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent remove worker 2>&1); rc=$?
+out=$(CROWN_PROJECT='' $DA agent remove worker 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && grep -q 'pbase' <<<"$out" && grep -q -- '--project' <<<"$out" && has_member worker && [ -f "$A/worker.md" ] && [ -f "$T/repo/.claude/agents/worker.md" ]; } && ok "remove NAME in two projects with none in effect: exit 2, names both, removes nothing" || no "ambiguous remove: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent refresh worker 2>&1); rc=$?; { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && grep -q 'pbase' <<<"$out"; } && ok "so does refresh" || no "ambiguous refresh: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent rename worker carrier 2>&1); rc=$?; { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && ! has_member carrier && [ -f "$A/worker.md" ]; } && ok "and rename" || no "ambiguous rename: rc=$rc $out"
+out=$(CROWN_PROJECT='' $DA agent refresh worker 2>&1); rc=$?; { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && grep -q 'pbase' <<<"$out"; } && ok "so does refresh" || no "ambiguous refresh: rc=$rc $out"
+out=$(CROWN_PROJECT='' $DA agent rename worker carrier 2>&1); rc=$?; { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && ! has_member carrier && [ -f "$A/worker.md" ]; } && ok "and rename" || no "ambiguous rename: rc=$rc $out"
 out=$($DA agent rename worker carrier --project alpha 2>&1); rc=$?
 { [ $rc = 0 ] && jq -e '(.projects.alpha | keys == ["carrier"]) and (.projects.pbase | keys == ["worker"])' "$T/c/agents.json" >/dev/null && [ -f "$T/repo/.claude/agents/carrier.md" ] && [ ! -e "$T/repo/.claude/agents/worker.md" ] && [ -f "$A/worker.md" ]; } && ok "rename --project works inside that project and leaves the other alone" || no "rename --project: rc=$rc $out"
 $DA agent rename carrier worker --project alpha >/dev/null 2>&1
 out=$($DA agent remove worker --project nowhere 2>&1); rc=$?; { [ $rc != 0 ] && grep -q 'nowhere' <<<"$out" && has_member worker; } && ok "remove --project of a project without the member is refused" || no "remove wrong project: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent remove worker --project alpha 2>&1); rc=$?
+out=$(CROWN_PROJECT='' $DA agent remove worker --project alpha 2>&1); rc=$?
 { [ $rc = 0 ] && [ ! -e "$T/repo/.claude/agents/worker.md" ] && [ -f "$A/worker.md" ] && jq -e '(.projects.pbase | keys == ["worker"]) and (.projects.alpha // {} | length == 0)' "$T/c/agents.json" >/dev/null; } && ok "remove --project removes that project's member only" || no "remove --project: rc=$rc $out"
 [ "$(fm build --project pbase)" = worker ] && [ -z "$(fm build --project alpha)" ] && ok "and the other project still resolves its own" || no "for after remove"
 # inside a project that lacks NAME, a verb with no --project must not fall through to the one project that has it
 cp "$A/worker.md" "$T/worker.keep"; cp "$T/c/agents.json" "$T/agents.m3"
 for v in "rename worker carrier" "refresh worker" "remove worker"; do
-  out=$(QARGI_PROJECT=alpha $DA agent $v 2>&1); rc=$?
+  out=$(CROWN_PROJECT=alpha $DA agent $v 2>&1); rc=$?
   { [ $rc = 2 ] && grep -q 'alpha' <<<"$out" && grep -q -- '--project' <<<"$out" && cmp -s "$A/worker.md" "$T/worker.keep" && cmp -s "$T/c/agents.json" "$T/agents.m3"; } \
     && ok "$v inside a project without worker: exit 2, asks for --project, touches nothing" || no "foreign $v: rc=$rc $out"
 done
-out=$(QARGI_PROJECT=alpha $DA agent refresh worker --project pbase 2>&1); rc=$?; [ $rc = 0 ] && ok "and naming the other project with --project still works" || no "explicit other project: rc=$rc $out"
-out=$(QARGI_PROJECT='' $DA agent remove worker 2>&1); rc=$?; { [ $rc = 0 ] && [ ! -e "$A/worker.md" ] && ! has_member worker; } && ok "a name held by one project needs no --project" || no "unique remove: rc=$rc $out"
+out=$(CROWN_PROJECT=alpha $DA agent refresh worker --project pbase 2>&1); rc=$?; [ $rc = 0 ] && ok "and naming the other project with --project still works" || no "explicit other project: rc=$rc $out"
+out=$(CROWN_PROJECT='' $DA agent remove worker 2>&1); rc=$?; { [ $rc = 0 ] && [ ! -e "$A/worker.md" ] && ! has_member worker; } && ok "a name held by one project needs no --project" || no "unique remove: rc=$rc $out"
 # a project is the key: a member with no project cannot exist, and the old flat file is refused, never converted
 cp "$T/c/agents.json" "$T/agents.keep"
 for body in '{"forge":{"abilities":["build"],"file":"/x/forge.md","model":"opus","effort":null,"project":"pbase","seq":1}}' '{"schema":1,"projects":{}}' '{"schema":2,"projects":{},"forge":{}}' '{"schema":2,"projects":[]}' '[]' 'not json'; do
   printf '%s\n' "$body" > "$T/c/agents.json"; bad=''
   for v in "list" "models" "for build" "add x --project pbase" "remove forge" "refresh forge" "rename forge anvil"; do
     out=$($DA agent $v 2>&1); rc=$?
-    { [ $rc = 2 ] && [ "$(wc -l <<<"$out")" = 1 ] && grep -q 'agents.json is not in the current shape' <<<"$out" && grep -q 'qargi agent add NAME --project P' <<<"$out"; } || bad="$bad [$v rc=$rc $out]"
+    { [ $rc = 2 ] && [ "$(wc -l <<<"$out")" = 1 ] && grep -q 'agents.json is not in the current shape' <<<"$out" && grep -q 'crown agent add NAME --project P' <<<"$out"; } || bad="$bad [$v rc=$rc $out]"
   done
   [ "$(cat "$T/c/agents.json")" = "$body" ] || bad="$bad [rewritten]"
   [ -z "$bad" ] && ok "a file of another shape is refused by every verb (exit 2, one line) and left as it is: ${body:0:40}" || no "shape ${body:0:40}:$bad"
@@ -269,7 +269,7 @@ for spec in 'roles|{"file":"/x/forge.md","model":"opus","effort":null,"seq":1}' 
   body=$(jq -nc --argjson r "$rec" '{schema:2,projects:{pbase:{forge:$r}}}'); printf '%s\n' "$body" > "$T/c/agents.json"; bad=''
   for v in "list" "models" "for build" "add x --project pbase" "remove forge" "refresh forge" "rename forge anvil"; do
     out=$($DA agent $v 2>&1); rc=$?
-    { [ $rc = 2 ] && [ "$(wc -l <<<"$out")" = 1 ] && grep -q 'forge' <<<"$out" && grep -q 'pbase' <<<"$out" && grep -q "no $field" <<<"$out" && grep -q 'qargi agent add NAME --project P' <<<"$out"; } || bad="$bad [$v rc=$rc $out]"
+    { [ $rc = 2 ] && [ "$(wc -l <<<"$out")" = 1 ] && grep -q 'forge' <<<"$out" && grep -q 'pbase' <<<"$out" && grep -q "no $field" <<<"$out" && grep -q 'crown agent add NAME --project P' <<<"$out"; } || bad="$bad [$v rc=$rc $out]"
   done
   [ "$(cat "$T/c/agents.json")" = "$body" ] || bad="$bad [rewritten]"
   [ -z "$bad" ] && ok "a record with a bad $field is refused by every verb (exit 2, one line, names the member): ${rec:0:50}" || no "record ${rec:0:50}:$bad"
@@ -285,7 +285,7 @@ jq -n --arg p "$T/repo-l" '{schema:1,project:"linkp",repo:{url:"https://github.c
 MD=$T/s/render/linkp/fakelink.agents
 out=$($DA agent add lk --roles build --project linkp 2>&1)
 { [ -f "$MD/lk.toml" ] && [ ! -e "$T/repo-l/.fake" ] && [ ! -e "$HOME/.fake" ] && [ ! -e "$A/lk.md" ]; } && ok "linked runtime: a project's member is rendered into the member render (not the checkout, not the user's directory)" || no "linked add: $out"
-grep -q "qargi project link linkp --resource agents" <<<"$out" && ok "linked runtime: add says how the checkout gets it" || no "link note: $out"
+grep -q "crown project link linkp --resource agents" <<<"$out" && ok "linked runtime: add says how the checkout gets it" || no "link note: $out"
 jq -e --arg f "$MD/lk.toml" '.projects.linkp.lk | .file == $f and has("project") == false and .render.path == "lk.toml"' "$T/c/agents.json" >/dev/null && $DA agent list | grep -q "^linkp  *lk " && ok "linked runtime: recorded at the render, current" || no "linked record"
 cmp -s "$T/c/agents/linkp/lk.toml" "$MD/lk.toml" && ok "linked runtime: the copy in config is kept as well" || no "linked copy: $(ls -R "$T/c/agents")"
 [ -z "$(git -C "$T/repo-l" status --porcelain)" ] && ! grep -qs fake "$T/repo-l/.git/info/exclude" && ok "linked runtime: the repository's exclude file is not touched (project link prints the hint)" || no "exclude touched"
@@ -320,7 +320,7 @@ for pair in "tw:write" "ro:read-only"; do
 done
 $DA agent add builder --project pbase --roles build,test >/dev/null 2>&1
 out=$($DA agent for build 2>&1); rc=$?
-{ [ $rc = 1 ] && grep -q 'qargi agent add worker --project pbase' <<<"$out"; } && ok "for: a member of another name serves nobody, and the hint names the base to add" || no "builder served: rc=$rc $out"
+{ [ $rc = 1 ] && grep -q 'crown agent add worker --project pbase' <<<"$out"; } && ok "for: a member of another name serves nobody, and the hint names the base to add" || no "builder served: rc=$rc $out"
 $DA agent add worker --project pbase --roles build,write,test >/dev/null 2>&1
 [ "$($DA agent for build)" = "worker sonnet high build" ] && [ "$($DA agent for test)" = "worker sonnet low test" ] && [ "$($DA agent for write)" = "worker sonnet medium write" ] && ok "for: one line, MEMBER MODEL EFFORT PROFILE, from the base member" || no "worker: $($DA agent for build)"
 jq -e . <<<"$($DA agent for build --json)" >/dev/null && $DA agent for build --json | jq -e '.member == "worker" and (has("legacy") | not) and (has("member_scope") | not) and .role == "build" and .class == "write" and .profile == "build" and .profile_source == "shipped" and .base == "worker"

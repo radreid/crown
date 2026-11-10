@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# qargi canon audit: who wrote under which role folder. The role of a session comes from its title
+# crown canon audit: who wrote under which role folder. The role of a session comes from its title
 # <project>-<role>-..., except for a session of a cloud base (<project>-worker, <project>-reviewer): its title carries the
 # base's name, so the role is read from the local session tracker row of that session id. A session with no row, or a row
 # without a role, is not attributed (never guessed) and the audit says so once. Hermetic, offline: a fake `ant`.
@@ -10,8 +10,8 @@ cd "$(dirname "$0")/.." || exit 1
 . tests/hermetic.sh
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/bin" "$FAKE"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
@@ -60,7 +60,7 @@ jq -n '{sesn_1: {instance:"alpha-worker", label:"fix-parser", role:"build", prof
         sesn_5: {instance:"alpha-build", label:"legacy"}}' > "$T/s/sessions.json"
 before=$(sha256sum "$T/s/sessions.json")
 
-out=$(bin/qargi canon audit alpha --kind memory 2>&1); rc=$?
+out=$(bin/crown canon audit alpha --kind memory 2>&1); rc=$?
 [ "$rc" = 1 ] && ok "a cross-role write makes the audit exit 1" || no "exit $rc: $out"
 grep -qF 'CROSS-ROLE: session sesn_1 (role build) create /roles/write/notes.md' <<<"$out" \
   && ok "a base session is attributed to the role of its tracker row, and its cross-role write is reported" || no "no report for the base session: $out"
@@ -74,7 +74,7 @@ grep -q 'sesn_3\|sesn_4\|sesn_6' <<<"$out" && no "an unattributed session was re
 
 # nothing unattributed and nothing crossing: no NOTE, the usual line, exit 0
 printf 'sesn_2\t/roles/build/notes.md\tcreate\n' > "$FAKE/writes"
-out=$(bin/qargi canon audit alpha --kind memory 2>&1); rc=$?
+out=$(bin/crown canon audit alpha --kind memory 2>&1); rc=$?
 [ "$rc" = 0 ] && grep -qF 'no cross-role writes found' <<<"$out" && ! grep -q '^NOTE' <<<"$out" && ok "a clean audit has no NOTE" || no "clean audit (rc=$rc): $out"
 
 exit $fail

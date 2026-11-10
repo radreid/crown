@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Install or remove qargi: the qargi-* skills, the `qargi` command, its manual page and its
+# Install or remove crown: the crown-* skills, the `crown` command, its manual page and its
 # bash, zsh and fish completion. It installs no agent definition: you create the members
-# (the local workers) yourself, with the names you choose: qargi agent add NAME.
+# (the local workers) yourself, with the names you choose: crown agent add NAME.
 #
 #   install.sh --user [--copy] [--force]          skills in the runtime's user skills directory, command in
 #                                                 ~/.local/bin, man page and completions (bash, zsh under
@@ -10,38 +10,38 @@
 #   install.sh --user|--project DIR --uninstall
 #   --runtime NAME                                the runtime whose session loads the lead skills (default claude-code);
 #                                                 its skills directories come from its definition (lib/providers/NAME.json,
-#                                                 `qargi provider layout`), none is built in here. A runtime with no
+#                                                 `crown provider layout`), none is built in here. A runtime with no
 #                                                 skills directory (or an unknown one) is refused.
 #
 # By default everything is a symlink to this checkout (updates follow `git pull`).
 # --copy installs real files: for --user the whole tool is copied to
-# $XDG_DATA_HOME/qargi (default ~/.local/share/qargi) and the skills and
+# $XDG_DATA_HOME/crown (default ~/.local/share/crown) and the skills and
 # command come from there; for --project the skill files are copied (the command
 # is user-level either way, so install --user first). An existing real file or
 # directory is never replaced without --force.
 # A --project install never touches the repository's committed files: the paths
 # are hidden through the repository's local .git/info/exclude, and the install
 # is refused if any of them is already tracked. The instance registry, session
-# tracker and profiles are always per user (~/.qargi). Install at one level only.
+# tracker and profiles are always per user (~/.crown). Install at one level only.
 #
 # Every path an install writes (links, copied files and the directories it had to create) is recorded in an install manifest
 # next to install.json (<live config>/install.manifest for --user, project-N.manifest for --project DIR). --uninstall removes
-# exactly what the manifest lists and nothing else: a file you added inside a copied skill is kept, and so is ~/.qargi (the live config
+# exactly what the manifest lists and nothing else: a file you added inside a copied skill is kept, and so is ~/.crown (the live config
 # directory and its parents go only when the install made them and they are empty once the manifest is removed). An
 # install without a manifest (made by an older install.sh) cannot be told apart from your own files, so --uninstall says so and
 # removes only the fixed paths this script writes, and only with --force.
 #
-# --user also records the tool it installed in <live config>/install.json (~/.qargi/config, or QARGI_CONF /
-# QARGI_HOME when set; --uninstall removes it). A checkout run from any other place is then a dev run that keeps its data
-# in its own .qargi directory (see docs/install-and-upgrade/README.md, Running a branch checkout).
+# --user also records the tool it installed in <live config>/install.json (~/.crown/config, or CROWN_CONF /
+# CROWN_HOME when set; --uninstall removes it). A checkout run from any other place is then a dev run that keeps its data
+# in its own .crown directory (see docs/install-and-upgrade/README.md, Running a branch checkout).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd -P)
-python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null || { echo "qargi: install.sh needs python3 3.11 or newer" >&2; exit 1; }
+python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null || { echo "crown: install.sh needs python3 3.11 or newer" >&2; exit 1; }
 # what --copy puts in the data directory: the tool's directories and files (tests/test_tool_copy.sh keeps this list covering TOOL_DIRS of
 # tests/hermetic.sh, the directories a modified copy of the tool needs to run, and the end of tests/test_install.sh runs the copy)
 tool_dirs="bin lib provision contract canon catalog roles methodologies packs skills agents examples man completions VERSION"
-skills="qargi-task qargi-project qargi-instances qargi-provision qargi-memory qargi-packs qargi-providers qargi-verify qargi-flow qargi-team qargi-session"
+skills="crown-task crown-project crown-instances crown-provision crown-memory crown-packs crown-providers crown-verify crown-flow crown-team crown-session"
 proj='' mode='' copy='' force='' uninstall='' runtime=claude-code
 while [ $# -gt 0 ]; do
   case $1 in
@@ -57,22 +57,22 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$mode" ] || { echo "choose --user or --project DIR" >&2; exit 2; }
-case $runtime in ''|*[!a-z0-9-]*) echo "qargi: install.sh: bad runtime name '$runtime'" >&2; exit 2;; esac
+case $runtime in ''|*[!a-z0-9-]*) echo "crown: install.sh: bad runtime name '$runtime'" >&2; exit 2;; esac
 
 # where this runtime keeps its skills: the layout of its definition, never a path written here
 layout_field() {   # layout_field FIELD WOULD: the field, or a clear refusal (no such runtime, or the runtime has no such directory)
-  python3 "$here/lib/provider.py" layout "$runtime" "$1" --would "$2" || { echo "qargi: install.sh: cannot take $1 from the definition of runtime '$runtime' (--runtime NAME chooses another)" >&2; exit 1; }
+  python3 "$here/lib/provider.py" layout "$runtime" "$1" --would "$2" || { echo "crown: install.sh: cannot take $1 from the definition of runtime '$runtime' (--runtime NAME chooses another)" >&2; exit 1; }
 }
 
-data=${XDG_DATA_HOME:-$HOME/.local/share}/qargi
-cmd=$HOME/.local/bin/qargi
+data=${XDG_DATA_HOME:-$HOME/.local/share}/crown
+cmd=$HOME/.local/bin/crown
 xdg=${XDG_DATA_HOME:-$HOME/.local/share}
-manpage=$xdg/man/man1/qargi.1
-completion=$xdg/bash-completion/completions/qargi
-zshcomp=$xdg/zsh/site-functions/_qargi
-fishcomp=${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions/qargi.fish
+manpage=$xdg/man/man1/crown.1
+completion=$xdg/bash-completion/completions/crown
+zshcomp=$xdg/zsh/site-functions/_crown
+fishcomp=${XDG_CONFIG_HOME:-$HOME/.config}/fish/completions/crown.fish
 src=$here
-liveconf=${QARGI_CONF:-${QARGI_HOME:-$HOME/.qargi}/config}   # where the install record goes: the live location, never a dev sandbox
+liveconf=${CROWN_CONF:-${CROWN_HOME:-$HOME/.crown}/config}   # where the install record goes: the live location, never a dev sandbox
 [ -z "$copy" ] || [ "$mode" != user ] || src=$data   # where links/copies come from
 
 psk=
@@ -100,7 +100,7 @@ if [ "$mode" = project ] && git -C "$proj" rev-parse --git-dir >/dev/null 2>&1; 
   pagents=$(python3 "$here/lib/provider.py" layout "$runtime" project_agents_dir 2>/dev/null || true)
   tracked=$(git -C "$proj" ls-files -- "$psk" ${pagents:+"$pagents"} | grep -E "(^|/)($pat)(/|\\.md\$)" || true)
   if [ -n "$tracked" ]; then
-    echo "refusing: qargi paths are tracked in $proj; remove them from the repository first" >&2; exit 1
+    echo "refusing: crown paths are tracked in $proj; remove them from the repository first" >&2; exit 1
   fi
 fi
 entries=
@@ -161,7 +161,7 @@ if [ -n "$uninstall" ]; then
     remove_recorded "$mf" say
     rm -f "$mf"
   else
-    echo "qargi: no install manifest at $mf, so I cannot tell what an earlier install wrote (it predates the manifest, or was removed)"
+    echo "crown: no install manifest at $mf, so I cannot tell what an earlier install wrote (it predates the manifest, or was removed)"
     legacy=("${paths[@]}")
     if [ "$mode" = user ] && [ -f "$liveconf/install.json" ]; then
       root=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("tool_root",""))' "$liveconf/install.json" 2>/dev/null || true)
@@ -225,12 +225,12 @@ kind="symlinks to $here"; [ -z "$copy" ] || kind=copy
 if [ "$mode" = user ]; then
   for d in "$(dirname "$cmd")" "$(dirname "$manpage")" "$(dirname "$completion")" "$(dirname "$zshcomp")" "$(dirname "$fishcomp")"; do mk "$d"; done
   rm -f "$cmd" "$manpage" "$completion" "$zshcomp" "$fishcomp"
-  ln -s "$src/bin/qargi" "$cmd"; rec L "$cmd"
+  ln -s "$src/bin/crown" "$cmd"; rec L "$cmd"
   if [ -n "$copy" ]; then
-    cp "$src/man/qargi.1" "$manpage"; cp "$src/completions/qargi.bash" "$completion"; cp "$src/completions/_qargi" "$zshcomp"; cp "$src/completions/qargi.fish" "$fishcomp"
+    cp "$src/man/crown.1" "$manpage"; cp "$src/completions/crown.bash" "$completion"; cp "$src/completions/_crown" "$zshcomp"; cp "$src/completions/crown.fish" "$fishcomp"
     for p in "$manpage" "$completion" "$zshcomp" "$fishcomp"; do rec C "$p"; done
   else
-    ln -s "$src/man/qargi.1" "$manpage"; ln -s "$src/completions/qargi.bash" "$completion"; ln -s "$src/completions/_qargi" "$zshcomp"; ln -s "$src/completions/qargi.fish" "$fishcomp"
+    ln -s "$src/man/crown.1" "$manpage"; ln -s "$src/completions/crown.bash" "$completion"; ln -s "$src/completions/_crown" "$zshcomp"; ln -s "$src/completions/crown.fish" "$fishcomp"
     for p in "$manpage" "$completion" "$zshcomp" "$fishcomp"; do rec L "$p"; done
   fi
   echo "installed skills in $skdir, command at $cmd, man page at $manpage ($kind)"
@@ -239,22 +239,22 @@ if [ "$mode" = user ]; then
   if command -v jq >/dev/null 2>&1; then
     jq -n --arg r "$(cd "$src" && pwd -P)" --arg t "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg v "$(cat "$src/VERSION")" '{tool_root:$r, installed_at:$t, version:$v}' > "$liveconf/install.json"
     chmod 600 "$liveconf/install.json"
-    echo "recorded the install in $liveconf/install.json (a checkout run from elsewhere keeps its data in its own .qargi)"
+    echo "recorded the install in $liveconf/install.json (a checkout run from elsewhere keeps its data in its own .crown)"
     # the baseline packs go into the library (only the missing ones, unlinked: an unlinked pack reaches nobody)
-    "$src/bin/qargi" packs seed --install || echo "note: the baseline packs were not seeded; run: qargi packs seed" >&2
+    "$src/bin/crown" packs seed --install || echo "note: the baseline packs were not seeded; run: crown packs seed" >&2
   else
     echo "note: jq is not installed, so the install was not recorded in $liveconf/install.json" >&2
   fi
   ! command -v zsh >/dev/null 2>&1 || echo "note: for zsh add this to ~/.zshrc before compinit: fpath=($(dirname "$zshcomp") \$fpath)" >&2
-  command -v man >/dev/null 2>&1 && ! man -w qargi >/dev/null 2>&1 && echo "note: man does not find it yet; add $xdg/man to MANPATH (or: man -l $manpage)" >&2 || true
+  command -v man >/dev/null 2>&1 && ! man -w crown >/dev/null 2>&1 && echo "note: man does not find it yet; add $xdg/man to MANPATH (or: man -l $manpage)" >&2 || true
   echo "note: bash loads the completion in new shells when bash-completion is installed; otherwise add to ~/.bashrc: source $completion" >&2
 else
-  command -v qargi >/dev/null 2>&1 || echo "note: the qargi command is not on PATH; run: install.sh --user" >&2
+  command -v crown >/dev/null 2>&1 || echo "note: the crown command is not on PATH; run: install.sh --user" >&2
   echo "installed skills in $skdir ($kind)"
 fi
 
 echo "next: create the members that do the work, with names you choose, for example:"
-echo "  qargi agent add worker --project NAME    (and reviewer: qargi agent add reviewer --project NAME)"
+echo "  crown agent add worker --project NAME    (and reviewer: crown agent add reviewer --project NAME)"
 
 if [ -n "$exclude_file" ]; then
   mkdir -p "$(dirname "$exclude_file")"; touch "$exclude_file"

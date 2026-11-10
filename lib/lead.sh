@@ -15,7 +15,7 @@
 . "$(dirname "$0")/lib.sh"
 
 here=$(dirname "$(readlink -f "$0")")
-TTY_IN=${QARGI_TTY_IN:-/dev/tty}; TTY_OUT=${QARGI_TTY_OUT:-/dev/tty}    # the tests answer the prompts through these
+TTY_IN=${CROWN_TTY_IN:-/dev/tty}; TTY_OUT=${CROWN_TTY_OUT:-/dev/tty}    # the tests answer the prompts through these
 
 verb=${1:-}
 case $verb in
@@ -31,7 +31,7 @@ case $verb in
           [ $# -ge 2 ] || die "$1 needs a value"; ctx_args+=("$1" "$2"); shift 2;;
         --json) ctx_args+=("$1"); shift;;
         --advise) [ "$verb" = compact-check ] || die "usage takes no --advise"; ctx_args+=("$1"); shift;;
-        *) die "usage: qargi lead usage [--project P] [--session ID | --transcript FILE] [--json]; qargi lead compact-check [--project P] [--advise] [--json]";;
+        *) die "usage: crown lead usage [--project P] [--session ID | --transcript FILE] [--json]; crown lead compact-check [--project P] [--advise] [--json]";;
       esac
     done
     [ -n "$ctx_proj" ] || ctx_proj=$(python3 -I "$(dirname "$0")/help.py" infer)
@@ -40,7 +40,7 @@ esac
 PROJECT=${2:-}; shift 2 || true
 valid_project "$PROJECT" || usage_die "usage: lead.sh grant|status|revoke PROJECT"
 PCFG=$DA_CONF/projects/$PROJECT.json
-[ -f "$PCFG" ] || die "no stored answers for $PROJECT: run /qargi-project first"
+[ -f "$PCFG" ] || die "no stored answers for $PROJECT: run /crown-project first"
 LEAD=$PROJECT-lead
 FROM=''
 while [ $# -gt 0 ]; do
@@ -51,25 +51,25 @@ while [ $# -gt 0 ]; do
 done
 
 interactive() { [ -r "$TTY_IN" ] && [ -w "$TTY_OUT" ]; }
-need_tty() { interactive || die "$verb is interactive: run it in a terminal (from Claude Code: ! qargi lead $verb $PROJECT)"; }
+need_tty() { interactive || die "$verb is interactive: run it in a terminal (from Claude Code: ! crown lead $verb $PROJECT)"; }
 ask() { local a=; printf '%s ' "$1" > "$TTY_OUT"; read -r a < "$TTY_IN" || true; printf '%s' "$a"; }
 confirm() { case $(ask "$1 [y/N]") in y|Y|yes|YES) return 0;; *) return 1;; esac; }
-ASKED="interactive: qargi lead $verb $PROJECT"
+ASKED="interactive: crown lead $verb $PROJECT"
 APPROVAL="interactive: confirmed at the terminal by $(id -un) at $(now)"
 ok() { printf '  %-9s %s\n' "$1" "$2"; }
 
-# step TITLE QARGI-ARGUMENTS...: print the call's plan, ask, then apply exactly that plan. The plan is the call's --json
+# step TITLE CROWN-ARGUMENTS...: print the call's plan, ask, then apply exactly that plan. The plan is the call's --json
 # output (lib/jsonplan.py): its text and its token are read from the fields, not out of text. Error output follows the plan.
 step() {
-  local title=$1 doc err tok qargi=$here/../bin/qargi; shift
+  local title=$1 doc err tok crown=$here/../bin/crown; shift
   echo; echo "== $title"
   err=$(mktemp)
-  doc=$("$qargi" "$@" --json 2>"$err") || { jq -r '.plan // .output // empty' <<<"$doc" 2>/dev/null; cat "$err"; rm -f "$err"; die "could not plan: $title"; }
+  doc=$("$crown" "$@" --json 2>"$err") || { jq -r '.plan // .output // empty' <<<"$doc" 2>/dev/null; cat "$err"; rm -f "$err"; die "could not plan: $title"; }
   jq -r '.plan // .output // empty' <<<"$doc"; cat "$err"; rm -f "$err"
   tok=$(jq -r '.token // empty' <<<"$doc")
   [ -n "$tok" ] || return 0
   confirm "Apply this?" || { echo "skipped: $title"; return 1; }
-  QARGI_NESTED='' "$qargi" "$@" --plan "$tok" --approved "$APPROVAL" 2>&1 | tail -4
+  CROWN_NESTED='' "$crown" "$@" --plan "$tok" --approved "$APPROVAL" 2>&1 | tail -4
 }
 
 lead_state() { # sets: INST AGENT AVER HAS_TOOL HAS_PUSH HAS_MEMBERS VAULT DEPVAULTS
@@ -93,27 +93,27 @@ status() {
   echo "  members     never (they have no GitHub tool and the repository mount is read-only)"
   ok "this session" "$(jq -r 'if .local then "may push agent branches and open pull requests; merges and releases need your explicit word" else "no grant: asks before every push" end' <<<"$lp")"
   if [ "$(jq -r '.cloud // "none"' <<<"$lp")" != branches ]; then
-    ok "cloud lead" "no grant: it never pushes   (create one: qargi lead grant $PROJECT)"; return 0
+    ok "cloud lead" "no grant: it never pushes   (create one: crown lead grant $PROJECT)"; return 0
   fi
   ok "cloud lead" "may push $(jq -r '.branch_pattern // "agent/*"' <<<"$lp") and open pull requests; merge: $(jq -r '.merge // "ask"' <<<"$lp"); releases: not through this tool"
   tf=$(jq -r '.credential_file // ""' <<<"$lp"); vid=$(jq -r '.vault_id // ""' <<<"$lp")
   if [ -f "$tf" ]; then mode=$(stat -c %a "$tf"); [ "$mode" = 600 ] && ok "token file" "$tf (mode 600)" || ok "token file" "$tf has mode $mode: chmod 600 it"; else ok "token file" "MISSING ($tf)"; fi
   if [ -n "$vid" ]; then
     local n; n=$(ant beta:vaults:credentials list --vault-id "$vid" </dev/null 2>/dev/null | jq -r 'select((.archived_at // null) == null) | .id' | grep -c . || true)
-    [ "$n" -ge 1 ] && ok "vault" "$vid with $n active credential" || ok "vault" "$vid has NO active credential: qargi lead grant $PROJECT"
-  else ok "vault" "MISSING: qargi lead grant $PROJECT"; fi
+    [ "$n" -ge 1 ] && ok "vault" "$vid with $n active credential" || ok "vault" "$vid has NO active credential: crown lead grant $PROJECT"
+  else ok "vault" "MISSING: crown lead grant $PROJECT"; fi
   lead_state
-  if [ -z "$INST" ]; then ok "lead agent" "not provisioned: qargi provision plan $LEAD"; return 0; fi
+  if [ -z "$INST" ]; then ok "lead agent" "not provisioned: crown provision plan $LEAD"; return 0; fi
   ok "lead agent" "$AGENT v$AVER"
-  [ "$HAS_TOOL" = true ] && ok "GitHub tool" "attached" || ok "GitHub tool" "MISSING: qargi packs apply $LEAD"
-  [ "$HAS_PUSH" = true ] && ok "Push rules" "in its prompt" || ok "Push rules" "MISSING from its prompt: qargi instances refresh-prompt $LEAD"
-  case " $DEPVAULTS " in *" $vid "*) ok "deployment" "the vault is attached";; *) ok "deployment" "the vault is NOT attached: qargi lead grant $PROJECT";; esac
+  [ "$HAS_TOOL" = true ] && ok "GitHub tool" "attached" || ok "GitHub tool" "MISSING: crown packs apply $LEAD"
+  [ "$HAS_PUSH" = true ] && ok "Push rules" "in its prompt" || ok "Push rules" "MISSING from its prompt: crown instances refresh-prompt $LEAD"
+  case " $DEPVAULTS " in *" $vid "*) ok "deployment" "the vault is attached";; *) ok "deployment" "the vault is NOT attached: crown lead grant $PROJECT";; esac
   # members are pinned by version; a newer member version means the lead should be updated
   local line id v cur stale=0
   for line in $(jq -r '.[] | "\(.id):\(.version)"' <<<"$MEMBERS"); do
     id=${line%%:*}; v=${line##*:}
     cur=$(ant beta:agents retrieve --agent-id "$id" </dev/null 2>/dev/null | jq -r .version)
-    [ "$cur" = "$v" ] || { stale=1; ok "member" "$id pinned at v$v, current v$cur: re-point the lead: qargi instances refresh-prompt $LEAD"; }
+    [ "$cur" = "$v" ] || { stale=1; ok "member" "$id pinned at v$v, current v$cur: re-point the lead: crown instances refresh-prompt $LEAD"; }
   done
   [ "$stale" = 0 ] && ok "members" "all pinned at their current versions"
   return 0
@@ -123,7 +123,7 @@ grant() {
   need_tty; ant_ok
   jq -e '(.teams // {}) | length > 0' "$PCFG" >/dev/null || die "$PROJECT defines no teams, so there is no lead to grant"
   lead_state
-  [ -n "$INST" ] || die "the lead is not provisioned yet: qargi provision plan $LEAD, then apply it"
+  [ -n "$INST" ] || die "the lead is not provisioned yet: crown provision plan $LEAD, then apply it"
   local slug; slug=$(jq -r .repo.url "$PCFG"); slug=${slug#https://github.com/}; slug=${slug%.git}
   echo "Grant the cloud lead of $PROJECT the right to push to $slug."
   echo "Only the lead pushes, never a member. It may create agent/* branches and open pull requests;"
@@ -140,7 +140,7 @@ You need a fine-grained token for this one repository. Create it at
   Repository permissions: Contents = Read and write, Pull requests = Read and write (Metadata read is added)
   Nothing else: no Administration, no Workflows, no other repositories.
 EOF
-    confirm "Have you created it?" || { echo "Come back with it: qargi lead grant $PROJECT"; return 1; }
+    confirm "Have you created it?" || { echo "Come back with it: crown lead grant $PROJECT"; return 1; }
     printf 'Paste the token (input is hidden): ' > "$TTY_OUT"; local t; read -rs t < "$TTY_IN"; echo > "$TTY_OUT"
     ( umask 077; printf '%s' "$t" | tr -d ' \t\r\n' > "$tf" ); t=''
   fi
@@ -157,7 +157,7 @@ EOF
   fi
   audit_log lead-grant "$PROJECT"
   echo; status
-  echo; echo "Done. Releases stay with the Claude Code session ('release it'). To undo this: qargi lead revoke $PROJECT"
+  echo; echo "Done. Releases stay with the Claude Code session ('release it'). To undo this: crown lead revoke $PROJECT"
 }
 
 revoke() {

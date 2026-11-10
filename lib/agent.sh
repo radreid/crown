@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Members: the local agents that do the work, named by you. qargi ships one neutral member definition (agents/member.json and
+# Members: the local agents that do the work, named by you. crown ships one neutral member definition (agents/member.json and
 # agents/member.body.md, no word of any runtime); `add` renders it through the renderers.agent data of the project's local runtime (lib/render.py)
 # under the name you choose, with the roles it serves (build, write, review, test and yours; a task block carries the role's text).
-# The members are recorded in ~/.qargi/config/agents.json, keyed by project ({"schema": 2, "projects": {P: {NAME: record}}}), with the hash of the
+# The members are recorded in ~/.crown/config/agents.json, keyed by project ({"schema": 2, "projects": {P: {NAME: record}}}), with the hash of the
 # file and of what it was rendered from, and the render itself is kept in the configuration directory, config/agents/P/NAME.EXT: the
 # canonical copy, outside every repository, that the runtime's file is written from. `list` and `models` show MISSING when the runtime's
 # file is gone, STALE when the copy is gone or the definition, the catalog or the body changed since the render, and DRIFT when the
-# runtime's file was edited by hand; each names the fix (qargi agent refresh NAME --project P). A name is unique within its project, so
+# runtime's file was edited by hand; each names the fix (crown agent refresh NAME --project P). A name is unique within its project, so
 # two projects can each have a worker.
 #
 #   agent.sh add NAME [--roles build,write,review,test] [--model M] [--effort E] --project P
@@ -18,8 +18,8 @@
 # NAME in rename, refresh and remove is looked up in --project, else the project in effect (exit 2 when it lacks NAME), else, with none in effect,
 # the one project that has it (two or more: exit 2).
 # Every member belongs to a project (there are no user-level members). Its file goes where the runtime's definition links the project's agents
-# (resources.agents.link.project): entry-symlinks, dir-symlink or copy: into the project's member render under ~/.qargi (state/render/P/RUNTIME.agents),
-# which `qargi project link P --resource agents` links into the checkout; none: straight into the checkout's agents directory (hidden from git).
+# (resources.agents.link.project): entry-symlinks, dir-symlink or copy: into the project's member render under ~/.crown (state/render/P/RUNTIME.agents),
+# which `crown project link P --resource agents` links into the checkout; none: straight into the checkout's agents directory (hidden from git).
 # Nothing is ever written to a runtime's user-level directory (for Claude Code ~/.claude/agents).
 #   agent.sh models [--project P] [--json]     the bases, the profiles (shipped and the project's), the members and what is wrong with them
 #   agent.sh remove NAME [--project P]
@@ -84,7 +84,7 @@ def render_runtime(prov, project=None):
 
 def guard_command(rt, cls):
     """The hook command of a member: it names the runtime only when that runtime's hook protocol is not the one the guard assumes."""
-    cmd = "qargi __guard"
+    cmd = "crown __guard"
     try:
         import guard
         plain = guard.hook_of(rt) == guard.CLAUDE_HOOK
@@ -186,7 +186,7 @@ def main(argv):
         else:
             raise Fail("usage: agent.sh internal call %s" % verb)
     except (Fail, P.ProviderError) as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     return 0
 
@@ -250,7 +250,7 @@ agents_dir() { # project rendered-json -> the directory the definition goes to: 
 }
 
 need_project() { # verb project-or-empty: a member belongs to a project, and its definition is written for it (exit 2)
-  [ -n "$2" ] || { echo "qargi: $1 writes the definition of a member: give --project NAME (the project it belongs to; its definition goes where the runtime links the project's agents)" >&2; exit 2; }
+  [ -n "$2" ] || { echo "crown: $1 writes the definition of a member: give --project NAME (the project it belongs to; its definition goes where the runtime links the project's agents)" >&2; exit 2; }
 }
 
 member_project() { # name -> the project whose member NAME is: --project, else the project in effect (which must have NAME), else the one project that has it
@@ -258,19 +258,19 @@ member_project() { # name -> the project whose member NAME is: --project, else t
   # NAME is never skipped over: the verb would act on another project's member from inside this checkout
   local n=$1 held cur
   if [ -n "$PROJ" ]; then
-    jq -e --arg p "$PROJ" --arg n "$n" '.projects[$p][$n] != null' "$MEMBERS_FILE" >/dev/null || die "no member named $n in project $PROJ (qargi agent list)"
+    jq -e --arg p "$PROJ" --arg n "$n" '.projects[$p][$n] != null' "$MEMBERS_FILE" >/dev/null || die "no member named $n in project $PROJ (crown agent list)"
     echo "$PROJ"; return 0
   fi
   held=$(jq -r --arg n "$n" '(.projects // {}) | to_entries[] | select(.value[$n] != null) | .key' "$MEMBERS_FILE")
-  [ -n "$held" ] || die "no member named $n (qargi agent list)"
+  [ -n "$held" ] || die "no member named $n (crown agent list)"
   cur=$(python3 -I "$root/lib/help.py" infer)
   if [ -n "$cur" ]; then
     grep -qx -- "$cur" <<<"$held" && { echo "$cur"; return 0; }
-    echo "qargi: no member named $n in project $cur, the project in effect; it is a member of $(tr '\n' ' ' <<<"$held" | sed 's/ $//; s/ /, /g'): give --project NAME" >&2
+    echo "crown: no member named $n in project $cur, the project in effect; it is a member of $(tr '\n' ' ' <<<"$held" | sed 's/ $//; s/ /, /g'): give --project NAME" >&2
     exit 2
   fi
   if [ "$(wc -l <<<"$held")" != 1 ]; then
-    echo "qargi: $n is a member of more than one project ($(tr '\n' ' ' <<<"$held" | sed 's/ $//; s/ /, /g')): give --project NAME" >&2
+    echo "crown: $n is a member of more than one project ($(tr '\n' ' ' <<<"$held" | sed 's/ $//; s/ /, /g')): give --project NAME" >&2
     exit 2
   fi
   echo "$held"
@@ -282,7 +282,7 @@ link_note() { # project rendered-json file: a member in the project's member ren
   co=$(repo_path "$1" 2>/dev/null) || return 0
   d=$(jq -r '.agents.project_dir' <<<"$2")
   [ "$(readlink -f "$co/$d/$(basename "$3")" 2>/dev/null)" != "$(readlink -f "$3")" ] || return 0
-  echo "qargi: note: the checkout $co does not see this file yet: qargi project link $1 --resource agents (run it inside each worktree that should have it)" >&2
+  echo "crown: note: the checkout $co does not see this file yet: crown project link $1 --resource agents (run it inside each worktree that should have it)" >&2
 }
 
 hide_in_git() { # repo file: keep a project-level definition out of the repository's commits
@@ -312,7 +312,7 @@ project_answer() { # project ability field(model|effort) -> the project's valid 
 provider_for() { # project-or-empty surface -> the project's runtime on that surface (models.provider; no default, see project_provider); dies when it has no descriptor
   local p; p=$(project_provider "$1" "$2") || return $?   # exit 2 with the shared message: no project, no such project, no provider for the surface
   local err
-  err=$(pdesc "$p" "$2" 2>&1 >/dev/null) || die "models.provider '$p' cannot be loaded (${err#qargi: }); available: $(apy names | paste -sd, - | sed 's/,/, /g')"
+  err=$(pdesc "$p" "$2" 2>&1 >/dev/null) || die "models.provider '$p' cannot be loaded (${err#crown: }); available: $(apy names | paste -sd, - | sed 's/,/, /g')"
   echo "$p"
 }
 
@@ -373,7 +373,7 @@ drop_copy() { # project path-or-empty: remove the copy of a render (and the proj
 
 write_member() { # project rendered-json file: say what the runtime could not express, then write the copy in config and the runtime's file
   local p=$1 r=$2 f=$3
-  jq -r '.notes[] | "qargi: note: " + .' <<<"$r" >&2
+  jq -r '.notes[] | "crown: note: " + .' <<<"$r" >&2
   put_file "$r" "$(copy_of "$p" "$(jq -r .path <<<"$r")")"
   put_file "$r" "$f"
 }
@@ -384,16 +384,16 @@ same_bytes() { # file sha256 -> 0 when the file exists and is those bytes
 
 add() {
   local n=${POS[0]:-} a list='' dir file seq first bc prov r ro ORIG_EFFORT=$EFFORT
-  [ -n "$n" ] || usage_die "usage: qargi agent add NAME [--roles build,write,review,test] [--model M] [--effort E] --project P"
+  [ -n "$n" ] || usage_die "usage: crown agent add NAME [--roles build,write,review,test] [--model M] [--effort E] --project P"
   need_project "agent add" "$PROJ"
   # the provider is the project's (models.provider; no default); the member's file goes where the runtime links the project's agents
   prov=$(provider_for "$PROJ" local) || exit $?
   valid_name "$n" "$prov"
-  jq -e --arg p "$PROJ" --arg n "$n" '.projects[$p][$n] != null' "$MEMBERS_FILE" >/dev/null && die "a member named $n exists already in project $PROJ (qargi agent list)"
+  jq -e --arg p "$PROJ" --arg n "$n" '.projects[$p][$n] != null' "$MEMBERS_FILE" >/dev/null && die "a member named $n exists already in project $PROJ (crown agent list)"
   bc=$(jq -r --arg n "$n" '.bases[$n].class // empty' "$DEFAULTS")   # a base name takes the abilities of its class only
   [ -z "$bc" ] || [ -n "$ROLES" ] || ROLES=$(jq -r --arg n "$n" '.bases[$n].abilities | join(",")' "$DEFAULTS")
   for a in $(printf '%s' "${ROLES:-build,write,review,test}" | tr ',' ' '); do
-    [ "$a" != lead ] && valid_role "$a" || die "--roles: a comma-separated list of roles ($DA_ROLES; qargi role list)"
+    [ "$a" != lead ] && valid_role "$a" || die "--roles: a comma-separated list of roles ($DA_ROLES; crown role list)"
     [ -z "$bc" ] || [ "$(role_class "$a")" = "$bc" ] || die "--roles: $n is a base of the $bc class; $a is $(role_class "$a")"
     case ",$list," in *",$a,"*) ;; *) list=${list:+$list,}$a;; esac
   done
@@ -405,7 +405,7 @@ add() {
   [ -n "$MODEL" ] || MODEL=$(default_for "$PROJ" "$first" model "$prov")
   [ -n "$EFFORT" ] || EFFORT=$(default_for "$PROJ" "$first" effort "$prov")
   if no_effort "$prov" local; then   # the provider cannot be told how hard to think: the member records none
-    [ -z "$ORIG_EFFORT" ] || echo "qargi: note: effort ignored ($prov has no effort control)" >&2
+    [ -z "$ORIG_EFFORT" ] || echo "crown: note: effort ignored ($prov has no effort control)" >&2
     EFFORT=''
   fi
   printf '%s' "$MODEL" | grep -Eq '^[a-z0-9][a-z0-9.-]*$' || die "--model: a model alias or id (letters, digits, . -)"
@@ -515,9 +515,9 @@ models() { # the bases, the profiles with the project's own merged in, the escal
          frontier: (((.model // "") == $tiers.frontier) or ((.model // "") == $aliases.frontier)),
          flags: ([if ($bases | has($k) | not) then "not a base (\($bases | keys | join(", "))): dispatch uses only the bases, so nothing starts this member" else empty end,
            if ([$ab[] | select($rc[.] == "read-only")] | length) > 0 and ([$ab[] | select($rc[.] != "read-only")] | length) > 0 then "write class; never serves review" else empty end,
-           if ($st[$sk] // []) | index("MISSING") then "MISSING: the file is not there (qargi agent refresh \($k) --project \($mp) writes it again from the copy in config)" else empty end,
-           if ($st[$sk] // []) | index("STALE") then "STALE: the copy in config is gone, or it was rendered from an older definition, catalog or body, or from none on record (qargi agent refresh \($k) --project \($mp))" else empty end,
-           if ($st[$sk] // []) | index("DRIFT") then "DRIFT: the file was edited by hand (qargi agent refresh \($k) --project \($mp) replaces it)" else empty end,
+           if ($st[$sk] // []) | index("MISSING") then "MISSING: the file is not there (crown agent refresh \($k) --project \($mp) writes it again from the copy in config)" else empty end,
+           if ($st[$sk] // []) | index("STALE") then "STALE: the copy in config is gone, or it was rendered from an older definition, catalog or body, or from none on record (crown agent refresh \($k) --project \($mp))" else empty end,
+           if ($st[$sk] // []) | index("DRIFT") then "DRIFT: the file was edited by hand (crown agent refresh \($k) --project \($mp) replaces it)" else empty end,
            if (((.model // "") == $tiers.frontier) or ((.model // "") == $aliases.frontier)) and $k != "researcher" then "frontier model outside the researcher" else empty end])}]}
     | .warnings = ([(.bases | to_entries[] | .key as $k | .value.flags[] | {kind: "base", name: $k, message: .}),
         (.profiles[] | .name as $k | .flags[] | {kind: "profile", name: $k, message: .}),
@@ -533,7 +533,7 @@ models() { # the bases, the profiles with the project's own merged in, the escal
     | while IFS=$'\t' read -r n b d s t fl; do printf '  %-11s %-9s %-52s %-10s %s\n' "$n" "$b" "$d" "$s" "${t:+$t }$fl"; done
   jq -r '"  offer \(.escalate.build.tier) (\(.escalate.build.model)) for a hard task: only when asked"' <<<"$out"
   echo "members"
-  if [ "$(jq '.members | length' <<<"$out")" = 0 ]; then echo "  none yet (qargi agent add NAME --project P)"; else
+  if [ "$(jq '.members | length' <<<"$out")" = 0 ]; then echo "  none yet (crown agent add NAME --project P)"; else
     jq -r '.members[] | "  \(.name)\t\(.roles | join(","))\t\(.model // "-")/\(.effort // "default")\t\(.flags | map("! " + .) | join("; "))"' <<<"$out" \
       | while IFS=$'\t' read -r n a me note; do printf '  %-12s %-22s %-28s %s\n' "${n# }" "$a" "$me" "$note"; done
   fi
@@ -550,7 +550,7 @@ RESOLVE_HEAD='
   | (if $want != null then $want else $row end) as $pn
   | $P[$pn] as $p
   | def refusal:
-      if $p == null then {code: 1, err: "no profile named \($pn) (qargi agent models lists them)"}
+      if $p == null then {code: 1, err: "no profile named \($pn) (crown agent models lists them)"}
       elif $p.base == null then {code: 2, err: "the \($pn) profile has no base and is never dispatched"}
       elif $p.refused != null then {code: 2, err: "the \($pn) profile is refused: \($p.refused)"}
       elif $p.class != $rclass then {code: 2, err: "the \($role) role is \($rclass) but the \($pn) profile has base \($p.base), which is \($p.class); use a profile of a \($rclass) base"}
@@ -561,7 +561,7 @@ RESOLVEJQ="$RESOLVE_HEAD"'
   | refusal // (
       # only the base the profile names serves, and only when it belongs to the project and is of the right class
       ([$E[] | select(.key == $p.base and (.value | (any((.roles // [])[]; $rc[.] == $rclass)) and mclass == $p.class))][0]) as $sel
-      | if $sel == null then {code: 1, err: "no member of project \($proj) serves the \($role) role: the \($p.base) base is not registered for it (qargi agent add \($p.base) --project \($proj))"}
+      | if $sel == null then {code: 1, err: "no member of project \($proj) serves the \($role) role: the \($p.base) base is not registered for it (crown agent add \($p.base) --project \($proj))"}
         else {code: 0, out: {role: $role, class: $rclass, profile: $pn,
           profile_source: (if $want == null then "class-fallback" elif $p.source == "project" then "project" else "shipped" end),
           base: $p.base, member: $sel.key,
@@ -577,21 +577,21 @@ resolve_for() { # role profile-or-empty project-or-empty -> prints the answer, o
     --argjson aliases "$(jq -c '.aliases // {}' <<<"$pd")" --argjson rc "$(role_classes)" --argjson noeffort "$noeff" \
     --arg role "$role" --arg rclass "$(role_class "$role")" --arg prof "$prof" --arg proj "$proj" "$PJQ$RESOLVEJQ") || die "could not resolve the profile"
   code=$(jq -r .code <<<"$res")
-  if [ "$code" != 0 ]; then echo "qargi: $(jq -r .err <<<"$res")" >&2; exit "$code"; fi
+  if [ "$code" != 0 ]; then echo "crown: $(jq -r .err <<<"$res")" >&2; exit "$code"; fi
   # a provider that cannot set the model per dispatch runs the member's own model and no other
   ov=$(python3 -I "$root/lib/provider.py" effective "$prov" local per_dispatch_model_override ${proj:+--project "$proj"} 2>/dev/null) || ov=no
   if [ "$ov" = no ]; then
     mem=$(jq -r .out.member <<<"$res"); mm=$(jq -r --arg p "$proj" --arg m "$mem" '.projects[$p][$m].model // ""' "$MEMBERS_FILE")
     want=$(jq -r '.out.model // .out.model_id // ""' <<<"$res")
     if [ -n "$mm" ] && [ -n "$want" ] && [ "$mm" != "$want" ] && [ "$mm" != "$(jq -r '.out.model_id // ""' <<<"$res")" ]; then
-      echo "qargi: the provider $prov cannot set the model per dispatch (per_dispatch_model_override is not supported on local), so member $mem (model $mm) cannot run the $(jq -r .out.profile <<<"$res") profile (model $want). Give the $mem base that model (qargi agent remove $mem --project $proj, then qargi agent add $mem --model $want --project $proj), or choose a profile with the model of the member" >&2
+      echo "crown: the provider $prov cannot set the model per dispatch (per_dispatch_model_override is not supported on local), so member $mem (model $mm) cannot run the $(jq -r .out.profile <<<"$res") profile (model $want). Give the $mem base that model (crown agent remove $mem --project $proj, then crown agent add $mem --model $want --project $proj), or choose a profile with the model of the member" >&2
       exit 2
     fi
   fi
   if [ -n "$JSON" ]; then jq '.out' <<<"$res"; return 0; fi
   jq -r '.out | "\(.member) \(.model // "-") \(.effort // "default") \(.profile)"' <<<"$res"
   if [ "$(jq -r '.out.model // ""' <<<"$res")" = "" ]; then
-    echo "qargi: warning: model $(jq -r '.out.model_id' <<<"$res") has no alias; the definition of member $(jq -r .out.member <<<"$res") applies" >&2
+    echo "crown: warning: model $(jq -r '.out.model_id' <<<"$res") has no alias; the definition of member $(jq -r .out.member <<<"$res") applies" >&2
   fi
 }
 
@@ -617,10 +617,10 @@ resolve_cloud() { # role profile-or-empty project -> prints INSTANCE MODEL EFFOR
     --argjson aliases "$(jq -c '.aliases // {}' <<<"$pd")" --argjson rc "$(role_classes)" --argjson noeffort "$noeff" \
     --arg role "$role" --arg rclass "$(role_class "$role")" --arg prof "$prof" "$PJQ$CLOUDJQ") || die "could not resolve the profile"
   code=$(jq -r .code <<<"$res")
-  if [ "$code" != 0 ]; then echo "qargi: $(jq -r .err <<<"$res")" >&2; exit "$code"; fi
+  if [ "$code" != 0 ]; then echo "crown: $(jq -r .err <<<"$res")" >&2; exit "$code"; fi
   prof=$(jq -r .out.profile <<<"$res"); base=$(jq -r .out.base <<<"$res"); cls=$(jq -r .out.class <<<"$res")
   if [ "$(jq -r .out.opt_in <<<"$res")" = true ] && [ -z "$OPTIN" ]; then
-    echo "qargi: the $prof profile is opt-in (it runs the frontier model on a cloud session): pass --opt-in when you or the person who dispatches the task names it" >&2; exit 2
+    echo "crown: the $prof profile is opt-in (it runs the frontier model on a cloud session): pass --opt-in when you or the person who dispatches the task names it" >&2; exit 2
   fi
   # the model id and the effort come from the provider's adapter (the profile's tier, on the cloud surface); a model with no tier is used as it is
   model=$(jq -r '.out.model_id // empty' <<<"$res"); effort=$(jq -r '.out.effort // empty' <<<"$res")
@@ -633,7 +633,7 @@ resolve_cloud() { # role profile-or-empty project -> prints INSTANCE MODEL EFFOR
   fi
   [ -n "$model" ] || die "the $prof profile resolves to no model on the $prov provider"
   # the base instance takes the model and the effort of the session as overrides: only when the provider is verified to honour them.
-  # There is no fallback to an instance of the role (<project>-build ...): such an instance is addressed by its name (qargi send NAME).
+  # There is no fallback to an instance of the role (<project>-build ...): such an instance is addressed by its name (crown send NAME).
   ov=$(python3 -I "$root/lib/provider.py" effective "$prov" cloud per_dispatch_model_override --project "$proj" 2>/dev/null) || ov=no
   [ "$ov" = yes ] && ovm=yes
   if [ -n "$effort" ]; then
@@ -644,11 +644,11 @@ resolve_cloud() { # role profile-or-empty project -> prints INSTANCE MODEL EFFOR
   [ "$ove" = yes ] || why=${why:+$why and }per_dispatch_effort_override
   inst=$proj-$base
   if [ -z "$(cloud_inst "$inst")" ]; then
-    echo "qargi: no cloud instance is registered for the $role role of project $proj: expected the base $inst (the $cls base; qargi instances list; qargi instances init --location cloud ...). An instance of one role is addressed by its name (qargi send NAME)" >&2
+    echo "crown: no cloud instance is registered for the $role role of project $proj: expected the base $inst (the $cls base; crown instances list; crown instances init --location cloud ...). An instance of one role is addressed by its name (crown send NAME)" >&2
     exit 1
   fi
   if [ "$ovm" != yes ] || [ "$ove" != yes ]; then
-    echo "qargi: the instance $inst is registered, but the provider $prov cannot set the model and effort per dispatch on cloud ($why not verified), so it cannot run the $prof profile. Verify the capability in the provider descriptor; an instance of one role is addressed by its name (qargi send NAME)" >&2
+    echo "crown: the instance $inst is registered, but the provider $prov cannot set the model and effort per dispatch on cloud ($why not verified), so it cannot run the $prof profile. Verify the capability in the provider descriptor; an instance of one role is addressed by its name (crown send NAME)" >&2
     exit 2
   fi
   if [ -n "$JSON" ]; then
@@ -666,12 +666,12 @@ resolve_cloud() { # role profile-or-empty project -> prints INSTANCE MODEL EFFOR
 # checks every one): one hand-broken record of another project does not stop the work of this one.
 scope=$PROJ
 [ "$verb" = list ] || [ -n "$scope" ] || scope=$(python3 -I "$root/lib/help.py" infer 2>/dev/null) || scope=''
-members_shape_ok || { echo "qargi: agents.json is not in the current shape: move it aside and add the members again (qargi agent add NAME --project P)" >&2; exit 2; }
+members_shape_ok || { echo "crown: agents.json is not in the current shape: move it aside and add the members again (crown agent add NAME --project P)" >&2; exit 2; }
 bad=$(jq -r --arg scope "$scope" '(.projects // {}) | to_entries[] | select($scope == "" or .key == $scope) | .key as $p | .value | to_entries[] | .key as $n | .value
     | (if (.roles | type) != "array" or (.roles | length) == 0 or (.roles | any(type != "string")) then "roles (a non-empty list of role names)"
        elif (.file | type) != "string" or .file == "" then "file (the path of its definition)" else empty end) as $f
     | "member \($n) of project \($p) has no \($f)"' "$MEMBERS_FILE" | head -n 1)
-[ -z "$bad" ] || { echo "qargi: agents.json: $bad: move the file aside and add the members again (qargi agent add NAME --project P)" >&2; exit 2; }
+[ -z "$bad" ] || { echo "crown: agents.json: $bad: move the file aside and add the members again (crown agent add NAME --project P)" >&2; exit 2; }
 
 case $verb in
   add) add;;
@@ -679,12 +679,12 @@ case $verb in
     st=$(member_states "$(role_classes)") || exit 1
     rows=$(jq -r --argjson st "$st" --arg proj "$PROJ" '[(.projects // {}) | to_entries[] | select($proj == "" or .key == $proj) | .key as $p | .value | to_entries[] | .value + {name: .key, project: $p}]
         | sort_by(.seq // 0)[] | [.project, .name, (.roles | join(",")), (.model // "-") + "/" + (.effort // "default"),
-        (.file + (if ($st[.project + "/" + .name] // []) | length > 0 then " (" + (($st[.project + "/" + .name]) | join(", ")) + ": qargi agent refresh " + .name + " --project " + .project + ")" else "" end))] | @tsv' "$MEMBERS_FILE")
+        (.file + (if ($st[.project + "/" + .name] // []) | length > 0 then " (" + (($st[.project + "/" + .name]) | join(", ")) + ": crown agent refresh " + .name + " --project " + .project + ")" else "" end))] | @tsv' "$MEMBERS_FILE")
     if [ -n "$rows" ]; then column -t -s "$(printf '\t')" <<<"$rows"
-    else echo "no members${PROJ:+ in project $PROJ} yet: qargi agent add NAME [--roles build,write,review,test] --project ${PROJ:-P}"; fi;;
+    else echo "no members${PROJ:+ in project $PROJ} yet: crown agent add NAME [--roles build,write,review,test] --project ${PROJ:-P}"; fi;;
   rename)
     old=${POS[0]:-}; new=${POS[1]:-}
-    [ -n "$old" ] && [ -n "$new" ] || usage_die "usage: qargi agent rename OLD NEW [--project P]"
+    [ -n "$old" ] && [ -n "$new" ] || usage_die "usage: crown agent rename OLD NEW [--project P]"
     mproj=$(member_project "$old") || exit $?
     rec=$(jq -ce --arg p "$mproj" --arg n "$old" '.projects[$p][$n]' "$MEMBERS_FILE")
     prov=$(provider_for "$mproj" local) || exit $?
@@ -700,7 +700,7 @@ case $verb in
     nf=$base/$(jq -r .path <<<"$r")
     [ ! -e "$nf" ] || die "$nf exists already"
     write_member "$mproj" "$r" "$nf"
-    drop_copy "$mproj" "$oldrel"                   # the old copy is qargi's render, never a hand edit: it goes with the name
+    drop_copy "$mproj" "$oldrel"                   # the old copy is crown's render, never a hand edit: it goes with the name
     # the old file goes unless it was edited by hand (what is on record is the render's hash, as refresh compares it): an edit is kept and named
     kept=''; want=$(jq -r '.render.hash // ""' <<<"$rec")
     if [ -f "$f" ]; then
@@ -710,10 +710,10 @@ case $verb in
     json_update "$MEMBERS_FILE" '.projects[$p][$new] = (.projects[$p][$old] | .file = $f | .provider = $v | .surface = "local" | .render = $r) | del(.projects[$p][$old])' \
       --arg p "$mproj" --arg old "$old" --arg new "$new" --arg f "$nf" --arg v "$prov" --argjson r "$(member_record "$r")"
     echo "renamed member $old -> $new in project $mproj ($nf)"
-    [ -z "$kept" ] || echo "qargi: note: $f was edited by hand, so it was kept (the new member is rendered from the definition); move your edits over and delete it" >&2
+    [ -z "$kept" ] || echo "crown: note: $f was edited by hand, so it was kept (the new member is rendered from the definition); move your edits over and delete it" >&2
     link_note "$mproj" "$r" "$nf";;
   refresh)
-    n=${POS[0]:-}; [ -n "$n" ] || usage_die "usage: qargi agent refresh NAME [--project P]"
+    n=${POS[0]:-}; [ -n "$n" ] || usage_die "usage: crown agent refresh NAME [--project P]"
     mproj=$(member_project "$n") || exit $?
     rec=$(jq -ce --arg p "$mproj" --arg n "$n" '.projects[$p][$n]' "$MEMBERS_FILE")
     f=$(jq -r .file <<<"$rec"); [ -n "$f" ] || die "member $n records no definition file"
@@ -737,17 +737,17 @@ case $verb in
     link_note "$mproj" "$r" "$f";;
   models) models;;
   remove)
-    n=${POS[0]:-}; [ -n "$n" ] || usage_die "usage: qargi agent remove NAME [--project P]"
+    n=${POS[0]:-}; [ -n "$n" ] || usage_die "usage: crown agent remove NAME [--project P]"
     mproj=$(member_project "$n") || exit $?
     rec=$(jq -ce --arg p "$mproj" --arg n "$n" '.projects[$p][$n]' "$MEMBERS_FILE")
     f=$(jq -r .file <<<"$rec"); [ ! -f "$f" ] || rm -f "$f"
     drop_copy "$mproj" "$(jq -r '.render.path // ""' <<<"$rec")"
     json_update "$MEMBERS_FILE" 'del(.projects[$p][$n]) | if (.projects[$p] | length) == 0 then del(.projects[$p]) else . end' --arg p "$mproj" --arg n "$n"
     echo "removed member $n of project $mproj${f:+ ($f)}"
-    case $f in *.agents/*) echo "qargi: note: a worktree that linked it still has a dangling link; qargi project link $mproj --resource agents drops it" >&2;; esac;;
+    case $f in *.agents/*) echo "crown: note: a worktree that linked it still has a dangling link; crown project link $mproj --resource agents drops it" >&2;; esac;;
   for)
     a=${POS[0]:-}
-    [ -n "$a" ] && [ "$a" != lead ] && valid_role "$a" || usage_die "usage: qargi agent for ROLE [--profile P] [--project P] [--json]   (a role of: $DA_ROLES)"
+    [ -n "$a" ] && [ "$a" != lead ] && valid_role "$a" || usage_die "usage: crown agent for ROLE [--profile P] [--project P] [--json]   (a role of: $DA_ROLES)"
     [ -z "$PROFILE" ] || printf '%s' "$PROFILE" | grep -Eq '^[a-z][a-z0-9-]{0,30}$' || die "--profile: a profile name (lower-case letters, digits and '-', at most 31)"
     [ -n "$PROJ" ] || PROJ=$(python3 -I "$root/lib/help.py" infer)
     case $SURFACE in
@@ -755,5 +755,5 @@ case $verb in
       cloud) [ -n "$PROJ" ] || PROJ=$(python3 -I "$root/lib/help.py" infer); resolve_cloud "$a" "$PROFILE" "$PROJ";;
       *) die "--surface: local or cloud";;
     esac;;
-  *) usage_die "usage: qargi agent add|list|models|rename|refresh|remove|for ...";;
+  *) usage_die "usage: crown agent add|list|models|rename|refresh|remove|for ...";;
 esac

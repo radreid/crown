@@ -12,14 +12,14 @@ cd "$(dirname "$0")/.." || exit 1
 SRC=$PWD
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
 TOOL=$T/tool; mkdir -p "$TOOL"
 copy_tool "$SRC" "$TOOL"
-DA=$TOOL/bin/qargi
+DA=$TOOL/bin/crown
 # shellcheck source=fakeprov.sh
 . tests/fakeprov.sh
 # notey: a local runtime with two notes of its own; plain: one with none; every other note of the shipped runtime is dropped
@@ -38,7 +38,7 @@ mkproj cloudonly '{"cloud":"claude-platform"}'
 mkproj noprov 'null'
 jq 'del(.models.provider)' "$T/c/projects/noprov.json" > "$T/np" && mv "$T/np" "$T/c/projects/noprov.json"
 
-# run NAME... : stdout, stderr and status of `qargi provider notes ...` from outside every project
+# run NAME... : stdout, stderr and status of `crown provider notes ...` from outside every project
 run() { out=$("$DA" provider notes "$@" 2>"$T/err"); rc=$?; err=$(cat "$T/err"); }
 
 run alpha --project withnotes
@@ -49,11 +49,11 @@ run --project withnotes
 { [ $rc = 0 ] && [ "$out" = "alpha
 beta-2" ]; } && ok "no topic lists the topic names, one per line" || no "list: rc=$rc out=$out err=$err"
 
-# the project in effect: inside its repository, or QARGI_PROJECT
+# the project in effect: inside its repository, or CROWN_PROJECT
 out=$(cd "$T/repo-withnotes" && "$DA" provider notes alpha 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$out" = "The alpha text." ]; } && ok "inside a project's repository the project is the one in effect" || no "in effect: rc=$rc $out"
-out=$(QARGI_PROJECT=withnotes "$DA" provider notes beta-2 2>&1); rc=$?
-{ [ $rc = 0 ] && [ "$out" = "The beta text, with a comma." ]; } && ok "QARGI_PROJECT names the project" || no "QARGI_PROJECT: rc=$rc $out"
+out=$(CROWN_PROJECT=withnotes "$DA" provider notes beta-2 2>&1); rc=$?
+{ [ $rc = 0 ] && [ "$out" = "The beta text, with a comma." ]; } && ok "CROWN_PROJECT names the project" || no "CROWN_PROJECT: rc=$rc $out"
 run alpha
 { [ $rc = 2 ] && grep -q "no project" <<<"$err" && [ -z "$out" ]; } && ok "with no project in effect it is exit 2 and says so" || no "no project: rc=$rc out=$out err=$err"
 run alpha --project nosuch
@@ -104,7 +104,7 @@ skills-dir
 spawn" ]; } && ok "the shipped claude-code lists its topics" || no "claude-code topics: rc=$rc out=$out err=$err"
 run spawn --project onclaude
 { [ $rc = 0 ] && grep -q 'subagent_type' <<<"$out"; } && ok "claude-code says how a lead spawns a member" || no "claude-code spawn: rc=$rc out=$out err=$err"
-topics=$(grep -rhoE 'qargi provider notes [a-z][a-z0-9-]*' skills packs contract roles agents 2>/dev/null | awk '{print $4}' | sort -u)
+topics=$(grep -rhoE 'crown provider notes [a-z][a-z0-9-]*' skills packs contract roles agents 2>/dev/null | awk '{print $4}' | sort -u)
 missing=
 for t in $topics; do run "$t" --project onclaude; [ $rc = 0 ] || missing="$missing $t"; done
 [ -z "$missing" ] && ok "every topic a skill points at exists in claude-code${topics:+ ($(tr '\n' ' ' <<<"$topics" | sed 's/ $//'))}" || no "skills point at topics claude-code lacks:$missing"

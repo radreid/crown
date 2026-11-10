@@ -14,13 +14,13 @@
 #                                                first, the move journaled, nothing pushed, nothing merged into develop. Refused when `into`
 #                                                has commits of its own. With upstream.overlay_check, the command then runs on a trial merge
 #                                                of `into` into develop in a temporary worktree (the fast-forward stands either way).
-# The upstream line never meets develop directly: after a sync, cut a feature and merge the branch into it (qargi feature start
-# upstream-X, qargi feature merge upstream-X BRANCH), fix the overlay there, and let the feature land as any other.
+# The upstream line never meets develop directly: after a sync, cut a feature and merge the branch into it (crown feature start
+# upstream-X, crown feature merge upstream-X BRANCH), fix the overlay there, and let the feature land as any other.
 . "$(dirname "$0")/lib.sh"
 
 verb=${1:-}; shift || true
 PROJ='' LIMIT=30 PLAN_ARG='' APPROVED=''
-USAGE="usage: qargi upstream status|review|sync [--limit N] [--project P] [--plan T --approved WORDS]"
+USAGE="usage: crown upstream status|review|sync [--limit N] [--project P] [--plan T --approved WORDS]"
 while [ $# -gt 0 ]; do
   case $1 in
     --project) need_val "$1" $#; PROJ=$2; shift 2;; --limit) need_val "$1" $#; LIMIT=$2; shift 2;;
@@ -35,12 +35,12 @@ printf '%s' "$LIMIT" | grep -Eq '^[1-9][0-9]*$' || usage_die "--limit needs a po
 . "$(dirname "$0")/gitflow.sh"
 project_load
 UREM=$(jq -r '.upstream.remote // ""' "$af"); UBR=$(jq -r '.upstream.branch // ""' "$af"); INTO=$(jq -r '.upstream.into // "upstream"' "$af")
-[ -n "$UREM" ] && [ -n "$UBR" ] || die "no upstream answers for $PROJ: qargi project set $PROJ upstream.remote REMOTE and upstream.branch BRANCH (the remote and the branch the fork follows; upstream.into, default upstream, is the local branch that carries the upstream line)"
+[ -n "$UREM" ] && [ -n "$UBR" ] || die "no upstream answers for $PROJ: crown project set $PROJ upstream.remote REMOTE and upstream.branch BRANCH (the remote and the branch the fork follows; upstream.into, default upstream, is the local branch that carries the upstream line)"
 g remote get-url "$UREM" >/dev/null 2>&1 || die "the repository has no remote named $UREM (upstream.remote): git -C $REPO remote add $UREM URL"
 mapfile -t OVERLAY_CHECK < <(jq -r '(.upstream.overlay_check // []) | if type == "array" then .[] else empty end' "$af")
 RT=refs/remotes/$UREM/$UBR
 utip() { g rev-parse -q --verify "$RT^{commit}" || true; }
-need_fetched() { U=$(utip); [ -n "$U" ] || die "$UREM/$UBR is not fetched yet: qargi upstream status fetches it"; }
+need_fetched() { U=$(utip); [ -n "$U" ] || die "$UREM/$UBR is not fetched yet: crown upstream status fetches it"; }
 log1() { g log -1 --format='%h %ad %s' --date=short "$1"; }
 
 case $verb in
@@ -49,7 +49,7 @@ case $verb in
     U=$(utip); [ -n "$U" ] || die "$UREM has no branch $UBR (upstream.branch)"
     H=$(sha_of "$INTO")
     if [ -z "$H" ]; then
-      echo "upstream $UREM/$UBR at ${U:0:7} (fetched); no local branch $INTO yet (upstream.into): qargi upstream sync creates it there"
+      echo "upstream $UREM/$UBR at ${U:0:7} (fetched); no local branch $INTO yet (upstream.into): crown upstream sync creates it there"
       echo "newest upstream commits:"; g log --format='  %h %ad %s' --date=short -n 10 "$RT"
       exit 0
     fi
@@ -58,13 +58,13 @@ case $verb in
     [ "$ahead" = 0 ] || echo "  note: $INTO has $ahead commit(s) that $UREM/$UBR lacks; it carries the upstream line only, so sync will refuse (not a fast-forward)"
     if [ "$behind" = 0 ]; then echo "nothing new upstream; newest: $(log1 "$RT")"
     else
-      echo "new upstream commits (newest first; qargi upstream review lists the files):"
+      echo "new upstream commits (newest first; crown upstream review lists the files):"
       g log --format='  %h %ad %s' --date=short "$INTO..$RT" | head -10
       [ "$behind" -le 10 ] || echo "  ... and $((behind - 10)) more"
     fi;;
   review)
     need_fetched
-    H=$(sha_of "$INTO"); [ -n "$H" ] || die "no local branch $INTO (upstream.into): qargi upstream sync creates it at $UREM/$UBR, or make it at the commit the fork was taken from (git branch $INTO COMMIT)"
+    H=$(sha_of "$INTO"); [ -n "$H" ] || die "no local branch $INTO (upstream.into): crown upstream sync creates it at $UREM/$UBR, or make it at the commit the fork was taken from (git branch $INTO COMMIT)"
     branch_exists develop || die "no develop branch: the overlay is what develop changed since it parted from $INTO"
     mb=$(g merge-base "$INTO" develop 2>/dev/null) || die "$INTO and develop have no common history: upstream.into should be the branch the fork was taken from"
     OV=$(mktemp "$DA_STATE/.overlay.XXXXXX")
@@ -91,7 +91,7 @@ case $verb in
     H=$(sha_of "$INTO")
     [ "$H" != "$U" ] || { echo "$INTO is at $UREM/$UBR already (${U:0:7})"; exit 0; }
     if [ -n "$H" ] && ! g merge-base --is-ancestor "$H" "$RT"; then
-      echo "qargi: $INTO has commit(s) that $UREM/$UBR lacks (not a fast-forward):" >&2
+      echo "crown: $INTO has commit(s) that $UREM/$UBR lacks (not a fast-forward):" >&2
       g log --format='  %h %s' "$RT..$INTO" | head -20 >&2
       die "$INTO carries the upstream line only; keep those commits on a branch of their own (git branch NAME $INTO) and put $INTO back on the line (git branch -f $INTO \$(git merge-base $INTO $RT)), or set upstream.into to the branch that follows upstream"
     fi
@@ -105,15 +105,15 @@ case $verb in
       echo "create $INTO at $UREM/$UBR (${U:0:7}), $n commit(s) of upstream history, local only (nothing is pushed, nothing is merged into develop)"
     fi
     [ "${#OVERLAY_CHECK[@]}" = 0 ] || echo "  then the overlay check runs on a trial merge of $INTO into develop: ${OVERLAY_CHECK[*]}"
-    if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: qargi upstream sync --plan $tok --approved \"...\")"; exit 0; fi
-    QARGI_NESTED='' need_plan "$tok"
+    if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: crown upstream sync --plan $tok --approved \"...\")"; exit 0; fi
+    CROWN_NESTED='' need_plan "$tok"
     g update-ref "refs/heads/$INTO" "$U" "${H:-0000000000000000000000000000000000000000}" || die "could not move $INTO (it changed meanwhile)"
     [ -z "$H" ] || wt_follow "$INTO" "$U"
     journal_ref "$REPO" "refs/heads/$INTO" "$H" "$U" upstream:sync
     audit_log "upstream:sync" "$PROJ $INTO ${H:0:7}..${U:0:7}"
     x=${U:0:7}
     echo "$INTO is at $UREM/$UBR ($x)$([ -n "$H" ] || echo "; created $INTO")"
-    echo "next: qargi feature start upstream-$x --purpose \"upstream $UBR at $x\", then qargi feature merge upstream-$x $INTO: review and fix the overlay in that feature; $INTO itself is never merged into develop"
+    echo "next: crown feature start upstream-$x --purpose \"upstream $UBR at $x\", then crown feature merge upstream-$x $INTO: review and fix the overlay in that feature; $INTO itself is never merged into develop"
     rc=0
     if [ "${#OVERLAY_CHECK[@]}" != 0 ]; then
       if ! branch_exists develop; then echo "overlay check: not run (no develop branch)"

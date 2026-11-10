@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""qargi env show and check, lib/env.py and lib/env_check.py: what a repository declares about its development environment, read from its
+"""crown env show and check, lib/env.py and lib/env_check.py: what a repository declares about its development environment, read from its
 own files, and whether a checkout is set up that way. Fixture repositories are invented (acme and others); show executes nothing, check
 runs only fixture scripts. Offline. Run: python3 tests/test_env.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, shutil, stat, subprocess, sys, tempfile, time, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import env as E  # noqa: E402
 
@@ -65,8 +65,8 @@ class Fixtures(unittest.TestCase):
         self.t = tempfile.mkdtemp()
         self.conf = os.path.join(self.t, "conf")
         os.makedirs(os.path.join(self.conf, "projects"))
-        self.env = dict(os.environ, HOME=self.t, QARGI_CONF=self.conf, QARGI_STATE=os.path.join(self.t, "state"))
-        self.env.pop("QARGI_PROJECT", None)
+        self.env = dict(os.environ, HOME=self.t, CROWN_CONF=self.conf, CROWN_STATE=os.path.join(self.t, "state"))
+        self.env.pop("CROWN_PROJECT", None)
 
     def tearDown(self):
         shutil.rmtree(self.t, ignore_errors=True)
@@ -324,7 +324,7 @@ class Overrides(Fixtures):
         self.assertEqual(j["commands"]["doctor_command"]["command"], "./doctor.sh")
         j = json.loads(self.q("env", "show", "--repo", d, "--json", cwd=self.t).stdout)                # --repo: the project that contains it
         self.assertEqual(j["project"], "acme")
-        j = json.loads(self.q("env", "show", "--json", env=dict(self.env, QARGI_PROJECT="acme"), cwd=self.t).stdout)
+        j = json.loads(self.q("env", "show", "--json", env=dict(self.env, CROWN_PROJECT="acme"), cwd=self.t).stdout)
         self.assertEqual(j["repo"], os.path.realpath(d))
 
     def test_outside_any_project_the_repository_around_here_is_read(self):
@@ -352,7 +352,7 @@ class Cli(Fixtures):
         self.assertIn("bootstrap", self.q("help", "environment").stdout)
         self.assertIn("--repo", self.q("__complete", "env", "show", "--").stdout)
         self.assertIn("env.doctor_command", self.q("__complete", "project", "set", "acme", "").stdout.split())
-        g = subprocess.run([BIN, "__guard"], input=json.dumps({"tool_input": {"command": "qargi env show --json"}}), capture_output=True, text=True, env=self.env)
+        g = subprocess.run([BIN, "__guard"], input=json.dumps({"tool_input": {"command": "crown env show --json"}}), capture_output=True, text=True, env=self.env)
         self.assertEqual(g.returncode, 0, g.stderr)
 
     def test_set_validates_the_environment_answers(self):
@@ -379,7 +379,7 @@ GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.net", "-c", "prot
 
 
 class Check(Fixtures):
-    """qargi env check: the doctor command, the built-in minimum, the verdict, the exit status and the state file."""
+    """crown env check: the doctor command, the built-in minimum, the verdict, the exit status and the state file."""
 
     def git(self, d, *a):
         r = subprocess.run(GIT + ["-C", d] + list(a), capture_output=True, text=True, stdin=subprocess.DEVNULL)
@@ -579,17 +579,17 @@ class Check(Fixtures):
         or a member file under a long directory reads as current whatever its state."""
         from unittest import mock
         import env_check as C
-        line = "acme  forge  build  m/high  /" + "deep/" * 60 + "forge.md (DRIFT: qargi agent refresh forge --project acme)"
+        line = "acme  forge  build  m/high  /" + "deep/" * 60 + "forge.md (DRIFT: crown agent refresh forge --project acme)"
 
         def fake_sub(args, width=160):
             return 0, [E.clean(line, width)] if args[:2] == ["agent", "list"] else []
         with mock.patch.object(C, "sub", fake_sub), mock.patch.object(C, "links", lambda project, repo: []), \
                 mock.patch.object(C, "packs_target", lambda answers, project: None):
-            res = C.qargi_layer("acme", {}, self.t)
+            res = C.crown_layer("acme", {}, self.t)
         self.assertIn(("members", "0 current, forge DRIFT"), res["rows"])
         self.assertTrue(any(k == "missing" and t.startswith("members not current: forge DRIFT") for k, t in res["items"]), res["items"])
 
-    def test_the_qargi_layer_for_a_stored_project(self):
+    def test_the_crown_layer_for_a_stored_project(self):
         d = self.doctor_repo("echo 'ok: git'\n")
         rc, out, _ = self.check(d)
         self.assertEqual(rc, 0, out)                           # no provider set: each part is a note, none is missing
@@ -601,15 +601,15 @@ class Check(Fixtures):
         a["roles"] = {"build": {"base": "master", "push": {"mode": "none"}, "model": "claude-sonnet-5-5", "effort": "high"}}
         a["budget_cents"] = 500
         put(self.conf, "projects/acme.json", json.dumps(a))
-        env = dict(self.env, QARGI_PROJECT="acme")
+        env = dict(self.env, CROWN_PROJECT="acme")
         self.assertEqual(self.q("agent", "add", "forge", "--roles", "build", "--project", "acme", env=env).returncode, 0)
         j = json.loads(self.check(d, "--json")[1])
-        parts = {x["part"] + ":" + x["text"].split(" ")[0]: x["text"] for x in j["qargi"]}
-        self.assertIn("members", {x["part"] for x in j["qargi"]})
-        self.assertTrue(any(x["part"] == "members" and x["text"].startswith("1 current") for x in j["qargi"]), j)
+        parts = {x["part"] + ":" + x["text"].split(" ")[0]: x["text"] for x in j["crown"]}
+        self.assertIn("members", {x["part"] for x in j["crown"]})
+        self.assertTrue(any(x["part"] == "members" and x["text"].startswith("1 current") for x in j["crown"]), j)
         self.assertFalse(any(m.startswith("skills") for m in j["missing"]), j["missing"])      # nothing is rendered yet: nothing to link
-        packs = [x["text"] for x in j["qargi"] if x["part"] == "packs"]
-        self.assertEqual(packs, ["not applied (qargi packs apply --target claude-code acme)"], j)   # never applied: not "no drift", and not a missing item
+        packs = [x["text"] for x in j["crown"] if x["part"] == "packs"]
+        self.assertEqual(packs, ["not applied (crown packs apply --target claude-code acme)"], j)   # never applied: not "no drift", and not a missing item
         self.assertFalse(any(m.startswith("packs") for m in j["missing"]), j["missing"])
         os.makedirs(os.path.join(self.t, "state", "render", "acme", "claude-code", ".claude", "skills"))
         j = json.loads(self.check(d, "--json")[1])
@@ -623,10 +623,10 @@ class Check(Fixtures):
             fh.write("\nedited by hand\n")
         j = json.loads(self.check(d, "--json")[1])
         self.assertTrue(any(m.startswith("members not current: forge DRIFT") for m in j["missing"]), j["missing"])
-        self.assertTrue(any(x["part"] == "members" and "DRIFT" in x["text"] for x in j["qargi"]), j)
+        self.assertTrue(any(x["part"] == "members" and "DRIFT" in x["text"] for x in j["crown"]), j)
 
     def test_the_member_guard_allows_check(self):
-        g = subprocess.run([BIN, "__guard"], input=json.dumps({"tool_input": {"command": "qargi env check --json"}}), capture_output=True, text=True, env=self.env)
+        g = subprocess.run([BIN, "__guard"], input=json.dumps({"tool_input": {"command": "crown env check --json"}}), capture_output=True, text=True, env=self.env)
         self.assertEqual(g.returncode, 0, g.stderr)
 
     def test_help_and_completion(self):

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# qargi changelog renumber (duplicate item numbers under the unreleased heading, cross-references) and the check that feature sync and
+# crown changelog renumber (duplicate item numbers under the unreleased heading, cross-references) and the check that feature sync and
 # feature finish run when the answer release.changelog.numbered is true. Run: tests/test_changelog_renumber.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app
 mkdir -p "$HOME" "$T/c/projects"
 R=$T/app; git init -q -b master "$R"
 printf '# Changelog\n\n## [Unreleased]\n\n### Added\n1. first\n2. second\n\nfiller 1\nfiller 2\nfiller 3\nfiller 4\n\n### Changed\n\n## [0.1.0] - 2026-01-01\n\n### Added\n1. old\n1. old twin (a released section is not checked)\n' > "$R/CHANGELOG.md"

@@ -34,9 +34,9 @@
 # failed step is kept in a directory the block names. `FAILED: <command>` marks a failed step and the last line is
 # `total: Ns (passed|FAILED)`; the exit status is 1 on any failure and 2 on a usage error.
 set -u
-# hermetic: nothing of the caller's cloud binding or qargi setup reaches the tests, and HOME is a fresh directory
+# hermetic: nothing of the caller's cloud binding or crown setup reaches the tests, and HOME is a fresh directory
 # (each test also scrubs itself, see tests/hermetic.sh and tests/hermetic.py)
-for _v in $(compgen -e); do case $_v in ANTHROPIC_*|QARGI_*) unset "$_v";; esac; done
+for _v in $(compgen -e); do case $_v in ANTHROPIC_*|CROWN_*) unset "$_v";; esac; done
 SUITE_TMP=${TMPDIR:-/tmp}   # the caller's temporary directory: WORK is made in it, and its top level is watched (dirset below)
 WORK=$(mktemp -d) || exit 1
 HOME=$WORK/home; export HOME; mkdir -p "$HOME" "$WORK/out"
@@ -258,7 +258,7 @@ run_shellcheck() {
 # be another's. (/dev/shm is not watched: on a host that dispatches work, the temporary directories of other runs come and go there during a
 # step, and every step running at that moment would be blamed.) The runner's own directory of kept logs is left out of the set.
 dirset() {   # the directories at the top level of the suite's TMPDIR, one path per line, sorted
-  find "$SUITE_TMP" -mindepth 1 -maxdepth 1 -type d ! -name 'qargi-suite-logs.*' 2>/dev/null | LC_ALL=C sort
+  find "$SUITE_TMP" -mindepth 1 -maxdepth 1 -type d ! -name 'crown-suite-logs.*' 2>/dev/null | LC_ALL=C sort
 }
 dirs_changed() {   # dirs_changed BEFORE AFTER -> a line "removed PATH" per directory gone, then "left PATH" per new one; nothing when the sets are the same
   LC_ALL=C comm -23 "$1" "$2" | sed 's/^/removed /'
@@ -314,7 +314,7 @@ report() {   # the block of one finished step, printed in one piece
     if [ "$r" = 124 ] || [ "$r" = 137 ]; then text+=$'\n'"TIMEOUT: ${s_cmd[i]} was stopped after ${s_tmo[i]}s"; fi
     if [ -e "$WORK/out/$k.left" ]; then text+=$'\n'"LEFT RUNNING after ${s_cmd[i]} (killed):"$'\n'"$(cat "$WORK/out/$k.left")"; fi
     if [ "$r" = 0 ] && [ ! -e "$WORK/out/$k.left" ]; then text+=$'\n'"OVER BUDGET: ${sec}s, budget ${s_bud[i]}s (--enforce-budgets)"; fi
-    [ -n "$KEEP" ] || KEEP=$(mktemp -d "${TMPDIR:-/tmp}/qargi-suite-logs.XXXXXX")
+    [ -n "$KEEP" ] || KEEP=$(mktemp -d "${TMPDIR:-/tmp}/crown-suite-logs.XXXXXX")
     text+=$'\n'"log: $(keep_log "$k")"
     text+=$'\n'"FAILED: ${s_cmd[i]}"; rc=1; failed+=("${s_cmd[i]}")
   fi

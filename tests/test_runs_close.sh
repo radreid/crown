@@ -10,9 +10,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_LEAD=lead HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T/shm QARGI_PROJECT=app
+export CROWN_LEAD=lead HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T/shm CROWN_PROJECT=app
 export GIT_AUTHOR_NAME=lead GIT_AUTHOR_EMAIL=lead@example.net GIT_COMMITTER_NAME=lead GIT_COMMITTER_EMAIL=lead@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/shm" "$T/scr"
 J=$T/s/ref-journal.jsonl; Z=0000000000000000000000000000000000000000
@@ -129,7 +129,7 @@ out=$($DA ref note feature/mine 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "noted feature/mine: created at" <<<"$out" && ok "ref note journals the branch" || no "note: rc=$rc $out"
 jq -e 'select(.verb == "ref:note" and .ref == "refs/heads/feature/mine" and .old == "'$Z'")' "$J" >/dev/null && ok "the journal line starts at an absent ref (verb ref:note)" || no "journal: $(tail -2 "$J")"
 out=$(verify "$R"); rc=$?
-[ $rc = 0 ] && grep -q "feature/mine created by qargi ref note" <<<"$out" && ok "after the note verify passes and names the note" || no "noted branch: rc=$rc $out"
+[ $rc = 0 ] && grep -q "feature/mine created by crown ref note" <<<"$out" && ok "after the note verify passes and names the note" || no "noted branch: rc=$rc $out"
 # a push
 R=$(mkrun lead-push)
 git -C "$A" push -q origin feature/mine
@@ -138,7 +138,7 @@ out=$(verify "$R"); rc=$?
 out=$($DA ref note origin/feature/mine 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "noted origin/feature/mine: created at" <<<"$out" && ok "ref note origin/NAME journals the branch of origin (asked live)" || no "note origin: rc=$rc $out"
 out=$(verify "$R"); rc=$?
-[ $rc = 0 ] && grep -q "feature/mine on origin created by qargi ref note" <<<"$out" && ok "after the note verify passes: nothing was pushed by the run" || no "noted push: rc=$rc $out"
+[ $rc = 0 ] && grep -q "feature/mine on origin created by crown ref note" <<<"$out" && ok "after the note verify passes: nothing was pushed by the run" || no "noted push: rc=$rc $out"
 # a second push of the same branch continues the line
 R=$(mkrun lead-push2)
 git -C "$A" update-ref refs/heads/feature/mine "$(hand feature/mine)"
@@ -274,10 +274,10 @@ out=$($DA project validate "$T/bad.json" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "runs.owned_refs\[0\]: would match refs/heads/develop" <<<"$out" && ok "project validate refuses a pattern that would match develop" || no "validate: rc=$rc $out"
 jq 'del(.runs)' "$T/c/projects/app.json" > "$T/app.new" && mv "$T/app.new" "$T/c/projects/app.json"
 git -C "$A" branch -D rt-one rt-base >/dev/null 2>&1
-for r in "$T"/scr/qargi.*; do $DA local clean "$r" --discard >/dev/null 2>&1; done
+for r in "$T"/scr/crown.*; do $DA local clean "$r" --discard >/dev/null 2>&1; done
 
 # --- 2. local close --applied-by-am
-for r in "$T"/scr/qargi.*; do $DA local clean "$r" --discard >/dev/null 2>&1; done
+for r in "$T"/scr/crown.*; do $DA local clean "$r" --discard >/dev/null 2>&1; done
 $F start cl >/dev/null 2>&1
 R=$(mkrun closed-run feature/cl); commits "$R" b1.go; collect "$R"
 out=$($DA local close "$R" --applied-by-am 2>&1); rc=$?
@@ -286,7 +286,7 @@ out=$($DA local close "$R" 2>&1); rc=$?
 [ $rc = 2 ] && ok "close without --applied-by-am is a usage error" || no "close no flag: rc=$rc $out"
 out=$(verify "$R"); [ $? = 0 ] || no "(setup) verify: $out"
 out=$($DA lead compact-check --project app 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "a local run is verified and not applied: $R" <<<"$out" && grep -q "qargi local close $R --applied-by-am" <<<"$out" && ok "(setup) a verified run is open for compact-check, which names the way to close it" || no "compact-check: rc=$rc $out"
+[ $rc = 1 ] && grep -q "a local run is verified and not applied: $R" <<<"$out" && grep -q "crown local close $R --applied-by-am" <<<"$out" && ok "(setup) a verified run is open for compact-check, which names the way to close it" || no "compact-check: rc=$rc $out"
 # applied by hand
 git -C "$A" checkout -q parked 2>/dev/null
 w=$(mktemp -d "$T/w.XXXXXX"); git -C "$A" worktree add -q --detach "$w" feature/cl
@@ -322,9 +322,9 @@ $DA local clean "$R2" --discard >/dev/null 2>&1
 $F start ro >/dev/null 2>&1
 R=$(mkrun ro-ok feature/ro review); echo "# report" > "$R/out/report.md"
 out=$($DA lead compact-check --project app 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "a read-only local run is open: $R" <<<"$out" && grep -q "close it: qargi local clean $R\$" <<<"$out" && ok "compact-check names an open read-only run and its closing command" || no "compact-check read-only: rc=$rc $out"
+[ $rc = 1 ] && grep -q "a read-only local run is open: $R" <<<"$out" && grep -q "close it: crown local clean $R\$" <<<"$out" && ok "compact-check names an open read-only run and its closing command" || no "compact-check read-only: rc=$rc $out"
 out=$($F finish ro 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "feature ro has 1 open run(s)" <<<"$out" && grep -q "$R (review ro-ok): prepared, not verified" <<<"$out" && grep -q "close it: qargi local clean $R\$" <<<"$out" \
+[ $rc = 1 ] && grep -q "feature ro has 1 open run(s)" <<<"$out" && grep -q "$R (review ro-ok): prepared, not verified" <<<"$out" && grep -q "close it: crown local clean $R\$" <<<"$out" \
   && ok "feature finish names the open read-only run and the exact command that closes it" || no "finish read-only: rc=$rc $out"
 out=$($DA local clean "$R" 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "cleaned $R" <<<"$out" && [ ! -e "$R" ] && ok "a read-only run with a report and unchanged refs closes with a plain clean (no manifest, no --discard)" || no "clean read-only: rc=$rc $out"
@@ -334,9 +334,9 @@ out=$($DA local clean "$R" 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "holds no manifest" <<<"$out" && grep -q "report.md" <<<"$out" && [ -d "$R" ] && ok "a read-only run with no report is still refused, and the message says what closes it" || no "read-only no report: rc=$rc $out"
 grep -q "refuse a member's write tool for a report file" <<<"$out" && grep -q "with the shell, a heredoc" <<<"$out" && ok "clean of an OUT with no report names the cause too" || no "clean cause: $out"
 out=$(verify "$R"); rc=$?
-grep -q "qargi: note: OUT of the read-only run $R holds no report" <<<"$out" && grep -q "with the shell, a heredoc" <<<"$out" && ok "verify of a read-only run whose OUT holds no report says so, with the cause (a note: the exit status is the refs verdict)" || no "verify read-only no report: rc=$rc $out"
+grep -q "crown: note: OUT of the read-only run $R holds no report" <<<"$out" && grep -q "with the shell, a heredoc" <<<"$out" && ok "verify of a read-only run whose OUT holds no report says so, with the cause (a note: the exit status is the refs verdict)" || no "verify read-only no report: rc=$rc $out"
 out=$($DA lead compact-check --project app 2>&1)
-grep -q "close it: qargi local clean $R (once the member has written OUT/report.md" <<<"$out" && ok "its closing command waits for the report" || no "closing without report: $out"
+grep -q "close it: crown local clean $R (once the member has written OUT/report.md" <<<"$out" && ok "its closing command waits for the report" || no "closing without report: $out"
 echo "# report" > "$R/out/report.md"; git -C "$A" branch ro-stray develop
 out=$($DA local clean "$R" 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "refs of the repository changed" <<<"$out" && [ -d "$R" ] && ok "a read-only run whose refs changed is kept as evidence" || no "read-only changed refs: rc=$rc $out"
@@ -387,10 +387,10 @@ rm -f "$R/out/report.md"; mkdir "$R/out/sub"; echo "# r" > "$R/out/sub/report.md
 out=$($DA local clean "$R" 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "holds no manifest" <<<"$out" && ok "a report in a subdirectory, or a file named xreport.md, is no report" || no "sub/other report: rc=$rc $out"
 out=$($DA lead compact-check --project app 2>&1)
-grep -q "close it: qargi local clean $R (once the member has written OUT/report.md" <<<"$out" && ok "compact-check agrees: it waits for the report" || no "compact-check kinds: $out"
+grep -q "close it: crown local clean $R (once the member has written OUT/report.md" <<<"$out" && ok "compact-check agrees: it waits for the report" || no "compact-check kinds: $out"
 echo "# r" > "$R/out/review-report.md"
 out=$($DA lead compact-check --project app 2>&1)
-grep -q "close it: qargi local clean $R\$" <<<"$out" && ok "a NAME-report.md file is a report for compact-check" || no "compact-check prefixed report: $out"
+grep -q "close it: crown local clean $R\$" <<<"$out" && ok "a NAME-report.md file is a report for compact-check" || no "compact-check prefixed report: $out"
 out=$($DA local clean "$R" 2>&1); rc=$?
 [ $rc = 0 ] && ok "and for clean" || no "prefixed report clean: rc=$rc $out"
 
@@ -401,7 +401,7 @@ out=$($F finish fn 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "feature fn has 1 open run(s)" <<<"$out" && grep -q "$R (build fin-run): prepared, not verified" <<<"$out" && ok "a prepared run is open: feature finish is refused" || no "prepared open: rc=$rc $out"
 verify "$R" >/dev/null
 out=$($F finish fn 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "feature fn has 1 open run(s)" <<<"$out" && grep -q "$R (build fin-run): verified, not applied" <<<"$out" && grep -q "qargi local close RUN --applied-by-am" <<<"$out" && grep -q "qargi local clean RUN" <<<"$out" && grep -q "Nothing was changed" <<<"$out" \
+[ $rc = 1 ] && grep -q "feature fn has 1 open run(s)" <<<"$out" && grep -q "$R (build fin-run): verified, not applied" <<<"$out" && grep -q "crown local close RUN --applied-by-am" <<<"$out" && grep -q "crown local clean RUN" <<<"$out" && grep -q "Nothing was changed" <<<"$out" \
   && ok "feature finish is refused, with the open run listed and the way to close it" || no "finish with open run: rc=$rc $out"
 $F start ot >/dev/null 2>&1
 out=$($F finish ot 2>&1); grep -q "open run" <<<"$out" && no "a run of feature/fn blocks another feature: $out" || ok "an open run of one feature does not block another"

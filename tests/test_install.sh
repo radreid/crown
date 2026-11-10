@@ -10,7 +10,7 @@ unset XDG_DATA_HOME
 ROOT=$PWD; T=$(mktemp -d); fail=0
 trap 'rm -rf "$T"; rm -rf "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-CURRENT="qargi-task qargi-project qargi-instances qargi-provision qargi-memory qargi-packs qargi-providers qargi-verify qargi-flow qargi-team qargi-session"
+CURRENT="crown-task crown-project crown-instances crown-provision crown-memory crown-packs crown-providers crown-verify crown-flow crown-team crown-session"
 INSTALL="$ROOT/install.sh"
 S=$HOME/.claude/skills
 
@@ -39,11 +39,11 @@ bash "$INSTALL" --user >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && [ "$before" = "$(find "$S" -maxdepth 1 -type l -printf "%f -> %l\n" | sort)" ] && ok "a second run changes nothing" || no "second run: rc=$rc"
 
 # a real directory in the way is kept without --force and replaced with it
-rm -f "$S/qargi-task"; mkdir "$S/qargi-task"; echo mine > "$S/qargi-task/notes.md"
+rm -f "$S/crown-task"; mkdir "$S/crown-task"; echo mine > "$S/crown-task/notes.md"
 out=$(bash "$INSTALL" --user 2>&1); rc=$?
-{ [ "$rc" != 0 ] && [ -f "$S/qargi-task/notes.md" ] && echo "$out" | grep -q "refusing to replace existing $S/qargi-task"; } && ok "a real directory is not replaced without --force" || no "real directory: rc=$rc $out"
+{ [ "$rc" != 0 ] && [ -f "$S/crown-task/notes.md" ] && echo "$out" | grep -q "refusing to replace existing $S/crown-task"; } && ok "a real directory is not replaced without --force" || no "real directory: rc=$rc $out"
 bash "$INSTALL" --user --force >/dev/null 2>&1
-[ "$(readlink "$S/qargi-task")" = "$ROOT/skills/qargi-task" ] && ok "--force replaces it with the link" || no "--force left the directory"
+[ "$(readlink "$S/crown-task")" = "$ROOT/skills/crown-task" ] && ok "--force replaces it with the link" || no "--force left the directory"
 
 # --- --user --uninstall ---
 out=$(bash "$INSTALL" --user --uninstall 2>&1); rc=$?
@@ -51,23 +51,23 @@ out=$(bash "$INSTALL" --user --uninstall 2>&1); rc=$?
 left=''; for s in $CURRENT; do [ ! -e "$S/$s" ] && [ ! -L "$S/$s" ] || left="$left $s"; done
 [ -z "$left" ] && ok "uninstall removes the skills" || no "skills left:$left"
 # no manifest (an install from before it): uninstall says what it cannot know, removes nothing without --force, and with --force only the fixed paths
-mkdir "$S/qargi-flow"; echo mine > "$S/qargi-flow/notes.md"; ln -s "$T/elsewhere" "$S/qargi-team"; echo mine > "$S/other-skill"
+mkdir "$S/crown-flow"; echo mine > "$S/crown-flow/notes.md"; ln -s "$T/elsewhere" "$S/crown-team"; echo mine > "$S/other-skill"
 out=$(bash "$INSTALL" --user --uninstall 2>&1); rc=$?
-{ [ "$rc" != 0 ] && [ -f "$S/qargi-flow/notes.md" ] && [ -L "$S/qargi-team" ] && echo "$out" | grep -q "no install manifest" && echo "$out" | grep -q "nothing removed"; } && ok "without a manifest uninstall says what it cannot know and removes nothing" || no "uninstall without a manifest: rc=$rc $out"
+{ [ "$rc" != 0 ] && [ -f "$S/crown-flow/notes.md" ] && [ -L "$S/crown-team" ] && echo "$out" | grep -q "no install manifest" && echo "$out" | grep -q "nothing removed"; } && ok "without a manifest uninstall says what it cannot know and removes nothing" || no "uninstall without a manifest: rc=$rc $out"
 bash "$INSTALL" --user --uninstall --force >/dev/null 2>&1
-{ [ ! -e "$S/qargi-flow" ] && [ ! -e "$S/qargi-team" ] && [ -d "$T/elsewhere" ] && [ -f "$S/other-skill" ]; } && ok "uninstall --force without a manifest removes the fixed paths, leaves what a link pointed to and any other file" || no "uninstall --force without a manifest"
+{ [ ! -e "$S/crown-flow" ] && [ ! -e "$S/crown-team" ] && [ -d "$T/elsewhere" ] && [ -f "$S/other-skill" ]; } && ok "uninstall --force without a manifest removes the fixed paths, leaves what a link pointed to and any other file" || no "uninstall --force without a manifest"
 rm -f "$S/other-skill"
 
 # --- --project ---
 P=$T/proj; mkdir -p "$P"; git init -q "$P"
 X=$P/.git/info/exclude; mkdir -p "$P/.git/info"
-{ echo "# mine"; echo "build/"; echo "/.claude/skills/qargi-task"; } > "$X"
+{ echo "# mine"; echo "build/"; echo "/.claude/skills/crown-task"; } > "$X"
 out=$(bash "$INSTALL" --project "$P" 2>&1); rc=$?
 [ "$rc" = 0 ] && ok "install --project succeeds" || no "install --project: rc=$rc $out"
 miss=''; for s in $CURRENT; do grep -qx -F "/.claude/skills/$s" "$X" && [ -L "$P/.claude/skills/$s" ] || miss="$miss $s"; done
 [ -z "$miss" ] && ok "the skills are linked and hidden" || no "project skills:$miss"
 grep -qx "build/" "$X" && grep -qx "# mine" "$X" && ok "the owner's own exclude lines stay" || no "own lines lost: $(cat "$X")"
-n=$(grep -c -x -F "/.claude/skills/qargi-task" "$X")
+n=$(grep -c -x -F "/.claude/skills/crown-task" "$X")
 cp "$X" "$T/x1"; bash "$INSTALL" --project "$P" >/dev/null 2>&1
 { cmp -s "$X" "$T/x1" && [ "$n" = 1 ]; } && ok "project: a second run leaves the exclude file as it was" || no "project second run: $(cat "$X")"
 
@@ -88,13 +88,13 @@ miss=''; for s in $CURRENT; do
 done
 [ "$rc" = 0 ] && [ -z "$miss" ] && ok "install --user --copy copies every file of every skill, reference files included" || no "user copy: rc=$rc missing or different:$miss"
 # the copied tool is complete: every directory a modified copy needs (TOOL_DIRS) is there, and the installed command runs from it
-D=$HOME/.local/share/qargi; miss=''
+D=$HOME/.local/share/crown; miss=''
 for d in $TOOL_DIRS; do [ ! -e "$ROOT/$d" ] || [ -e "$D/$d" ] || miss="$miss $d"; done
 [ -z "$miss" ] && ok "install --user --copy copies every entry of TOOL_DIRS (missing:${miss:- none})" || no "the copy lacks:$miss"
 [ -f "$D/canon/CANON.md" ] && [ -f "$D/canon/layout.json" ] && [ -f "$D/catalog/tools.json" ] && ok "the copy has canon/ and catalog/" || no "canon/ or catalog/ is not in $D"
-out=$("$HOME/.local/bin/qargi" help 2>&1); rc=$?
-{ [ $rc = 0 ] && grep -q 'discover' <<<"$out"; } && ok "the installed command runs from the copy: qargi help" || no "installed qargi help (rc=$rc): $out"
-out=$("$HOME/.local/bin/qargi" discover search pdf 2>&1); rc=$?
+out=$("$HOME/.local/bin/crown" help 2>&1); rc=$?
+{ [ $rc = 0 ] && grep -q 'discover' <<<"$out"; } && ok "the installed command runs from the copy: crown help" || no "installed crown help (rc=$rc): $out"
+out=$("$HOME/.local/bin/crown" discover search pdf 2>&1); rc=$?
 { [ $rc = 0 ] && grep -q 'skill-pdf' <<<"$out"; } && ok "and discover finds the catalog entries of catalog/tools.json" || no "installed discover (rc=$rc): $out"
 P2=$T/proj2; mkdir -p "$P2"; git init -q "$P2"
 bash "$INSTALL" --project "$P2" --copy >/dev/null 2>&1; rc=$?
@@ -102,63 +102,63 @@ miss=''; for r in $refs; do cmp -s "$ROOT/skills/$r" "$P2/.claude/skills/$r" || 
 [ "$rc" = 0 ] && [ -z "$miss" ] && ok "install --project --copy copies the reference files too" || no "project copy: rc=$rc missing or different:$miss"
 bash "$INSTALL" --user --uninstall --force >/dev/null 2>&1; bash "$INSTALL" --project "$P2" --uninstall --force >/dev/null 2>&1
 
-# --- the install manifest: --copy then --uninstall leaves nothing of qargi's under a fresh home, and only what the install wrote is removed ---
+# --- the install manifest: --copy then --uninstall leaves nothing of crown's under a fresh home, and only what the install wrote is removed ---
 H2=$T/h2; mkdir -p "$H2"
 inst2() { HOME=$H2 XDG_CONFIG_HOME=$H2/.config bash "$INSTALL" "$@"; }
 out=$(inst2 --user --copy 2>&1); rc=$?
-M=$QARGI_CONF/install.manifest
-{ [ "$rc" = 0 ] && [ -s "$M" ] && grep -q "^C	$H2/.local/share/qargi$" "$M" && grep -q "^C	$H2/.claude/skills/qargi-task$" "$M" && grep -q "^C	$H2/.local/share/man/man1/qargi.1$" "$M"; } && ok "a copy install records what it wrote in the manifest" || no "copy install manifest (rc=$rc): $out"
-echo mine > "$H2/.local/share/qargi/keep-me.txt"; mkdir -p "$H2/.claude/skills/mine"; echo mine > "$H2/.claude/skills/mine/SKILL.md"
+M=$CROWN_CONF/install.manifest
+{ [ "$rc" = 0 ] && [ -s "$M" ] && grep -q "^C	$H2/.local/share/crown$" "$M" && grep -q "^C	$H2/.claude/skills/crown-task$" "$M" && grep -q "^C	$H2/.local/share/man/man1/crown.1$" "$M"; } && ok "a copy install records what it wrote in the manifest" || no "copy install manifest (rc=$rc): $out"
+echo mine > "$H2/.local/share/crown/keep-me.txt"; mkdir -p "$H2/.claude/skills/mine"; echo mine > "$H2/.claude/skills/mine/SKILL.md"
 echo stray > "$H2/.local/share/man/man1/other.1"
-"$H2/.local/bin/qargi" help >/dev/null 2>&1   # runs the copy, which leaves bytecode in it
+"$H2/.local/bin/crown" help >/dev/null 2>&1   # runs the copy, which leaves bytecode in it
 out=$(inst2 --user --uninstall 2>&1); rc=$?
-{ [ "$rc" = 0 ] && [ ! -e "$M" ] && [ ! -e "$H2/.local/bin/qargi" ] && [ ! -e "$H2/.local/share/man/man1/qargi.1" ] && [ ! -e "$H2/.local/share/bash-completion" ] \
-  && [ ! -e "$H2/.local/share/zsh" ] && [ ! -e "$H2/.config" ] && [ ! -e "$H2/.claude/skills/qargi-task" ] && [ ! -e "$H2/.local/share/qargi/lib" ]; } && ok "uninstall after --copy removes the skills, command, man page, completions and the copied tool" || no "uninstall after --copy (rc=$rc): $out"
-{ [ -f "$H2/.local/share/qargi/keep-me.txt" ] && [ -f "$H2/.claude/skills/mine/SKILL.md" ] && [ -f "$H2/.local/share/man/man1/other.1" ] && echo "$out" | grep -q "kept $H2/.local/share/qargi"; } && ok "files the install did not write are kept (and a directory holding one is said to be kept)" || no "uninstall removed or hid a file that was not in the manifest: $out"
+{ [ "$rc" = 0 ] && [ ! -e "$M" ] && [ ! -e "$H2/.local/bin/crown" ] && [ ! -e "$H2/.local/share/man/man1/crown.1" ] && [ ! -e "$H2/.local/share/bash-completion" ] \
+  && [ ! -e "$H2/.local/share/zsh" ] && [ ! -e "$H2/.config" ] && [ ! -e "$H2/.claude/skills/crown-task" ] && [ ! -e "$H2/.local/share/crown/lib" ]; } && ok "uninstall after --copy removes the skills, command, man page, completions and the copied tool" || no "uninstall after --copy (rc=$rc): $out"
+{ [ -f "$H2/.local/share/crown/keep-me.txt" ] && [ -f "$H2/.claude/skills/mine/SKILL.md" ] && [ -f "$H2/.local/share/man/man1/other.1" ] && echo "$out" | grep -q "kept $H2/.local/share/crown"; } && ok "files the install did not write are kept (and a directory holding one is said to be kept)" || no "uninstall removed or hid a file that was not in the manifest: $out"
 files=$(cd "$H2" && find . -type f | sort | tr '\n' ' ')
-[ "$files" = "./.claude/skills/mine/SKILL.md ./.local/share/man/man1/other.1 ./.local/share/qargi/keep-me.txt " ] && ok "nothing else of qargi's is left under the home" || no "files left under the home: $files"
+[ "$files" = "./.claude/skills/mine/SKILL.md ./.local/share/man/man1/other.1 ./.local/share/crown/keep-me.txt " ] && ok "nothing else of crown's is left under the home" || no "files left under the home: $files"
 rm -rf "$H2"; mkdir -p "$H2"
-[ -d "$QARGI_CONF/packs" ] && ok "uninstall leaves the user's data (the pack library under the config) alone" || no "uninstall removed the pack library"
+[ -d "$CROWN_CONF/packs" ] && ok "uninstall leaves the user's data (the pack library under the config) alone" || no "uninstall removed the pack library"
 
 # a second --copy install over the first needs no --force (it is the install's own), a link install over a copy leaves no copy behind
 inst2 --user --copy >/dev/null 2>&1; rc=$?
 inst2 --user --copy >/dev/null 2>&1; rc2=$?
 [ "$rc" = 0 ] && [ "$rc2" = 0 ] && ok "a copy install repeated over its own copy needs no --force" || no "repeated copy install: rc=$rc rc2=$rc2"
-echo mine > "$H2/.claude/skills/qargi-task/notes.md"
+echo mine > "$H2/.claude/skills/crown-task/notes.md"
 out=$(inst2 --user --copy 2>&1); rc=$?
-{ [ "$rc" != 0 ] && echo "$out" | grep -q "refusing to replace existing $H2/.claude/skills/qargi-task"; } && ok "a copied skill with a file of yours inside is not replaced without --force" || no "copy with a stray file: rc=$rc $out"
-rm -f "$H2/.claude/skills/qargi-task/notes.md"
+{ [ "$rc" != 0 ] && echo "$out" | grep -q "refusing to replace existing $H2/.claude/skills/crown-task"; } && ok "a copied skill with a file of yours inside is not replaced without --force" || no "copy with a stray file: rc=$rc $out"
+rm -f "$H2/.claude/skills/crown-task/notes.md"
 inst2 --user >/dev/null 2>&1
-{ [ ! -e "$H2/.local/share/qargi" ] && [ -L "$H2/.claude/skills/qargi-task" ]; } && ok "a link install over a copy install removes the copied tool" || no "link over copy left the data directory"
+{ [ ! -e "$H2/.local/share/crown" ] && [ -L "$H2/.claude/skills/crown-task" ]; } && ok "a link install over a copy install removes the copied tool" || no "link over copy left the data directory"
 inst2 --user --uninstall >/dev/null 2>&1
 [ -z "$(find "$H2" -mindepth 1 | head -1)" ] && ok "and its uninstall leaves nothing either" || no "left after the link install: $(find "$H2" -mindepth 1 | head -5)"
 
 # --- the skills directories come from the runtime's definition ---
-TL=$T/tool; copy_tool "$ROOT" "$TL"; cp "$ROOT/install.sh" "$TL/"; mkdir -p "$TL/completions" "$TL/man"; cp "$ROOT"/completions/* "$TL/completions/"; cp "$ROOT/man/qargi.1" "$TL/man/"
+TL=$T/tool; copy_tool "$ROOT" "$TL"; cp "$ROOT/install.sh" "$TL/"; mkdir -p "$TL/completions" "$TL/man"; cp "$ROOT"/completions/* "$TL/completions/"; cp "$ROOT/man/crown.1" "$TL/man/"
 sed -i 's#"user_dir": "~/.claude/skills"#"user_dir": "~/.alt/skills"#; s#"project_dir": ".claude/skills"#"project_dir": ".alt/skills"#' "$TL/lib/providers/claude-code.json"
 H3=$T/h3; P3=$T/proj3; mkdir -p "$H3" "$P3"; git init -q "$P3"
 out=$(HOME=$H3 XDG_CONFIG_HOME=$H3/.config bash "$TL/install.sh" --user 2>&1); rc=$?
-{ [ "$rc" = 0 ] && [ -L "$H3/.alt/skills/qargi-task" ] && [ ! -e "$H3/.claude" ]; } && ok "--user takes the user skills directory from the runtime's definition" || no "user layout (rc=$rc): $out"
+{ [ "$rc" = 0 ] && [ -L "$H3/.alt/skills/crown-task" ] && [ ! -e "$H3/.claude" ]; } && ok "--user takes the user skills directory from the runtime's definition" || no "user layout (rc=$rc): $out"
 out=$(HOME=$H3 bash "$TL/install.sh" --project "$P3" 2>&1); rc=$?
-{ [ "$rc" = 0 ] && [ -L "$P3/.alt/skills/qargi-task" ] && [ ! -e "$P3/.claude" ] && grep -qx "/.alt/skills/qargi-task" "$P3/.git/info/exclude"; } && ok "--project takes the project skills directory from it, and hides that one" || no "project layout (rc=$rc): $out"
+{ [ "$rc" = 0 ] && [ -L "$P3/.alt/skills/crown-task" ] && [ ! -e "$P3/.claude" ] && grep -qx "/.alt/skills/crown-task" "$P3/.git/info/exclude"; } && ok "--project takes the project skills directory from it, and hides that one" || no "project layout (rc=$rc): $out"
 HOME=$H3 bash "$TL/install.sh" --project "$P3" --uninstall >/dev/null 2>&1
 HOME=$H3 XDG_CONFIG_HOME=$H3/.config bash "$TL/install.sh" --user --uninstall >/dev/null 2>&1
 { [ ! -e "$P3/.alt" ] && [ ! -e "$H3/.alt" ] && ! grep -q "alt/skills" "$P3/.git/info/exclude"; } && ok "and the uninstalls follow it" || no "uninstall with a changed layout left: $(find "$H3" "$P3" -path "$P3/.git" -prune -o -name '*alt*' -print)"
 
-# --- the config directory (~/.qargi/config) a project install made goes with its uninstall once it is empty, and only then ---
+# --- the config directory (~/.crown/config) a project install made goes with its uninstall once it is empty, and only then ---
 H4=$T/h4; P4=$T/proj4; mkdir -p "$H4" "$P4"; git init -q "$P4"
-inst4() { env -u QARGI_CONF -u QARGI_HOME HOME="$H4" bash "$INSTALL" "$@"; }
+inst4() { env -u CROWN_CONF -u CROWN_HOME HOME="$H4" bash "$INSTALL" "$@"; }
 out=$(inst4 --project "$P4" 2>&1); rc=$?
-{ [ "$rc" = 0 ] && [ -d "$H4/.qargi/config" ] && grep -q "^c	$H4/.qargi/config$" "$H4"/.qargi/config/project-*.manifest; } && ok "a project install records the config directory it made" || no "project install config record (rc=$rc): $out"
+{ [ "$rc" = 0 ] && [ -d "$H4/.crown/config" ] && grep -q "^c	$H4/.crown/config$" "$H4"/.crown/config/project-*.manifest; } && ok "a project install records the config directory it made" || no "project install config record (rc=$rc): $out"
 inst4 --project "$P4" >/dev/null 2>&1   # a reinstall keeps the record of the directory the first one made
 out=$(inst4 --project "$P4" --uninstall 2>&1); rc=$?
-{ [ "$rc" = 0 ] && [ ! -e "$H4/.qargi" ] && [ ! -e "$P4/.claude/skills/qargi-task" ]; } && ok "its uninstall removes the empty config directory it made, and ~/.qargi with it" || no "project uninstall left (rc=$rc): $(find "$H4" -mindepth 1) $out"
-inst4 --project "$P4" >/dev/null 2>&1; echo '{}' > "$H4/.qargi/config/answers.json"
+{ [ "$rc" = 0 ] && [ ! -e "$H4/.crown" ] && [ ! -e "$P4/.claude/skills/crown-task" ]; } && ok "its uninstall removes the empty config directory it made, and ~/.crown with it" || no "project uninstall left (rc=$rc): $(find "$H4" -mindepth 1) $out"
+inst4 --project "$P4" >/dev/null 2>&1; echo '{}' > "$H4/.crown/config/answers.json"
 inst4 --project "$P4" --uninstall >/dev/null 2>&1
-{ [ -f "$H4/.qargi/config/answers.json" ] && [ -z "$(find "$H4/.qargi/config" -name 'project-*.manifest')" ]; } && ok "a config directory that holds anything else is kept" || no "config with a file of yours: $(find "$H4" -mindepth 1)"
-rm -rf "$H4/.qargi"; mkdir -p "$H4/.qargi/config"
+{ [ -f "$H4/.crown/config/answers.json" ] && [ -z "$(find "$H4/.crown/config" -name 'project-*.manifest')" ]; } && ok "a config directory that holds anything else is kept" || no "config with a file of yours: $(find "$H4" -mindepth 1)"
+rm -rf "$H4/.crown"; mkdir -p "$H4/.crown/config"
 inst4 --project "$P4" >/dev/null 2>&1; inst4 --project "$P4" --uninstall >/dev/null 2>&1
-[ -d "$H4/.qargi/config" ] && ok "an empty config directory the install did not make is kept" || no "uninstall removed a config directory it did not make"
+[ -d "$H4/.crown/config" ] && ok "an empty config directory the install did not make is kept" || no "uninstall removed a config directory it did not make"
 out=$(HOME=$H3 bash "$INSTALL" --user --runtime claude-platform 2>&1); rc=$?
 { [ "$rc" != 0 ] && echo "$out" | grep -q "no user skills directory" && echo "$out" | grep -q "cannot take user_skills_dir"; } && ok "a runtime with no skills directory is refused, with the reason" || no "runtime without a skills directory: rc=$rc $out"
 out=$(HOME=$H3 bash "$INSTALL" --user --runtime nosuch 2>&1); rc=$?

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""qargi doctor [PROJECT] [--project PROJECT] [--json] [--strict]: a read-only check of the host that qargi runs on. One line per check,
+"""crown doctor [PROJECT] [--project PROJECT] [--json] [--strict]: a read-only check of the host that crown runs on. One line per check,
 `ok|warn|unknown  name: detail`; a warning is followed by indented lines that say what you can do, and nothing is ever run for you.
 The command does not fail on a finding: exit 0, or 1 with --strict when any check warns (2 for a usage error or a project that is not stored).
 
-  remove-ipc     logind RemoveIPC (busctl, QARGI_BUSCTL) and the user's linger (loginctl, QARGI_LOGINCTL): with RemoveIPC on and no
+  remove-ipc     logind RemoveIPC (busctl, CROWN_BUSCTL) and the user's linger (loginctl, CROWN_LOGINCTL): with RemoveIPC on and no
                  linger, logind removes the user's IPC objects, among them what lives in /dev/shm, when the last session ends.
-  guard          the hook command a member runs, `qargi __guard`, is found on PATH and answers like the guard (a harmless call is
+  guard          the hook command a member runs, `crown __guard`, is found on PATH and answers like the guard (a harmless call is
                  allowed, `git push` is refused); with a project, the members whose rendered file is missing, stale or edited.
-  shm            free space under the run temporary parent (/dev/shm, or QARGI_RUN_TMP) and the orphaned qargi-run.* directories
-                 there (lib/orphans.sh, the listing `qargi local clean --orphans` prints).
+  shm            free space under the run temporary parent (/dev/shm, or CROWN_RUN_TMP) and the orphaned crown-run.* directories
+                 there (lib/orphans.sh, the listing `crown local clean --orphans` prints).
   window-source  where the context-window table of the project's runtime comes from (its definition, or the answer
                  lead.context_window) and whether each model id the project's roles name is in it.
 
@@ -20,10 +20,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import paths as PA  # noqa: E402
 
-LOW_FREE_PCT = 10          # a /dev/shm with less free than this warns (QARGI_DOCTOR_MIN_FREE, in percent, moves it)
-ORPHAN_DAYS = 2            # the default of `qargi local clean --orphans`
+LOW_FREE_PCT = 10          # a /dev/shm with less free than this warns (CROWN_DOCTOR_MIN_FREE, in percent, moves it)
+ORPHAN_DAYS = 2            # the default of `crown local clean --orphans`
 PROBE_SECS = 20            # a tool that does not answer in this time is unknown
-USAGE = "usage: qargi doctor [PROJECT | --project PROJECT] [--json] [--strict]"
+USAGE = "usage: crown doctor [PROJECT | --project PROJECT] [--json] [--strict]"
 
 
 def clean(v, n=300):
@@ -70,11 +70,11 @@ def user_name():
 
 def check_remove_ipc():
     name = "remove-ipc"
-    busctl = os.environ.get("QARGI_BUSCTL") or "busctl"
-    loginctl = os.environ.get("QARGI_LOGINCTL") or "loginctl"
+    busctl = os.environ.get("CROWN_BUSCTL") or "busctl"
+    loginctl = os.environ.get("CROWN_LOGINCTL") or "loginctl"
     rc, out, err = run([busctl, "get-property", "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RemoveIPC"])
     if rc is None:
-        return check(name, "unknown", "cannot ask logind: %s (no systemd, or QARGI_BUSCTL names a program that is not there)" % clean(err))
+        return check(name, "unknown", "cannot ask logind: %s (no systemd, or CROWN_BUSCTL names a program that is not there)" % clean(err))
     if rc != 0:
         return check(name, "unknown", "logind did not answer: %s" % (first_line(err) or "busctl exit status %d" % rc))
     words = out.split()
@@ -113,21 +113,21 @@ PROBES = (("a harmless call", "true", 0), ("git push", "git push origin HEAD", 2
 
 
 def members_recorded():
-    """True when this host has a members file (qargi agent add makes it): without one no member is recorded."""
+    """True when this host has a members file (crown agent add makes it): without one no member is recorded."""
     return os.path.isfile(os.path.join(PA.conf(), "agents.json"))
 
 
 def member_states(project):
-    """[(member, state)] of the project's members whose file is missing, stale or edited (qargi agent list: the one place that knows), or None when that cannot be read
-    (qargi agent list fails). A host with no members file has no member to be stale: [] (agent list is not run, since it would make the file)."""
+    """[(member, state)] of the project's members whose file is missing, stale or edited (crown agent list: the one place that knows), or None when that cannot be read
+    (crown agent list fails). A host with no members file has no member to be stale: [] (agent list is not run, since it would make the file)."""
     if not members_recorded():
         return []      # no member was ever added on this host; agent list would make the file, and doctor makes nothing
-    rc, out, _ = run([os.path.join(os.path.dirname(HERE), "bin", "qargi"), "agent", "list", "--project", project], env={"DA_NOSETUP": "1"})
+    rc, out, _ = run([os.path.join(os.path.dirname(HERE), "bin", "crown"), "agent", "list", "--project", project], env={"DA_NOSETUP": "1"})
     if rc != 0:
         return None
     found = []
     for line in out.splitlines():
-        m = re.search(r"\(((?:MISSING|STALE|DRIFT)(?:, (?:MISSING|STALE|DRIFT))*): qargi agent refresh ", line)
+        m = re.search(r"\(((?:MISSING|STALE|DRIFT)(?:, (?:MISSING|STALE|DRIFT))*): crown agent refresh ", line)
         words = line.split()
         if m and len(words) > 1:
             found.append((clean(words[1], 80), m.group(1).replace(", ", "+")))
@@ -136,33 +136,33 @@ def member_states(project):
 
 def check_guard(project):
     name = "guard"
-    qargi = shutil.which("qargi")
-    if not qargi:
-        return check(name, "warn", "qargi is not on PATH, so the hook command of a member, qargi __guard, cannot run and a member is not held back",
-                     ["fix: install the tool (install.sh --user) or put the bin directory of a checkout first on PATH; the hook calls qargi from PATH"])
+    crown = shutil.which("crown")
+    if not crown:
+        return check(name, "warn", "crown is not on PATH, so the hook command of a member, crown __guard, cannot run and a member is not held back",
+                     ["fix: install the tool (install.sh --user) or put the bin directory of a checkout first on PATH; the hook calls crown from PATH"])
     seen = []
     for what, command, want in PROBES:
         call = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": "/"})
-        rc, _, err = run([qargi, "__guard"], stdin=call)
+        rc, _, err = run([crown, "__guard"], stdin=call)
         if rc is None:
-            return check(name, "warn", "%s does not answer as a guard: %s" % (qargi, clean(err)),
+            return check(name, "warn", "%s does not answer as a guard: %s" % (crown, clean(err)),
                          ["fix: reinstall the tool (install.sh --user); a hook that does not answer leaves the member unguarded or blocked"])
         if rc != want:
             seen.append("%s: exit status %d, wanted %d" % (what, rc, want))
     if seen:
-        return check(name, "warn", "%s __guard does not behave as the guard (%s)" % (qargi, "; ".join(seen)),
+        return check(name, "warn", "%s __guard does not behave as the guard (%s)" % (crown, "; ".join(seen)),
                      ["fix: reinstall the tool (install.sh --user), or put the bin directory of the checkout you mean first on PATH"])
-    detail = "%s __guard allows a harmless call and refuses git push" % qargi
+    detail = "%s __guard allows a harmless call and refuses git push" % crown
     if not project:
         return check(name, "ok", detail + " (no project, so the members were not checked)")
     if not members_recorded():
         return check(name, "ok", detail + "; no member is recorded on this host, so there is none to be stale")
     states = member_states(project)
     if states is None:
-        return check(name, "unknown", detail + "; the members of project %s could not be read (qargi agent list)" % project)
+        return check(name, "unknown", detail + "; the members of project %s could not be read (crown agent list)" % project)
     if states:
         return check(name, "warn", detail + ", but the members of project %s are not current: %s" % (project, ", ".join("%s %s" % s for s in states)),
-                     ["fix: qargi agent refresh %s --project %s" % (m, project) for m, _ in states])
+                     ["fix: crown agent refresh %s --project %s" % (m, project) for m, _ in states])
     return check(name, "ok", detail + "; the members of project %s are current" % project)
 
 
@@ -170,7 +170,7 @@ def check_guard(project):
 
 def check_shm():
     name = "shm"
-    root = os.environ.get("QARGI_RUN_TMP") or "/dev/shm"
+    root = os.environ.get("CROWN_RUN_TMP") or "/dev/shm"
     while len(root) > 1 and root.endswith("/"):
         root = root[:-1]
     if os.path.islink(root) or not os.path.isdir(root):
@@ -184,7 +184,7 @@ def check_shm():
         return check(name, "unknown", "%s reports no size" % root)
     pct = free * 100.0 / total
     try:
-        low = float(os.environ.get("QARGI_DOCTOR_MIN_FREE", LOW_FREE_PCT))
+        low = float(os.environ.get("CROWN_DOCTOR_MIN_FREE", LOW_FREE_PCT))
     except ValueError:
         low = LOW_FREE_PCT
     mib = lambda n: "%d MiB" % (n // (1024 * 1024))  # noqa: E731
@@ -198,11 +198,11 @@ def check_shm():
                     orphans = int(w[3])
     space = "%s free of %s (%.0f%%) under %s" % (mib(free), mib(total), pct, root)
     if orphans is None:
-        return check(name, "unknown", space + "; the qargi-run.* directories could not be listed (%s)" % (first_line(err) or "orphans.sh exit status %s" % rc))
-    detail = "%s; %d orphaned qargi-run.* director%s (older than %d days, named by no registry)" % (space, orphans, "y" if orphans == 1 else "ies", ORPHAN_DAYS)
+        return check(name, "unknown", space + "; the crown-run.* directories could not be listed (%s)" % (first_line(err) or "orphans.sh exit status %s" % rc))
+    detail = "%s; %d orphaned crown-run.* director%s (older than %d days, named by no registry)" % (space, orphans, "y" if orphans == 1 else "ies", ORPHAN_DAYS)
     fix = []
     if orphans:
-        fix.append("fix: qargi local clean --orphans lists them and prints a plan; it removes nothing without your --approved")
+        fix.append("fix: crown local clean --orphans lists them and prints a plan; it removes nothing without your --approved")
     if pct < low:
         fix.append("fix: less than %g%% is free; see what takes the space: du -sh %s/* | sort -h" % (low, root))
     return check(name, "warn" if fix else "ok", detail, fix)
@@ -282,7 +282,7 @@ def main(argv):
         a = argv.pop(0)
         if a == "--project":
             if not argv:
-                print("qargi doctor: --project needs a value\n%s" % USAGE, file=sys.stderr)
+                print("crown doctor: --project needs a value\n%s" % USAGE, file=sys.stderr)
                 return 2
             names.append(argv.pop(0))
         elif a == "--json":
@@ -290,7 +290,7 @@ def main(argv):
         elif a == "--strict":
             strict = True
         elif a.startswith("-"):
-            print("qargi doctor: unknown option %s\n%s" % (a, USAGE), file=sys.stderr)
+            print("crown doctor: unknown option %s\n%s" % (a, USAGE), file=sys.stderr)
             return 2
         else:
             names.append(a)
@@ -299,7 +299,7 @@ def main(argv):
         return 2
     project = project_of(names[0] if names else None)
     if project is False:
-        print("qargi doctor: no stored project '%s'" % names[0], file=sys.stderr)
+        print("crown doctor: no stored project '%s'" % names[0], file=sys.stderr)
         return 2
     checks = [check_remove_ipc(), check_guard(project), check_shm(), check_window_source(project)]
     warns = sum(1 for c in checks if c["status"] == "warn")

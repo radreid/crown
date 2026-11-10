@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2154  # REPO and PROJ come from gitflow.sh (project_load)
-# The lead's ref journal ($QARGI_STATE/ref-journal.jsonl), written by hand where no flow verb did the move.
+# The lead's ref journal ($CROWN_STATE/ref-journal.jsonl), written by hand where no flow verb did the move.
 #
 #   ref.sh record --rewrite REF OLD NEW --why TEXT [--project P]
 #       The lead rewrote an agent branch (reworded a message, split or squashed commits, dropped a trailer) without changing what
 #       it holds: REF (agent/NAME or refs/heads/agent/NAME) moves from OLD to NEW only when the trees of OLD and NEW are identical
 #       (git rev-parse OLD^{tree}) and REF is at OLD now (the move is a compare-and-swap: update-ref REF NEW OLD). The move is
-#       journaled with the reason (verb ref:rewrite, why TEXT), so `qargi local verify` and `local clean` of a run prepared before
+#       journaled with the reason (verb ref:rewrite, why TEXT), so `crown local verify` and `local clean` of a run prepared before
 #       it accept it and name it as a rewrite, and `local clean`, `local list`, `lead compact-check` and `feature finish` follow a recorded run's applied tip to NEW (lib/merged.py).
 #       Nothing else changes: no working tree (the trees are the same), no other ref, nothing on origin. The lead's verb: the guard
 #       refuses it to a member.
@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
     *) ARGS+=("$1"); shift;;
   esac
 done
-USAGE="usage: qargi ref record --rewrite REF OLD NEW --why \"TEXT\" [--project P] | qargi ref note REF[@SHA]... [--why \"TEXT\"] [--project P]"
+USAGE="usage: crown ref record --rewrite REF OLD NEW --why \"TEXT\" [--project P] | crown ref note REF[@SHA]... [--why \"TEXT\"] [--project P]"
 case $verb in record|note) ;; *) usage_die "$USAGE";; esac
 if [ "$verb" = note ]; then
   [ "${#ARGS[@]}" -ge 1 ] || usage_die "ref note takes one or more REF (a branch NAME, or origin/NAME for a branch of origin); $USAGE"
@@ -53,20 +53,20 @@ if [ "$verb" = note ]; then
       origin/?*) side=remote br=${a#origin/};;
       refs/heads/?*) br=${a#refs/heads/};;
     esac
-    if ! git check-ref-format "refs/heads/$br"; then echo "qargi: '$a' is not a branch name; nothing was noted for it" >&2; bad=1; continue; fi
+    if ! git check-ref-format "refs/heads/$br"; then echo "crown: '$a' is not a branch name; nothing was noted for it" >&2; bad=1; continue; fi
     if [ "$side" = local ]; then
-      cur=$(sha_of "$br"); [ -n "$cur" ] || { echo "qargi: no branch $br in $REPO; nothing was noted for it" >&2; bad=1; continue; }
+      cur=$(sha_of "$br"); [ -n "$cur" ] || { echo "crown: no branch $br in $REPO; nothing was noted for it" >&2; bad=1; continue; }
     else
-      [ -n "$uk" ] || { echo "qargi: $REPO has no origin; nothing was noted for $a" >&2; bad=1; continue; }
+      [ -n "$uk" ] || { echo "crown: $REPO has no origin; nothing was noted for $a" >&2; bad=1; continue; }
       remote_tip "$br"
       case $RSTATE in
         found) cur=$RTIP;;
-        absent) echo "qargi: origin has no branch $br (asked live); nothing was noted for it" >&2; bad=1; continue;;
-        *) echo "qargi: origin could not be asked about $br (${RWHY:-no answer}); nothing was noted for it" >&2; bad=1; continue;;
+        absent) echo "crown: origin has no branch $br (asked live); nothing was noted for it" >&2; bad=1; continue;;
+        *) echo "crown: origin could not be asked about $br (${RWHY:-no answer}); nothing was noted for it" >&2; bad=1; continue;;
       esac
     fi
     if [ -n "$pin" ] && [[ $cur != "$pin"* ]]; then
-      echo "qargi: $a is at ${cur:0:12}, not at $pin: it moved since you looked; nothing was noted for it" >&2; bad=1; continue
+      echo "crown: $a is at ${cur:0:12}, not at $pin: it moved since you looked; nothing was noted for it" >&2; bad=1; continue
     fi
     # from absent, or from where the lead's last note of this ref left it
     old=''
@@ -78,11 +78,11 @@ if [ "$verb" = note ]; then
     if [ -n "$old" ]; then   # a second note continues the line only along a fast-forward: a rewrite between the notes is not the lead's to accept unseen
       g merge-base --is-ancestor "$old" "$cur" 2>/dev/null; arc=$?
       if [ "$arc" = 1 ]; then
-        echo "qargi: $a is not a fast-forward of your last note (${old:0:12} is not an ancestor of ${cur:0:12}): it was rewritten since. Nothing was noted for it; inspect it first (git log $old..$cur, git diff $old $cur)." >&2
-        echo "qargi: a rewrite of an agent branch that keeps its tree is recorded with: qargi ref record --rewrite REF $old $cur --why \"TEXT\"" >&2
+        echo "crown: $a is not a fast-forward of your last note (${old:0:12} is not an ancestor of ${cur:0:12}): it was rewritten since. Nothing was noted for it; inspect it first (git log $old..$cur, git diff $old $cur)." >&2
+        echo "crown: a rewrite of an agent branch that keeps its tree is recorded with: crown ref record --rewrite REF $old $cur --why \"TEXT\"" >&2
         bad=1; continue
       elif [ "$arc" != 0 ]; then
-        echo "qargi: $a: cannot tell whether your last note (${old:0:12}) is an ancestor of ${cur:0:12} (a commit is not in $REPO; fetch it); nothing was noted for it" >&2; bad=1; continue
+        echo "crown: $a: cannot tell whether your last note (${old:0:12}) is an ancestor of ${cur:0:12} (a commit is not in $REPO; fetch it); nothing was noted for it" >&2; bad=1; continue
       fi
     fi
     if [ "$side" = local ]; then journal_line "$REPO" "refs/heads/$br" "$old" "$cur" ref:note '' "$WHY"
@@ -110,7 +110,7 @@ cur=$(sha_of "$ref"); [ -n "$cur" ] || die "no branch $ref in $REPO"
 [ "$cur" = "$old" ] || die "$ref is at ${cur:0:12}, not at OLD (${old:0:12}): nothing was moved"
 [ "$(g rev-parse "$old^{tree}")" = "$(g rev-parse "$new^{tree}")" ] \
   || die "the trees of OLD (${old:0:12}) and NEW (${new:0:12}) differ: a rewrite recorded here changes no content (git diff $old $new); nothing was moved"
-g update-ref -m "qargi ref record --rewrite: $WHY" "refs/heads/$ref" "$new" "$old" || die "could not move $ref (it changed meanwhile): nothing was moved"
+g update-ref -m "crown ref record --rewrite: $WHY" "refs/heads/$ref" "$new" "$old" || die "could not move $ref (it changed meanwhile): nothing was moved"
 journal_line "$REPO" "refs/heads/$ref" "$old" "$new" ref:rewrite '' "$WHY"
 audit_log "ref:rewrite" "$PROJ $ref ${old:0:12} ${new:0:12}"
 echo "moved $ref from ${old:0:12} to ${new:0:12} (the same tree) and journaled it as a rewrite: $WHY"

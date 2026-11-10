@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # The lease of a feature outlives a long worker run: any verb of the lead on the feature renews it (marshal_check, marshal_touch,
-# marshal_touch_run), a stranger renews nothing, and release after feature finish is quiet. Time is injected with QARGI_MARSHAL_NOW
+# marshal_touch_run), a stranger renews nothing, and release after feature finish is quiet. Time is injected with CROWN_MARSHAL_NOW
 # (epoch seconds; the default ttl is 15 minutes), so no step waits.
 # Run: tests/test_marshal_lease.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T/shm GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
-S=$QARGI_STATE
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T/shm GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app
+S=$CROWN_STATE
 mkdir -p "$HOME" "$T/c/projects" "$T/shm" "$T/scratch"
 cd "$T" || exit 1   # a lead's directory: below a run directory (this test may itself run in a member's clone) the marshal is read only
 R=$T/app; git init -q -b master "$R"
@@ -23,12 +23,12 @@ F="$DA feature"
 rec() { echo "$S/features/app-$1.json"; }
 j() { jq -r "$2" "$(rec "$1")"; }
 out() { cat "$T/o" "$T/e"; }
-at() { local now=$1; shift; QARGI_MARSHAL_NOW=$now "$@" >"$T/o" 2>"$T/e"; }   # at NOW CMD...: the clock injected, output in $T/o and $T/e
+at() { local now=$1; shift; CROWN_MARSHAL_NOW=$now "$@" >"$T/o" 2>"$T/e"; }   # at NOW CMD...: the clock injected, output in $T/o and $T/e
 iso() { date -u -d "@$1" +%Y-%m-%dT%H:%M:%SZ; }
 commit_on() { local w; w=$(mktemp -d "$T/w.XXXXXX"); git -C "$R" worktree add -q "$w" "$1"; echo "$1" > "$w/$2"; git -C "$w" add -A; git -C "$w" commit -q -m "$1 $2"; git -C "$R" worktree remove --force "$w"; }
-mkfeat() { git -C "$R" branch "feature/$1" develop; commit_on "feature/$1" "$1.txt"; QARGI_MARSHAL_NOW=$t0 "$DA" marshal claim "$1" --as alice >/dev/null 2>&1; }
+mkfeat() { git -C "$R" branch "feature/$1" develop; commit_on "feature/$1" "$1.txt"; CROWN_MARSHAL_NOW=$t0 "$DA" marshal claim "$1" --as alice >/dev/null 2>&1; }
 t0=1000000; LATE=$((t0 + 1500))   # 25 minutes: the 15 minute lease has lapsed
-export QARGI_LEAD=alice
+export CROWN_LEAD=alice
 
 # --- every verb of the lead that asks the marshal renews a lapsed lease of its own
 mkfeat l1
@@ -37,14 +37,14 @@ at $((t0 + 60)) $F status l1
 [ "$(j l1 .renewed_at)" = "$(iso $t0)" ] && [ "$(j l1 .rev)" = 1 ] && ok "status: within a third of the lease nothing is written" || no "SPEC throttle: $(cat "$(rec l1)")"
 at $LATE $F status l1; rc=$?
 [ $rc = 0 ] && [ "$(j l1 .renewed_at)" = "$(iso $LATE)" ] && ok "feature status by the lead renews a lapsed lease" || no "SPEC status renews: rc=$rc $(out) $(cat "$(rec l1)")"
-QARGI_LEAD=bob at $((LATE + 600)) "$DA" marshal check l1; rc=$?
+CROWN_LEAD=bob at $((LATE + 600)) "$DA" marshal check l1; rc=$?
 [ $rc = 1 ] && grep -q "is led by alice" "$T/e" && ok "after the renewal another identity is refused (the lead is live)" || no "SPEC refusal after renewal: rc=$rc $(out)"
 
-# a member that left its run directory is told by the environment mark (QARGI_MEMBER_RUN): the lead's identity renews nothing for it
+# a member that left its run directory is told by the environment mark (CROWN_MEMBER_RUN): the lead's identity renews nothing for it
 mkfeat lm
-QARGI_MEMBER_RUN=$T/some-run at $LATE $F status lm; rc=$?
+CROWN_MEMBER_RUN=$T/some-run at $LATE $F status lm; rc=$?
 [ $rc = 0 ] && [ "$(j lm .renewed_at)" = "$(iso $t0)" ] && ok "feature status with the member mark renews nothing, whatever the working directory" || no "SPEC member mark: rc=$rc $(out) $(j lm .renewed_at)"
-QARGI_MEMBER_RUN=$T/some-run at $LATE "$DA" marshal check lm --renew; rc=$?
+CROWN_MEMBER_RUN=$T/some-run at $LATE "$DA" marshal check lm --renew; rc=$?
 [ "$(j lm .renewed_at)" = "$(iso $t0)" ] && ok "marshal check --renew with the member mark renews nothing" || no "SPEC member mark check: rc=$rc $(out) $(j lm .renewed_at)"
 at $LATE $F status lm; rc=$?
 [ $rc = 0 ] && [ "$(j lm .renewed_at)" = "$(iso $LATE)" ] && ok "the same command without the mark renews (the mark is what made the difference)" || no "SPEC member mark absent: rc=$rc $(out) $(j lm .renewed_at)"
@@ -61,14 +61,14 @@ done
 
 # a stranger renews nothing and is only warned
 mkfeat l2
-QARGI_LEAD=bob at $LATE "$DA" marshal check l2; rc=$?
+CROWN_LEAD=bob at $LATE "$DA" marshal check l2; rc=$?
 [ $rc = 0 ] && [ "$(j l2 .renewed_at)" = "$(iso $t0)" ] && [ "$(j l2 .lead.id)" = alice ] && grep -qi "stale" "$T/e" && ok "a stranger's check renews nothing and still says the lead is stale" || no "SPEC stranger: rc=$rc $(out) $(cat "$(rec l2)")"
 at $LATE "$DA" marshal check l2; rc=$?
 [ $rc = 0 ] && [ "$(j l2 .renewed_at)" = "$(iso $t0)" ] && ok "marshal check itself stays a read: it renews nothing" || no "SPEC check is a read: $(cat "$(rec l2)")"
 
 # --- the runs: local verify, clean, review check and apply keep the lease of the feature the run is based on
 mkfeat r1
-prep() { QARGI_MARSHAL_NOW=$1 "$DA" local prepare --repo "$R" --base feature/r1 --slug "$2" --scratch "$T/scratch" >"$T/o" 2>"$T/e"; }
+prep() { CROWN_MARSHAL_NOW=$1 "$DA" local prepare --repo "$R" --base feature/r1 --slug "$2" --scratch "$T/scratch" >"$T/o" 2>"$T/e"; }
 prep $((t0 + 10)) rt1; rc=$?
 RUN=$(sed -n 's/^RUN=//p' "$T/o")
 [ $rc = 0 ] && [ -d "$RUN" ] && ok "prepare: a run based on the feature" || no "prepare: rc=$rc $(out)"
@@ -81,7 +81,7 @@ at $((t0 + 2500)) "$DA" local verify "$RUN"; rc=$?
 [ "$(j r1 .renewed_at)" = "$(iso $((t0 + 2500)))" ] && ok "local verify renews the lease (rc=$rc)" || no "SPEC local verify renews: rc=$rc $(out) $(j r1 .renewed_at)"
 at $((t0 + 4000)) "$DA" review apply "$RUN"; rc=$?
 [ "$(j r1 .renewed_at)" = "$(iso $((t0 + 4000)))" ] && ok "review apply renews the lease (rc=$rc: this run has no patches)" || no "SPEC review apply renews: rc=$rc $(out) $(j r1 .renewed_at)"
-QARGI_LEAD=bob at $((t0 + 6000)) "$DA" local verify "$RUN"
+CROWN_LEAD=bob at $((t0 + 6000)) "$DA" local verify "$RUN"
 [ "$(j r1 .renewed_at)" = "$(iso $((t0 + 4000)))" ] && ok "another identity's local verify renews nothing" || no "SPEC stranger verify: $(j r1 .renewed_at)"
 at $((t0 + 7000)) "$DA" local clean "$RUN" --discard; rc=$?
 [ $rc = 0 ] && [ "$(j r1 .renewed_at)" = "$(iso $((t0 + 7000)))" ] && ok "local clean renews the lease" || no "SPEC local clean renews: rc=$rc $(out) $(j r1 .renewed_at)"
@@ -100,7 +100,7 @@ at $((LATE + 3)) "$DA" marshal release f1; rc=$?
 at $((LATE + 4)) "$DA" marshal release never-existed --note n; rc=$?
 [ $rc = 1 ] && grep -q "no feature never-existed" "$T/e" && ! grep -q "nothing to release" "$T/o" && ok "release of a name with no record and no branch (a typo) fails: no feature NAME" || no "SPEC release unknown: rc=$rc $(out)"
 mkfeat h1
-QARGI_LEAD=bob at $((t0 + 100)) "$DA" marshal release h1 --note n; rc=$?
+CROWN_LEAD=bob at $((t0 + 100)) "$DA" marshal release h1 --note n; rc=$?
 [ $rc = 1 ] && [ "$(j h1 .lead.id)" = alice ] && ok "release of a feature another live lead holds is still refused" || no "SPEC release by non-lead: rc=$rc $(out)"
 at $((t0 + 100)) "$DA" marshal release h1 --note "left off"; rc=$?
 [ $rc = 0 ] && [ "$(j h1 .status)" = released ] && grep -q "^released h1" "$T/o" && ok "release by the lead: released as before" || no "release by the lead: rc=$rc $(out)"

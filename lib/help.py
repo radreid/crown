@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""qargi help, the manual page and the completion candidates, all from lib/commands.py.
+"""crown help, the manual page and the completion candidates, all from lib/commands.py.
 
-  help.py show [ARGS...]      qargi help, qargi help COMMAND [VERB], qargi help TOPIC, qargi COMMAND --help
-  help.py man [--keep-date F] the manual page (roff) on stdout; its .TH date is the one in F (default man/qargi.1, else the
-                              copy committed at HEAD, as `> man/qargi.1` empties the file before this runs), empty when none
-  help.py complete WORDS...   completion candidates for the last word (qargi __complete, used by the bash completion)
-  help.py preamble AREA ARGS  what bin/qargi does before every command, in one process: the dev-run banner on stderr, the
+  help.py show [ARGS...]      crown help, crown help COMMAND [VERB], crown help TOPIC, crown COMMAND --help
+  help.py man [--keep-date F] the manual page (roff) on stdout; its .TH date is the one in F (default man/crown.1, else the
+                              copy committed at HEAD, as `> man/crown.1` empties the file before this runs), empty when none
+  help.py complete WORDS...   completion candidates for the last word (crown __complete, used by the bash completion)
+  help.py preamble AREA ARGS  what bin/crown does before every command, in one process: the dev-run banner on stderr, the
                               arguments resolved (below) and the project's cloud binding; see preamble()
 
-The modules a plain run does not need (text wrapping, subprocess, glob) are imported where they are used: every qargi
+The modules a plain run does not need (text wrapping, subprocess, glob) are imported where they are used: every crown
 command runs the preamble, and its cost is the import of this module.
 """
 import json, os, sys
@@ -93,9 +93,9 @@ def usage_lines(cmd):
     spec = C.COMMANDS[cmd]
     vs = verbs_of(cmd)
     if vs:
-        return ["qargi %s %s%s" % (cmd, v, (" " + argstr(vs[v]["args"])) if vs[v]["args"] else "") + (" [OPTIONS]" if vs[v]["opts"] else "") for v in vs]
+        return ["crown %s %s%s" % (cmd, v, (" " + argstr(vs[v]["args"])) if vs[v]["args"] else "") + (" [OPTIONS]" if vs[v]["opts"] else "") for v in vs]
     args = spec.get("usage", [])
-    return ["qargi %s%s%s" % (cmd, (" " + argstr(args)) if args else "", " [OPTIONS]" if spec.get("opts") else "")]
+    return ["crown %s%s%s" % (cmd, (" " + argstr(args)) if args else "", " [OPTIONS]" if spec.get("opts") else "")]
 
 
 def opts_block(opts, indent):
@@ -108,14 +108,14 @@ def opts_block(opts, indent):
 
 
 def show_overview():
-    out = [b("qargi") + " - " + C.TAGLINE, "", wrap(C.INTRO), "", "Usage: qargi COMMAND [VERB] [ARGUMENTS]     qargi help COMMAND", ""]
+    out = [b("crown") + " - " + C.TAGLINE, "", wrap(C.INTRO), "", "Usage: crown COMMAND [VERB] [ARGUMENTS]     crown help COMMAND", ""]
     w = max(len(c) for _, cs in C.GROUPS for c in cs) + 2
     for title, cmds in C.GROUPS:
         out.append(b(title))
         for c in cmds:
             out.append(fill(C.COMMANDS[c]["summary"], width(), "  " + c.ljust(w), "  " + " " * w))
         out.append("")
-    out.append(b("Topics") + "  (qargi help TOPIC)")
+    out.append(b("Topics") + "  (crown help TOPIC)")
     tw = max(len(t) for t in C.TOPICS) + 2
     for t, (title, _) in C.TOPICS.items():
         out.append("  " + t.ljust(tw) + title)
@@ -124,8 +124,8 @@ def show_overview():
         out.append("  " + title)
         out += ["    " + l for l in lines]
     out += ["", b("Global options") + "  (every verb)"] + opts_block(C.GLOBAL_OPTS, 2)
-    out += ["", "A cloud verb needs --asked \"<your request>\"; a change to shared resources prints a plan and needs --plan and --approved (qargi help approvals).",
-            "Manual page: qargi help --man | man -l -        Completion: see docs/reference/README.md."]
+    out += ["", "A cloud verb needs --asked \"<your request>\"; a change to shared resources prints a plan and needs --plan and --approved (crown help approvals).",
+            "Manual page: crown help --man | man -l -        Completion: see docs/reference/README.md."]
     return "\n".join(out)
 
 
@@ -142,7 +142,7 @@ def global_opts_block(own):
 def show_command(cmd, verb=None):
     spec = C.COMMANDS[cmd]
     vs = verbs_of(cmd)
-    out = [b("qargi %s" % cmd) + " - " + spec["summary"], ""]
+    out = [b("crown %s" % cmd) + " - " + spec["summary"], ""]
     if verb:
         if not vs or verb not in vs:
             return None
@@ -151,7 +151,7 @@ def show_command(cmd, verb=None):
         if v["desc"]:
             out += ["", wrap(v["desc"])]
         if has_project_arg(v["args"]):
-            out += ["", wrap("PROJECT can be left out inside the project's repository, or set QARGI_PROJECT.")]
+            out += ["", wrap("PROJECT can be left out inside the project's repository, or set CROWN_PROJECT.")]
         if v["opts"]:
             out += ["", "Options:"] + opts_block(v["opts"], 2)
         out += global_opts_block(v["opts"])
@@ -167,7 +167,7 @@ def show_command(cmd, verb=None):
         for v, vd in vs.items():
             left = ("  " + v).ljust(w + 2)
             out.append(fill(vd["summary"], width(), left, " " * (w + 2)))
-        out += ["", "qargi help %s VERB  shows a verb's arguments and options." % cmd]
+        out += ["", "crown help %s VERB  shows a verb's arguments and options." % cmd]
         allopts = []
         for vd in vs.values():
             for o in vd["opts"]:
@@ -205,11 +205,11 @@ def show(args):
     if name in C.COMMANDS:
         txt = show_command(name, args[1] if len(args) > 1 else None)
         if txt is None:
-            print("qargi %s has no verb '%s'. Verbs: %s" % (name, args[1], ", ".join(verbs_of(name) or [])), file=sys.stderr)
+            print("crown %s has no verb '%s'. Verbs: %s" % (name, args[1], ", ".join(verbs_of(name) or [])), file=sys.stderr)
             return 2
         print(txt)
         return 0
-    print("qargi: no command or topic '%s'.\nCommands: %s\nTopics: %s" % (name, ", ".join(sorted(C.COMMANDS)), ", ".join(C.TOPICS)), file=sys.stderr)
+    print("crown: no command or topic '%s'.\nCommands: %s\nTopics: %s" % (name, ", ".join(sorted(C.COMMANDS)), ", ".join(C.TOPICS)), file=sys.stderr)
     return 2
 
 
@@ -230,13 +230,13 @@ def th_date(text):
 
 
 def kept_date(path=None):
-    """The date `qargi release start` set in the manual page, so that regenerating the page does not undo it. From PATH, else
-    man/qargi.1 of the repository; the shell redirection in `help.py man > man/qargi.1` has emptied that file by the time it is
+    """The date `crown release start` set in the manual page, so that regenerating the page does not undo it. From PATH, else
+    man/crown.1 of the repository; the shell redirection in `help.py man > man/crown.1` has emptied that file by the time it is
     read, so a file with no .TH line is read again from HEAD. Empty when there is no page."""
     import subprocess
-    sources = [lambda: open(path or os.path.join(ROOT, "man", "qargi.1"), encoding="utf-8").read()]
+    sources = [lambda: open(path or os.path.join(ROOT, "man", "crown.1"), encoding="utf-8").read()]
     if not path:
-        sources.append(lambda: subprocess.run(["git", "-C", ROOT, "show", "HEAD:man/qargi.1"], capture_output=True, text=True, check=True).stdout)
+        sources.append(lambda: subprocess.run(["git", "-C", ROOT, "show", "HEAD:man/crown.1"], capture_output=True, text=True, check=True).stdout)
     for read in sources:
         try:
             d = th_date(read())
@@ -250,15 +250,15 @@ def kept_date(path=None):
 def man(date_from=None):
     o = []
     w = o.append
-    w('.TH QARGI 1 "%s" "qargi %s"' % (kept_date(date_from), version()))
+    w('.TH CROWN 1 "%s" "crown %s"' % (kept_date(date_from), version()))
     w(".SH NAME")
-    w("qargi \\- " + esc(C.TAGLINE.rstrip(".")))
+    w("crown \\- " + esc(C.TAGLINE.rstrip(".")))
     w(".SH SYNOPSIS")
-    w(".B qargi")
+    w(".B crown")
     w(".I command")
     w("[\\fIverb\\fR] [\\fIarguments\\fR]")
     w(".br")
-    w(".B qargi help")
+    w(".B crown help")
     w("[\\fIcommand\\fR|\\fItopic\\fR]")
     w(".SH DESCRIPTION")
     w(esc(C.INTRO))
@@ -283,7 +283,7 @@ def man(date_from=None):
             spec = C.COMMANDS[c]
             vs = verbs_of(c)
             w(".TP")
-            w(".B qargi %s" % esc(c))
+            w(".B crown %s" % esc(c))
             w(esc(spec["summary"] + "."))
             if spec.get("desc"):
                 w(".PP")
@@ -309,7 +309,7 @@ def man(date_from=None):
                 if args:
                     w(".RS")
                     w(".nf")
-                    w(esc("qargi %s %s" % (c, argstr(args))))
+                    w(esc("crown %s %s" % (c, argstr(args))))
                     w(".fi")
                     w(".RE")
                 for op in spec.get("opts", []):
@@ -339,15 +339,15 @@ def man(date_from=None):
     w(".SH EXIT STATUS")
     w("0 on success. 1 when a check fails or a command is refused (the message says why). 2 for a usage error.")
     w(".SH SEE ALSO")
-    # a copy of qargi without its skills directory (a partial copy, a packaged lib) still writes the page
+    # a copy of crown without its skills directory (a partial copy, a packaged lib) still writes the page
     sk = os.path.join(ROOT, "skills")
     skills = sorted(n for n in os.listdir(sk) if os.path.isfile(os.path.join(sk, n, "SKILL.md"))) if os.path.isdir(sk) else []
     if len(skills) > 1:
         named = "The skills " + ", ".join(esc(n) for n in skills[:-1]) + " and " + esc(skills[-1])
     else:
-        named = "The skill " + esc(skills[0]) if skills else "The qargi skills"
+        named = "The skill " + esc(skills[0]) if skills else "The crown skills"
     w(named + ", loaded by the lead's session "
-      "(qargi help roles for the roles, which come as role text with the task block).")
+      "(crown help roles for the roles, which come as role text with the task block).")
     return "\n".join(x for x in o if x != "") + "\n"
 
 
@@ -598,7 +598,7 @@ def by_type(t, words):
         return [(c, money(c)) for c in ("500", "1000", "1500", "3000")]
     if base == "entry":
         try:
-            with open(os.environ.get("QARGI_CATALOG") or os.path.join(ROOT, "catalog", "tools.json")) as f:
+            with open(os.environ.get("CROWN_CATALOG") or os.path.join(ROOT, "catalog", "tools.json")) as f:
                 data = json.load(f)
             return [(e["id"], e.get("summary", "")[:60]) for e in (data["tools"] if isinstance(data, dict) else data)]
         except (OSError, ValueError, KeyError):
@@ -679,9 +679,9 @@ def _candidates(cur, prev):
 
 
 def infer_project():
-    """The project in effect: QARGI_PROJECT, else the one whose repository (repo.path in its answers) contains
+    """The project in effect: CROWN_PROJECT, else the one whose repository (repo.path in its answers) contains
     the current directory (the longest match), else None."""
-    p = os.environ.get("QARGI_PROJECT")
+    p = os.environ.get("CROWN_PROJECT")
     if p:
         return p
     here, best, blen = os.path.realpath(os.getcwd()), None, -1
@@ -732,8 +732,8 @@ def resolve(argv):
         if pk is not None and len(pos) < len(required) and not (pk < len(pos) and os.path.exists(os.path.join(conf(), "projects", body[pos[pk]] + ".json"))) \
                 and not any(t in ("-h", "--help") for t in body):
             have = names("project")
-            print("qargi: which project? Give its name, run this inside its repository, or set QARGI_PROJECT.%s" %
-                  ((" Projects: " + ", ".join(have)) if have else " No project is stored yet: qargi help project."), file=sys.stderr)
+            print("crown: which project? Give its name, run this inside its repository, or set CROWN_PROJECT.%s" %
+                  ((" Projects: " + ", ".join(have)) if have else " No project is stored yet: crown help project."), file=sys.stderr)
             return None
         return argv
     if pk is not None and len(pos) < len(required):
@@ -758,12 +758,12 @@ def cloud_binding(words):
 
 
 def preamble(argv):
-    """What bin/qargi does before every command, in one process: the dev-run banner on stderr; the arguments resolved
-    (resolve); the cloud binding of the project the command is about (none for qargi cloud itself, which manages the
+    """What bin/crown does before every command, in one process: the dev-run banner on stderr; the arguments resolved
+    (resolve); the cloud binding of the project the command is about (none for crown cloud itself, which manages the
     bindings). On stdout, NUL-separated: project, profile, workspace id, then the resolved arguments. None (exit 2) when
     resolve refused."""
     if P.banner():
-        print("qargi: " + P.banner(), file=sys.stderr)
+        print("crown: " + P.banner(), file=sys.stderr)
     r = resolve(argv)
     if r is None:
         return None

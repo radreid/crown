@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# `qargi release assets VERSION` builds the release files in a clean worktree of the tag with the project's release.assets_command, and
+# `crown release assets VERSION` builds the release files in a clean worktree of the tag with the project's release.assets_command, and
 # `release sign` and `release publish` take the files from that worktree: release.assets globs, --asset, --asset-dir and a full path inside
-# any worktree of the repository. gh and ssh-keygen are stubs (QARGI_GH, a fake first on PATH); GitHub is never contacted.
+# any worktree of the repository. gh and ssh-keygen are stubs (CROWN_GH, a fake first on PATH); GitHub is never contacted.
 # Run: tests/test_release_assets.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$ROOT/bin/qargi
+T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$ROOT/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/fakebin"
 REL="$DA release"; tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 cat > "$T/gh" <<G
@@ -20,7 +20,7 @@ case "\$*" in
   *"release create"*) echo "https://github.com/acme/relas/releases/tag/0.1.0"; exit 0;;
 esac
 G
-chmod +x "$T/gh"; export QARGI_GH=$T/gh
+chmod +x "$T/gh"; export CROWN_GH=$T/gh
 cat > "$T/fakebin/ssh-keygen" <<G
 #!/usr/bin/env bash
 echo "\$*" >> "$T/keygen.log"
@@ -33,13 +33,13 @@ R=$T/relas; git init -q -b master "$R"; echo 0.1.0 > "$R/VERSION"
 printf '# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-01-01\n\n### Added\n- first thing\n' > "$R/CHANGELOG.md"
 cat > "$R/build.sh" <<'B'
 #!/usr/bin/env bash
-mkdir -p dist; echo "app $1" > "dist/app-$1.tar"; echo "docs" > dist/docs.zip; echo "sums" > dist/SUMS; echo "$QARGI_RELEASE_VERSION" > dist/built-for
+mkdir -p dist; echo "app $1" > "dist/app-$1.tar"; echo "docs" > dist/docs.zip; echo "sums" > dist/SUMS; echo "$CROWN_RELEASE_VERSION" > dist/built-for
 B
 git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" tag -a 0.1.0 -m 0.1.0 && git -C "$R" branch develop
 echo more > "$R/more.txt"; git -C "$R" add -A && git -C "$R" commit -q -m two && git -C "$R" tag -a 0.2.0 -m 0.2.0   # 0.2.0 is another commit than 0.1.0
 git -C "$R" checkout -q -b parked
 $DA project template relas | jq --arg p "$R" '.repo={url:"https://github.com/acme/relas", path:$p, long_lived:["master","develop"]} | .test_command="true"' > "$T/c/projects/relas.json"
-export QARGI_PROJECT=relas
+export CROWN_PROJECT=relas
 setans() { jq "$1" "$T/c/projects/relas.json" > "$T/ans.tmp" && mv "$T/ans.tmp" "$T/c/projects/relas.json"; }
 cd "$T" || exit 1   # the lead works outside any run directory
 AW=$(realpath -m "$T/s")/release-assets/relas-0.1.0; REC=$T/s/release/relas-0.1.0.assets.json
@@ -59,7 +59,7 @@ chk "assets_command a number"            1 '.release={assets_command:3}'
 chk "assets_command with a newline"      1 '.release={assets_command:"make\nrm -rf x"}'
 chk "assets as globs"                    0 '.release={assets:["dist/*.tar","dist/app-{version}.zip"]}'
 chk "assets outside the repository"      1 '.release={assets:["../dist/*"]}'
-$DA project set relas release.assets_command '["bash","build.sh","{version}"]' >/dev/null 2>&1 && ok "qargi project set takes release.assets_command" || no "project set"
+$DA project set relas release.assets_command '["bash","build.sh","{version}"]' >/dev/null 2>&1 && ok "crown project set takes release.assets_command" || no "project set"
 
 # --- release assets: refusals before anything is made
 setans 'del(.release)'
@@ -73,21 +73,21 @@ out=$($REL publish 0.1.0 --recreate 2>&1) && no "publish took --recreate" || { g
 mkdir -p "$T/run/clone"; : > "$T/run/ability"; : > "$T/run/refs.before"
 out=$(cd "$T/run/clone" && $REL assets 0.1.0 2>&1); rc=$?
 [ $rc = 2 ] && grep -q "not available in a member run" <<<"$out" && [ ! -e "$AW" ] && ok "refused (exit 2) in a member run" || no "member: rc=$rc $out"
-out=$(QARGI_NESTED=1 $REL assets 0.1.0 2>&1); rc=$?
+out=$(CROWN_NESTED=1 $REL assets 0.1.0 2>&1); rc=$?
 [ $rc = 2 ] && [ ! -e "$AW" ] && ok "refused (exit 2) in a nested call" || no "nested: rc=$rc $out"
 
 # --- release assets: the build, in a clean worktree of the tag
 TC=$(git -C "$R" rev-parse "0.1.0^{commit}")
 out=$($REL assets 0.1.0 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "in a clean worktree of the tag (${TC:0:7}): $AW\$" <<<"$out" && grep -q "^running: bash build.sh 0.1.0\$" <<<"$out" && ok "assets: builds in a worktree of the tag with the command (version replaced)" || no "assets: rc=$rc $out"
-[ "$(cat "$AW/dist/app-0.1.0.tar")" = "app 0.1.0" ] && [ "$(cat "$AW/dist/built-for")" = 0.1.0 ] && [ "$(git -C "$AW" rev-parse HEAD)" = "$TC" ] && ok "the files are in the worktree, at the tag, and the command saw QARGI_RELEASE_VERSION" || no "worktree: $(ls "$AW" "$AW/dist" 2>&1)"
+[ "$(cat "$AW/dist/app-0.1.0.tar")" = "app 0.1.0" ] && [ "$(cat "$AW/dist/built-for")" = 0.1.0 ] && [ "$(git -C "$AW" rev-parse HEAD)" = "$TC" ] && ok "the files are in the worktree, at the tag, and the command saw CROWN_RELEASE_VERSION" || no "worktree: $(ls "$AW" "$AW/dist" 2>&1)"
 [ ! -e "$R/dist" ] && [ "$(git -C "$R" branch --show-current)" = parked ] && [ -z "$(git -C "$R" status --porcelain)" ] && ok "the repository's own checkout is untouched" || no "main checkout: $(git -C "$R" status --porcelain)"
 git -C "$R" worktree list | grep -q "$AW" && [ "$(jq -r .worktree "$REC")" = "$AW" ] && [ "$(jq -r .commit "$REC")" = "$TC" ] && ok "the worktree is recorded under the state (path and tag commit)" || no "record: $(cat "$REC" 2>&1)"
-grep -q "^  dist/app-0.1.0.tar\$" <<<"$out" && grep -q "^next: qargi release publish 0.1.0 " <<<"$out" && ! grep -q "release sign" <<<"$out" && ok "it lists the files made and names publish as the next command (no release.sign)" || no "listing: $out"
+grep -q "^  dist/app-0.1.0.tar\$" <<<"$out" && grep -q "^next: crown release publish 0.1.0 " <<<"$out" && ! grep -q "release sign" <<<"$out" && ok "it lists the files made and names publish as the next command (no release.sign)" || no "listing: $out"
 grep -q '"verb":"release:assets"' "$T/s/audit.log" && ok "the run is audited" || no "audit"
 out=$($REL assets 0.1.0 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "exists already" <<<"$out" && grep -q -- "--recreate" <<<"$out" && ok "an existing asset worktree is kept unless --recreate" || no "twice: rc=$rc $out"
-echo stray > "$AW/stray"; setans '.release.assets_command="bash build.sh \"$QARGI_RELEASE_VERSION\""'
+echo stray > "$AW/stray"; setans '.release.assets_command="bash build.sh \"$CROWN_RELEASE_VERSION\""'
 out=$($REL assets 0.1.0 --recreate 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "^running: bash -c bash build.sh" <<<"$out" && [ ! -e "$AW/stray" ] && [ -f "$AW/dist/app-0.1.0.tar" ] && ok "--recreate starts again from the tag (a command line runs by bash -c)" || no "recreate: rc=$rc $out"
 # a failing command leaves the worktree to look at and no record
@@ -144,8 +144,8 @@ git -C "$R" worktree remove --force "$T/other"
 # --- release sign: the files are signed in the asset worktree, whatever the main checkout is on
 setans ".release.sign={key:\"$T/relkey\", namespace:\"relsign\", files:[\"dist/SUMS\"], verify_command:[\"test\",\"-s\",\"dist/SUMS.sig\"]}"
 out=$($REL status 0.1.0 2>&1)
-grep -q "^awaiting signature: no signature is recorded" <<<"$out" && grep -q "^0.1.0 is ready for signing: qargi release sign 0.1.0\$" <<<"$out" && ok "status: ready for signing although the main checkout is on another branch" || no "status ready: $out"
-SIGN="python3 $ROOT/tests/pty_run.py $ROOT/bin/qargi release sign 0.1.0"
+grep -q "^awaiting signature: no signature is recorded" <<<"$out" && grep -q "^0.1.0 is ready for signing: crown release sign 0.1.0\$" <<<"$out" && ok "status: ready for signing although the main checkout is on another branch" || no "status ready: $out"
+SIGN="python3 $ROOT/tests/pty_run.py $ROOT/bin/crown release sign 0.1.0"
 out=$($SIGN 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(cat "$T/keygen.log")" = "-Y sign -f $T/relkey -n relsign $AW/dist/SUMS" ] && [ -s "$AW/dist/SUMS.sig" ] && [ ! -e "$R/dist" ] && ok "release sign signs the file in the asset worktree" || no "sign: rc=$rc $out | $(cat "$T/keygen.log")"
 out=$($REL status 0.1.0 2>&1); grep -q "^signature: signed and verified at .*dist/SUMS" <<<"$out" && ok "status shows the signature of the worktree's file" || no "status signed: $out"

@@ -7,9 +7,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/tmp"
 REL="$DA release"; tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # rstart ARGS: release start through its plan (a token) and the approval; a refusal of the plan is printed and fails
@@ -19,7 +19,7 @@ cat > "$T/gh" <<G
 echo "\$*" >> "$T/gh.log"
 case "\$*" in *"pr create"*) echo https://github.com/acme/unrel/pull/1;; *"pr checks"*) printf 'suite\tpass\t1m\turl\n';; *"release view"*) echo "release not found" >&2; exit 1;; esac
 G
-chmod +x "$T/gh"; export QARGI_GH=$T/gh
+chmod +x "$T/gh"; export CROWN_GH=$T/gh
 
 # mk NAME unrelated|related: a project with develop, a master and an origin. unrelated: master is a parentless snapshot commit (its tree
 # differs from develop's by a file the release does not have); related: master is where develop began.
@@ -43,10 +43,10 @@ U=$T/un; N=$T/rel
 git -C "$U" merge-base master develop >/dev/null 2>&1 && no "the fixture's master shares history with develop" || ok "the fixture: master and develop have no merge base"
 
 # --- unrelated: start says so, with the fix; status warns
-export QARGI_PROJECT=un
+export CROWN_PROJECT=un
 $REL verify 0.2.0 >/dev/null 2>&1 || no "verify"
 out=$(rstart 0.2.0 --date 2026-01-02 2>&1); rc=$?
-[ $rc = 0 ] && grep -q "note: master and release/0.2.0 share no history (no merge base" <<<"$out" && grep -q "qargi release push 0.2.0 joins the history of master first" <<<"$out" && ok "start says master has no merge base and what push does" || no "start: rc=$rc $out"
+[ $rc = 0 ] && grep -q "note: master and release/0.2.0 share no history (no merge base" <<<"$out" && grep -q "crown release push 0.2.0 joins the history of master first" <<<"$out" && ok "start says master has no merge base and what push does" || no "start: rc=$rc $out"
 out=$($REL status 0.2.0 2>&1)
 grep -q "^warning: master and release/0.2.0 share no history" <<<"$out" && ok "status warns" || no "status: $out"
 n0=$(git -C "$U" rev-list --count develop..release/0.2.0); [ "$n0" = 1 ] && ok "start made the version commit only" || no "start made $n0 commits"
@@ -54,7 +54,7 @@ n0=$(git -C "$U" rev-list --count develop..release/0.2.0); [ "$n0" = 1 ] && ok "
 # --- finish before the join refuses with the fix and changes nothing
 m0=$(git -C "$U" rev-parse master)
 out=$($REL finish 0.2.0 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "share no history" <<<"$out" && grep -q "Run qargi release push 0.2.0" <<<"$out" && ! grep -q "fatal\|plan token" <<<"$out" && ok "finish refuses before the join and names the fix" || no "finish before the join: rc=$rc $out"
+[ $rc = 1 ] && grep -q "share no history" <<<"$out" && grep -q "Run crown release push 0.2.0" <<<"$out" && ! grep -q "fatal\|plan token" <<<"$out" && ok "finish refuses before the join and names the fix" || no "finish before the join: rc=$rc $out"
 
 # --- push: the plan lists the join; the token covers it
 out=$($REL push 0.2.0 2>&1); t=$(tok <<<"$out")
@@ -127,14 +127,14 @@ git -C "$U" update-ref refs/heads/master "$(git -C "$U" commit-tree "$(git -C "$
 rstart 0.4.0 --allow-empty-notes >/dev/null 2>&1 || no "start 0.4.0: $(rstart 0.4.0 2>&1)"
 git -C "$U" checkout -q release/0.4.0
 out=$($REL push 0.4.0 2>&1)
-grep -q "^warning: release/0.4.0 is checked out in $U, which is not a worktree qargi made" <<<"$out" && ok "the plan warns that a branch checked out in the main checkout will refuse the join" || no "plan blocker: $out"
+grep -q "^warning: release/0.4.0 is checked out in $U, which is not a worktree crown made" <<<"$out" && ok "the plan warns that a branch checked out in the main checkout will refuse the join" || no "plan blocker: $out"
 git -C "$U" checkout -q parked
 
 # --- a hotfix whose develop shares no history with master, with no release open: no release is named that does not exist
-mk hf unrelated; export QARGI_PROJECT=hf
+mk hf unrelated; export CROWN_PROJECT=hf
 # the start plan already says what to do first, naming the commands (a release whose push joins, or one merge on develop), before any token
 out=$($REL start 0.1.1 --hotfix --allow-empty-notes 2>&1)
-grep -q "^warning: develop and master share no history (no merge base) and no release is open, so finish could not merge hotfix/0.1.1 into develop" <<<"$out" && grep -q "qargi release start VERSION, qargi release push VERSION, qargi release finish VERSION" <<<"$out" \
+grep -q "^warning: develop and master share no history (no merge base) and no release is open, so finish could not merge hotfix/0.1.1 into develop" <<<"$out" && grep -q "crown release start VERSION, crown release push VERSION, crown release finish VERSION" <<<"$out" \
   && grep -q "git switch develop && git merge -s ours --allow-unrelated-histories master" <<<"$out" && grep -q "^plan token: " <<<"$out" && ok "hotfix start plan: develop is unrelated to master, no release open: the line names the release verbs and the git merge" || no "hotfix start plan: $out"
 rstart 0.1.1 --hotfix --allow-empty-notes >/dev/null 2>&1 || no "start hotfix: $(rstart 0.1.1 --hotfix --allow-empty-notes 2>&1)"
 out=$($REL status 0.1.1 --hotfix 2>&1)
@@ -160,15 +160,15 @@ hc=$(git -C "$R" commit-tree "$ht" -p "$rb" -m "the hotfix")
 git -C "$R" branch hotfix/0.1.1 "$hc"
 git -C "$R" reset -q --hard develop; git -C "$R" checkout -q -b parked
 jq -n --arg p "$R" '{schema:1, project:"hb", methodology:"gitflow", repo:{url:"https://github.com/acme/unrel.git", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/hb.json"
-export QARGI_PROJECT=hb
+export CROWN_PROJECT=hb
 git -C "$R" merge-base master hotfix/0.1.1 >/dev/null 2>&1 && git -C "$R" merge-base master develop >/dev/null 2>&1 && ! git -C "$R" merge-base develop hotfix/0.1.1 >/dev/null 2>&1 && ok "the fixture: the hotfix and develop have no merge base; each is related to master" || no "fixture merge bases"
 out=$($REL finish 0.1.1 --hotfix 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "^qargi: develop and hotfix/0.1.1 share no history (no merge base) and no release is open, so finish could not merge hotfix/0.1.1 into develop (git refuses unrelated histories)\. Nothing was changed" <<<"$out" \
+[ $rc = 1 ] && grep -q "^crown: develop and hotfix/0.1.1 share no history (no merge base) and no release is open, so finish could not merge hotfix/0.1.1 into develop (git refuses unrelated histories)\. Nothing was changed" <<<"$out" \
   && ! grep -q "develop and master share no history\|git switch develop\|finish that release first\|plan token" <<<"$out" && ok "a hotfix unrelated to develop only (develop and master related): finish says so, without the develop-and-master advice" || no "hotfix fallback: rc=$rc $out"
 [ -z "$(git -C "$R" tag)" ] && ok "and nothing was tagged" || no "tagged"
 
 # --- a repository with related histories is unchanged: no extra commit, no join in the plan, no note
-export QARGI_PROJECT=rel
+export CROWN_PROJECT=rel
 $REL verify 0.2.0 >/dev/null 2>&1
 out=$(rstart 0.2.0 --date 2026-01-02 2>&1); ! grep -q "share no history" <<<"$out" && ok "start has no note in a normal repository" || no "normal start: $out"
 out=$($REL push 0.2.0 2>&1); t=$(tok <<<"$out")

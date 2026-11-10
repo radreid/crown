@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# `qargi release` talks to GitHub only through $QARGI_GH (a stub here), names the repository without a trailing .git, titles the
+# `crown release` talks to GitHub only through $CROWN_GH (a stub here), names the repository without a trailing .git, titles the
 # pull request like the release, refuses to start a version whose tag exists, and leaves no temporary file behind.
 # Run: tests/test_release_gh.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/tmp"
 REL="$DA release"; tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # rstart ARGS: release start through its plan (a token) and the approval; a refusal of the plan is printed and fails
@@ -18,14 +18,14 @@ cat > "$T/gh" <<G
 echo "\$*" >> "$T/gh.log"
 case "\$*" in *"pr create"*) echo https://github.com/acme/relgh/pull/1;; *"release view"*) echo "release not found" >&2; exit 1;; esac
 G
-chmod +x "$T/gh"; export QARGI_GH=$T/gh
+chmod +x "$T/gh"; export CROWN_GH=$T/gh
 R=$T/relgh; git init -q -b master "$R"
 echo 0.1.0 > "$R/VERSION"; printf '# Changelog\n\n## [Unreleased]\n\n### Added\n- a change\n' > "$R/CHANGELOG.md"
 git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" branch develop
 git clone -q --bare "$R" "$T/origin.git" && git -C "$R" remote add origin "$T/origin.git" && git -C "$R" fetch -q origin
 git -C "$R" checkout -q -b parked   # the main checkout is on neither long-lived branch
 jq -n --arg p "$R" '{schema:1, project:"relgh", methodology:"gitflow", repo:{url:"https://github.com/acme/relgh.git", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/relgh.json"
-export QARGI_PROJECT=relgh
+export CROWN_PROJECT=relgh
 
 # start refuses a version whose tag exists, before it asks anything else
 git -C "$R" tag -a 0.9.0 -m 0.9.0 master
@@ -42,23 +42,23 @@ t=$($REL push 0.2.0 | tok); out=$($REL push 0.2.0 --plan "$t" --approved go 2>&1
 t=$($REL finish 0.2.0 | tok); out=$($REL finish 0.2.0 --plan "$t" --approved go 2>&1); rc=$?
 [ $rc = 0 ] && grep -qx -- "-R acme/relgh pr checks release/0.2.0" "$T/gh.log" && ok "finish asks for the checks of acme/relgh, without .git" || no "finish rc=$rc: $out $(cat "$T/gh.log")"
 
-# a gh that is not there is looked for as $QARGI_GH, not as gh on the path: the branch is pushed, the pull request is left to you
+# a gh that is not there is looked for as $CROWN_GH, not as gh on the path: the branch is pushed, the pull request is left to you
 $REL verify 0.3.0 >/dev/null 2>&1 && rstart 0.3.0 --allow-empty-notes >/dev/null 2>&1 || no "start 0.3.0"
-t=$($REL push 0.3.0 | tok); out=$(QARGI_GH=$T/nogh $REL push 0.3.0 --plan "$t" --approved go 2>&1); rc=$?
+t=$($REL push 0.3.0 | tok); out=$(CROWN_GH=$T/nogh $REL push 0.3.0 --plan "$t" --approved go 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "pushed release/0.3.0, but gh is not installed" <<<"$out" && git -C "$T/origin.git" rev-parse -q --verify refs/heads/release/0.3.0 >/dev/null && ok "push without the stub's gh pushes and says gh is missing" || no "push without gh: rc=$rc $out"
-t=$($REL finish 0.3.0 | tok); out=$(QARGI_GH=$T/nogh $REL finish 0.3.0 --plan "$t" --approved go 2>&1); rc=$?
+t=$($REL finish 0.3.0 | tok); out=$(CROWN_GH=$T/nogh $REL finish 0.3.0 --plan "$t" --approved go 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "gh is needed to read the pull request's checks" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/tags/0.3.0 >/dev/null && ok "finish without gh refuses and tags nothing" || no "finish without gh: rc=$rc $out"
 
-# a caller that is itself approved (QARGI_NESTED) has not approved this plan: start and push still need the token
+# a caller that is itself approved (CROWN_NESTED) has not approved this plan: start and push still need the token
 $REL verify 0.4.0 >/dev/null 2>&1
-out=$(QARGI_NESTED=1 $REL start 0.4.0 --allow-empty-notes --approved go 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "release start applies with no token even when QARGI_NESTED is set: refused, nothing created" || no "nested start, no token: rc=$rc $out"
-out=$(QARGI_NESTED=1 $REL start 0.4.0 --allow-empty-notes --plan 000000000000 --approved go 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "and a wrong token is refused under QARGI_NESTED too" || no "nested start, wrong token: rc=$rc $out"
-t=$($REL start 0.4.0 --allow-empty-notes | tok); out=$(QARGI_NESTED=1 $REL start 0.4.0 --allow-empty-notes --plan "$t" --approved go 2>&1); rc=$?
-[ $rc = 0 ] && git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "the right token still applies under QARGI_NESTED" || no "nested start, right token: rc=$rc $out"
-out=$(QARGI_NESTED=1 $REL push 0.4.0 --approved go 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$T/origin.git" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "release push with no token under QARGI_NESTED is refused, nothing pushed" || no "nested push, no token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $REL start 0.4.0 --allow-empty-notes --approved go 2>&1); rc=$?
+[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "release start applies with no token even when CROWN_NESTED is set: refused, nothing created" || no "nested start, no token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $REL start 0.4.0 --allow-empty-notes --plan 000000000000 --approved go 2>&1); rc=$?
+[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "and a wrong token is refused under CROWN_NESTED too" || no "nested start, wrong token: rc=$rc $out"
+t=$($REL start 0.4.0 --allow-empty-notes | tok); out=$(CROWN_NESTED=1 $REL start 0.4.0 --allow-empty-notes --plan "$t" --approved go 2>&1); rc=$?
+[ $rc = 0 ] && git -C "$R" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "the right token still applies under CROWN_NESTED" || no "nested start, right token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $REL push 0.4.0 --approved go 2>&1); rc=$?
+[ $rc = 1 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && ! git -C "$T/origin.git" rev-parse -q --verify refs/heads/release/0.4.0 >/dev/null && ok "release push with no token under CROWN_NESTED is refused, nothing pushed" || no "nested push, no token: rc=$rc $out"
 # publish leaves no notes file behind: on a plan, after a refused token, after a refusal before the plan
 git -C "$R" tag -a 0.8.0 -m x master
 $REL publish 0.2.0 >/dev/null 2>&1; $REL publish 0.8.0 >/dev/null 2>&1; $REL publish 0.2.0 --plan 000000000000 --approved go >/dev/null 2>&1
@@ -97,8 +97,8 @@ out=$(pty $SIGN 2>&1); rc=$?
 git -C "$R" checkout -q --detach 0.2.0
 out=$($SIGN 2>&1 </dev/null); rc=$?
 [ $rc = 1 ] && grep -q "needs a terminal on stdin" <<<"$out" && ok "sign is refused when stdin is no terminal" || no "sign no tty: rc=$rc $out"
-out=$(QARGI_NESTED=1 pty $SIGN 2>&1); rc=$?
-[ $rc = 2 ] && grep -q "not available in a member run or a nested call" <<<"$out" && ok "sign is refused when QARGI_NESTED is set" || no "sign nested: rc=$rc $out"
+out=$(CROWN_NESTED=1 pty $SIGN 2>&1); rc=$?
+[ $rc = 2 ] && grep -q "not available in a member run or a nested call" <<<"$out" && ok "sign is refused when CROWN_NESTED is set" || no "sign nested: rc=$rc $out"
 mkdir -p "$T/run/clone"; : > "$T/run/ability"; : > "$T/run/refs.before"
 out=$(cd "$T/run/clone" && pty $SIGN 2>&1); rc=$?
 [ $rc = 2 ] && grep -q "not available in a member run" <<<"$out" && ok "sign is refused in a member run" || no "sign member: rc=$rc $out"

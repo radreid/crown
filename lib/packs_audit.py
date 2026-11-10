@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Which skills would a session of the project's provider, opened in the project's checkout, load, and who vouches for each?
 
-qargi manages the skills of its library and renders them for a project, but a session loads more than that: the skills in the
+crown manages the skills of its library and renders them for a project, but a session loads more than that: the skills in the
 checkout's project skills directory, in the render, and in the user's skills directory. Where those are, and how the provider's own
 configuration hides a skill, come from the skills resource of its definition (resources.skills in lib/providers/NAME.json, read
 through lib/provider.py); nothing here names a provider. The exclusion forms are
-read-only: qargi never writes a provider's configuration.
+read-only: crown never writes a provider's configuration.
 
   settings-key   a map in a settings file (pointer, off value), the file being one of resources.settings.files by scope
   config-list    a list of entries in one configuration file; an entry hides the skill its match names when it holds the off fields
@@ -16,7 +16,7 @@ or without verified skills support, is refused with exit status 3; one without a
 audited without those and the section says so.
 This audit lists every skill with exactly one state:
 
-  qargi       a library pack with approved content and the same content hash, or a skill under the qargi install's skills/
+  crown       a library pack with approved content and the same content hash, or a skill under the crown install's skills/
   accepted    the owner accepted this name with this content (accepted.json)
   drifted     the owner accepted this name, but the content changed since (a finding)
   excluded    switched off in one of the provider's settings files, as its layout says (hidden from the session, never a finding)
@@ -25,7 +25,7 @@ This audit lists every skill with exactly one state:
 Content is compared with strict_hash(), not with the shell's content_hash (the hash the library's approvals and the renders record,
 which sees regular files only and drops the top-level .pack.json): strict_hash covers symbolic links (path and target), the
 executable bit of a file, empty directories and every .pack.json but the library pack's own record (the top-level one, skipped when
-the library pack is hashed). The rule is the same everywhere: the top-level .pack.json of a library pack is qargi's record and no part
+the library pack is hashed). The rule is the same everywhere: the top-level .pack.json of a library pack is crown's record and no part
 of the skill (import ignores one in its source and does not copy it); a .pack.json deeper in the tree is skill content that counts in every hash and
 fails the review. A skill that differs in any of those is not the library pack, and an acceptance covers exactly this
 content. The library's approval itself is still the shell's: lib.approved == lib.hash says the pack was not edited since it was approved.
@@ -47,7 +47,7 @@ user acceptance reaches every project, and projects differ in provider), under "
 is an older one and counts as the project's provider's.
 
 Settings files are only ever read. accepted.json is written atomically (temporary file, then rename), mode 600. `store` refuses in a
-member run (a directory `qargi local prepare` made, at or above the working directory) and writes only <conf>/packs/accepted.json,
+member run (a directory `crown local prepare` made, at or above the working directory) and writes only <conf>/packs/accepted.json,
 the configuration directory being the environment's (paths.conf(), as the shell's DA_CONF): another FILE is refused.
 """
 import hashlib
@@ -86,7 +86,7 @@ def q(s):
 
 
 def die(msg):
-    print("qargi: " + clean(msg), file=sys.stderr)
+    print("crown: " + clean(msg), file=sys.stderr)
     sys.exit(1)
 
 
@@ -210,7 +210,7 @@ def scan(inp):
 
 
 def shipped_roots():
-    """The skills/ directories of the qargi install: the one this script runs from, and the one install.sh recorded."""
+    """The skills/ directories of the crown install: the one this script runs from, and the one install.sh recorded."""
     roots = [os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills"))]
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -342,7 +342,7 @@ def read_settings(inp):
     if ex is None:
         return {}, [NO_WAY % inp["provider"]]
     if ex["form"] == "adapter":
-        return {}, ["note: provider %s reads which skills are off with its adapter (read-exclusion), which qargi does not call yet: no skill is reported as excluded" % inp["provider"]]
+        return {}, ["note: provider %s reads which skills are off with its adapter (read-exclusion), which crown does not call yet: no skill is reported as excluded" % inp["provider"]]
     if not listed_files(inp, ex):
         return {}, [NO_WAY % inp["provider"]]
     files, off, notes = exclusion_files(inp, ex), {}, []
@@ -419,9 +419,9 @@ def states(inp):
         h, lib, n = e.get("hash") or "", e.get("lib"), e["name"]
         recs = recorded(acc, inp["project"], n, inp["provider"])
         if h and lib and lib.get("approved") and lib["approved"] == lib.get("hash") and library_hash(n) == h:
-            e["state"], e["detail"] = "qargi", "library pack"
+            e["state"], e["detail"] = "crown", "library pack"
         elif any(under(e["real"], r) for r in roots):
-            e["state"], e["detail"] = "qargi", "shipped with qargi"
+            e["state"], e["detail"] = "crown", "shipped with crown"
         elif n in off:
             e["state"], e["detail"] = "excluded", "off in " + off[n]
         elif h and any(r["sha256"] == h for _, r in recs):
@@ -434,7 +434,7 @@ def states(inp):
     return out, notes
 
 
-LEGEND = {"qargi": "managed by qargi", "accepted": "you accepted this content", "drifted": "accepted, but the content changed (a finding)",
+LEGEND = {"crown": "managed by crown", "accepted": "you accepted this content", "drifted": "accepted, but the content changed (a finding)",
           "excluded": "hidden by {key}", "unmanaged": "not managed or accepted by anyone"}
 
 
@@ -447,18 +447,18 @@ def offers(inp, e):
     if not NAME_RE.fullmatch(n):
         return ["    skipped: unusual name (no command is offered for it)"]
     if e["state"] == "drifted":
-        return ["    review it, then accept the new content: qargi skill accept %s %s%s" % (q(p), q(n), "" if "checkout" in e["where"] else " --user")]
+        return ["    review it, then accept the new content: crown skill accept %s %s%s" % (q(p), q(n), "" if "checkout" in e["where"] else " --user")]
     out = []
     if "checkout" in e["where"]:
         lib = e.get("lib")
         if lib is None:
-            out += ["    to keep it in the library: qargi skill import %s" % q(e["shown"]),
-                    "                               qargi skill link %s --scope project --project %s" % (q(n), q(p))]
+            out += ["    to keep it in the library: crown skill import %s" % q(e["shown"]),
+                    "                               crown skill link %s --scope project --project %s" % (q(n), q(p))]
         else:
-            out += ["    a library pack of this name has other content or is not approved: qargi skill show %s" % q(n)]
-        out += ["    or accept it as it is:      qargi skill accept %s %s" % (q(p), q(n))]
+            out += ["    a library pack of this name has other content or is not approved: crown skill show %s" % q(n)]
+        out += ["    or accept it as it is:      crown skill accept %s %s" % (q(p), q(n))]
     else:
-        out += ["    to accept it as it is: qargi skill accept %s %s --user" % (q(p), q(n))]
+        out += ["    to accept it as it is: crown skill accept %s %s --user" % (q(p), q(n))]
     return out + hide_offer(inp, e)
 
 
@@ -485,7 +485,7 @@ def hide_text(ex, name, fmt):
 
 
 def hide_offer(inp, e):
-    """The line the person adds to a configuration file to switch the skill off, as text only (qargi never writes one): the form, the
+    """The line the person adds to a configuration file to switch the skill off, as text only (crown never writes one): the form, the
     pointer and the off value are the provider's exclusion. For a settings-key the file is the unshared one of the checkout for a
     checkout skill and the user's for a user skill; a form with one file offers that file (for a user skill only when it is the
     user's). Nothing for a provider that cannot hide a skill."""
@@ -527,14 +527,14 @@ def cmd_target(inp, name, scope, outfile):
     ents = [e for e in sk if e["name"] == name]
     if not ents:
         target = layout(inp)["render_target"]
-        die("no skill named %s is visible to a session in %s%s" % (name, inp["project"], " (qargi packs check --target %s %s lists them)" % (target, inp["project"]) if target else ""))
+        die("no skill named %s is visible to a session in %s%s" % (name, inp["project"], " (crown packs check --target %s %s lists them)" % (target, inp["project"]) if target else ""))
     cand = [e for e in ents if e["state"] in ("unmanaged", "drifted")]
     if not cand:
         e = ents[0]
-        hint = {"qargi": "it is managed by qargi already", "excluded": "it is hidden (%s), so a session does not load it" % e["detail"],
-                "accepted": "it is accepted already (qargi skill unaccept %s %s first, to change the scope)" % (inp["project"], name)}[e["state"]]
+        hint = {"crown": "it is managed by crown already", "excluded": "it is hidden (%s), so a session does not load it" % e["detail"],
+                "accepted": "it is accepted already (crown skill unaccept %s %s first, to change the scope)" % (inp["project"], name)}[e["state"]]
         die("%s is %s: %s; nothing to accept" % (name, e["state"], hint))
-    kept = [e for e in ents if e["state"] not in ("qargi", "excluded")]
+    kept = [e for e in ents if e["state"] not in ("crown", "excluded")]
     if len({e.get("hash") for e in kept}) > 1:
         die("%s is visible with different content in %s: an acceptance covers one name and one content; remove or rename the others first" %
             (name, ", ".join(sorted({" ".join(e["where"]) + " " + e["shown"] for e in kept}))))
@@ -547,7 +547,7 @@ def cmd_target(inp, name, scope, outfile):
     say("  scope: %s" % ("every project (--user)" if scope == "user" else "project " + inp["project"]))
     if e["state"] == "drifted":
         say("  %s" % clean(e["detail"]))
-    say("  accepting records this name and content so that qargi stops reporting it; qargi does not manage the skill, and a later change drifts.")
+    say("  accepting records this name and content so that crown stops reporting it; crown does not manage the skill, and a later change drifts.")
     with open(outfile, "w") as fh:
         json.dump(t, fh)
 
@@ -660,7 +660,7 @@ def main():
         else:
             die("usage: packs_audit.py scan|report|target|acceptance|store ...")
     except provider.Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         sys.exit(3)
     except provider.ProviderError as e:
         die(str(e))

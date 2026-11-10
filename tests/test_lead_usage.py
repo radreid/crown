@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""qargi lead usage | compact-check and the advice line (lib/lead_usage.py), from fixture transcripts, run registries and git repositories.
+"""crown lead usage | compact-check and the advice line (lib/lead_usage.py), from fixture transcripts, run registries and git repositories.
 Nothing reads the real session files: HOME is a fresh directory and the transcripts are written under it, where the runtime's definition
 (resources.transcripts of lib/providers/claude-code.json) says they live. Offline. Run: python3 tests/test_lead_usage.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, re, subprocess, sys, tempfile, time, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 LEADPY = os.path.join(ROOT, "lib", "lead_usage.py")
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.net", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.net"}
 
@@ -49,7 +49,7 @@ class Base(unittest.TestCase):
         return r.stdout.strip()
 
     def env(self, **extra):
-        e = dict(os.environ, HOME=self.home, QARGI_CONF=self.conf, QARGI_STATE=self.state, QARGI_PROJECT="app", **GIT_ENV)
+        e = dict(os.environ, HOME=self.home, CROWN_CONF=self.conf, CROWN_STATE=self.state, CROWN_PROJECT="app", **GIT_ENV)
         e.update(extra)
         for k in [k for k, v in e.items() if v is None]:
             del e[k]
@@ -109,8 +109,8 @@ class Usage(Base):
         self.transcript("mine", [turn(1, 20000, 0)], mtime=2000)
         self.transcript("newest", [turn(1, 90000, 0)], mtime=3000)
         self.assertIn("90,001", self.run_cli("lead", "usage")[1])                                    # no session: the newest of the directory
-        self.assertIn("20,001", self.run_cli("lead", "usage", QARGI_LEAD="mine")[1])                 # QARGI_LEAD is the session id
-        self.assertIn("1,001", self.run_cli("lead", "usage", "--session", "old", QARGI_LEAD="mine")[1])
+        self.assertIn("20,001", self.run_cli("lead", "usage", CROWN_LEAD="mine")[1])                 # CROWN_LEAD is the session id
+        self.assertIn("1,001", self.run_cli("lead", "usage", "--session", "old", CROWN_LEAD="mine")[1])
         rc, out, _ = self.run_cli("lead", "usage", "--session", "nosuch")
         self.assertEqual(rc, 0)
         self.assertIn("context: unknown (no transcript of session nosuch", out)
@@ -270,7 +270,7 @@ class Check(Base):
         self.assertIn("compact is safe now", out)
         self.assertIn("After the compact, resume from stored state, not from memory:", out)
         self.assertIn("no handoff note is recorded", out)
-        self.assertIn("qargi marshal status --all --brief", out)
+        self.assertIn("crown marshal status --all --brief", out)
         self.assertIn("no feature branch is open", out)
         self.assertIn("open runs: none", out)
 
@@ -279,7 +279,7 @@ class Check(Base):
         d = self.run_dir("r1", ("verified", "x"))
         rc, out, _ = self.check()
         self.assertEqual(rc, 1)
-        self.assertIn("qargi feature status lc", out)
+        self.assertIn("crown feature status lc", out)
         self.assertIn("build r1 [verified, not applied]", out)
         self.assertIn(d, out)
 
@@ -317,7 +317,7 @@ class Check(Base):
             f.write(json.dumps({"at": "x", "epoch": 1, "verb": verb, "project": "app", "repo": repo or self.repo, "ref": "refs/heads/agent/x", "old": old, "new": new, "by": "t"}) + "\n")
 
     def test_a_rewritten_and_merged_run_is_settled_here_as_in_local_list_and_clean(self):
-        """merged is one test (lib/merged.py) for local list, local clean and compact-check: a tip the lead rewrote (qargi ref record --rewrite,
+        """merged is one test (lib/merged.py) for local list, local clean and compact-check: a tip the lead rewrote (crown ref record --rewrite,
         journaled as ref:rewrite) counts by the commit it was rewritten to, and the run directory may sit in any (old) scratch directory."""
         self.git("checkout", "-q", "-b", "agent/x")
         self.git("commit", "-q", "--allow-empty", "-m", "work")
@@ -329,7 +329,7 @@ class Check(Base):
         self.git("branch", "feature/lc", new)
         old_scratch = os.path.join(self.t, "scratch-from-last-month")
         os.makedirs(old_scratch)
-        d = os.path.join(old_scratch, "qargi.old001")
+        d = os.path.join(old_scratch, "crown.old001")
         os.makedirs(d)
         for fn, text in (("applied", "agent/x %s\n" % old), ("refs.before", ""), ("ability", "build\n")):                # what local list needs of a run directory
             with open(os.path.join(d, fn), "w") as f:
@@ -383,8 +383,8 @@ class Check(Base):
         pr = self.run_dir("pr", slug="fresh")
         rc, out, _ = self.run_cli("lead", "compact-check")
         self.assertEqual(rc, 1)
-        self.assertIn("a read-only local run is open: %s (build advice on feature/lc, prepared, not verified); read its report, then close it: qargi local clean %s\n" % (ro, ro), out)
-        self.assertIn("close it: qargi local clean %s (once the member has written OUT/report.md" % ro2, out)
+        self.assertIn("a read-only local run is open: %s (build advice on feature/lc, prepared, not verified); read its report, then close it: crown local clean %s\n" % (ro, ro), out)
+        self.assertIn("close it: crown local clean %s (once the member has written OUT/report.md" % ro2, out)
         self.assertIn("a local run is verified and not applied: " + wr, out)
         rows = {}
         for ln in subprocess.run([sys.executable, "-I", LEADPY, "open-runs", "--state", self.state, "--conf", self.conf, "--project", "app", "--feature", "lc"],
@@ -392,11 +392,11 @@ class Check(Base):
             f = ln.split("\t")
             self.assertEqual(len(f), 5, ln)
             rows[f[1]] = f
-        self.assertEqual(rows["advice"][4], "qargi local clean " + ro)
-        self.assertTrue(rows["waiting"][4].startswith("qargi local clean %s (once the member" % ro2))
-        self.assertTrue(rows["work"][4].startswith("qargi local close %s --applied-by-am" % wr))
-        self.assertIn("qargi review apply %s, qargi feature merge lc agent/work, qargi local clean %s" % (wr, wr), rows["work"][4])
-        self.assertTrue(rows["fresh"][4].startswith("qargi local verify %s" % pr))
+        self.assertEqual(rows["advice"][4], "crown local clean " + ro)
+        self.assertTrue(rows["waiting"][4].startswith("crown local clean %s (once the member" % ro2))
+        self.assertTrue(rows["work"][4].startswith("crown local close %s --applied-by-am" % wr))
+        self.assertIn("crown review apply %s, crown feature merge lc agent/work, crown local clean %s" % (wr, wr), rows["work"][4])
+        self.assertTrue(rows["fresh"][4].startswith("crown local verify %s" % pr))
 
     def test_the_class_is_the_registrys_and_a_report_is_a_regular_file_named_report_md(self):
         """The class file of a run directory is a member's: the registry's class wins; a record with none falls back to the file, and a run with neither is a
@@ -415,8 +415,8 @@ class Check(Base):
         self.assertNotIn("a read-only local run is open: " + fg, out)          # the registry says write; the member's file does not matter
         self.assertNotIn("a read-only local run is open: " + none, out)        # neither: a run of work
         self.assertIn("a read-only local run is open: " + old, out)            # an older record: the file
-        self.assertIn("close it: qargi local clean %s (once the member has written OUT/report.md" % sym, out)   # a link is no report
-        self.assertIn("close it: qargi local clean %s\n" % pre, out)           # NAME-report.md is
+        self.assertIn("close it: crown local clean %s (once the member has written OUT/report.md" % sym, out)   # a link is no report
+        self.assertIn("close it: crown local clean %s\n" % pre, out)           # NAME-report.md is
 
     def test_runs_of_another_repository_and_cleaned_runs_are_not_counted(self):
         self.run_dir("other", repo=os.path.join(self.t, "elsewhere"))
@@ -606,7 +606,7 @@ class Advice(Base):
         with open(os.path.join(self.state, "local-runs.jsonl"), "w") as f:
             f.write(json.dumps({"run": d, "slug": "r1", "ability": "build", "base": "feature/lc", "repo": self.repo}) + "\n")
         out = self.advice()
-        self.assertEqual(out, "lead: 50%%, 100k tokens of context%s; compact is not safe yet: a local run is prepared and not verified (qargi lead compact-check)\n" % NOTE)
+        self.assertEqual(out, "lead: 50%%, 100k tokens of context%s; compact is not safe yet: a local run is prepared and not verified (crown lead compact-check)\n" % NOTE)
 
     def test_for_a_merge_it_waits_for_the_last_open_run_of_the_feature(self):
         self.pct(100000)

@@ -6,10 +6,10 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app QARGI_RUN_TMP=$T
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app CROWN_RUN_TMP=$T
 mkdir -p "$HOME" "$T/c/projects"
 R=$T/app; git init -q -b master "$R"; git init -q --bare "$T/origin.git"
 echo base > "$R/f.txt"; git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" branch develop && git -C "$R" remote add origin "$T/origin.git"
@@ -38,10 +38,10 @@ d0=$(git -C "$R" rev-parse docs-site); dev0=$(git -C "$R" rev-parse develop); o0
 out=$($F merge docs-site agent/d1 2>&1); t=$(tok <<<"$out")
 [ -n "$t" ] && grep -q "brings 1 commit(s) into docs-site" <<<"$out" && [ "$(git -C "$R" rev-parse docs-site)" = "$d0" ] && ok "the merge into a detached branch prints a plan and changes nothing" || no "plan: $out"
 $F merge docs-site agent/d1 --plan 000000000000 --approved go >/dev/null 2>&1 && no "a wrong token was accepted" || ok "a wrong plan token is refused"
-out=$(QARGI_NESTED=1 $F merge docs-site agent/d1 --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse docs-site)" = "$d0" ] && ok "merge into a detached branch with no token under QARGI_NESTED is refused, the branch did not move" || no "nested merge, no token: rc=$rc $out"
-out=$(QARGI_NESTED=1 $F merge docs-site agent/d1 --plan 000000000000 --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse docs-site)" = "$d0" ] && ok "and a wrong token is refused under QARGI_NESTED too" || no "nested merge, wrong token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $F merge docs-site agent/d1 --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse docs-site)" = "$d0" ] && ok "merge into a detached branch with no token under CROWN_NESTED is refused, the branch did not move" || no "nested merge, no token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $F merge docs-site agent/d1 --plan 000000000000 --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse docs-site)" = "$d0" ] && ok "and a wrong token is refused under CROWN_NESTED too" || no "nested merge, wrong token: rc=$rc $out"
 out=$($F merge docs-site agent/d1 --plan "$t" --approved "go ahead" 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(git -C "$R" rev-list --parents -n1 docs-site | wc -w)" = 3 ] && git -C "$R" show docs-site:page.md >/dev/null && ok "with the token it merges the task with --no-ff" || no "apply rc=$rc: $out"
 [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && [ "$(git -C "$T/origin.git" rev-parse docs-site)" = "$o0" ] && [ "$(git -C "$R" branch --show-current)" = parked ] && ok "develop, origin and the main checkout are untouched" || no "touched"

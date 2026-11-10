@@ -109,7 +109,7 @@
     }
   },
   "notes": {
-    "barrier": "The barrier is Codex's own sandbox flags (workspace-write or read-only); this runtime has no qargi guard hook. qargi local verify \u2014 refs unchanged, tree clean \u2014 is the backstop, and the read-only class counts as not supported until a live read-only run attests that the sandbox holds.",
+    "barrier": "The barrier is Codex's own sandbox flags (workspace-write or read-only); this runtime has no crown guard hook. crown local verify \u2014 refs unchanged, tree clean \u2014 is the backstop, and the read-only class counts as not supported until a live read-only run attests that the sandbox holds.",
     "environment": "Every member receives CODEX_HOME, which holds the account's Codex login, and the standard proxy variables: the member runs as the signed-in account over the host's network route. Both are passed on purpose.",
     "models": "Model selection is not wired: the dispatch passes no --model and every member runs the signed-in account's default model. The pattern accepts only the account-default id, so a role that names another model id is refused, not silently ignored; to change the model, change the Codex account's default."
   },

@@ -1,4 +1,4 @@
-You are a qargi cloud agent. Your role, your rules and your task arrive with the
+You are a crown cloud agent. Your role, your rules and your task arrive with the
 session: the session's system prompt names the role you act as, and a coordinator
 message gives you TASK and DONE.
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""qargi __guard: a PreToolUse hook for the local members' Bash, Edit, Write, NotebookEdit, Read and Grep tools. Reads the hook's
+"""crown __guard: a PreToolUse hook for the local members' Bash, Edit, Write, NotebookEdit, Read and Grep tools. Reads the hook's
 JSON on stdin and refuses (exit 2, reason on stderr) what would publish, reach out or change a skill. A barrier, not
-proof: a second barrier beside the git wrapper (which has no credentials) and `qargi local verify`; an agent that goes
+proof: a second barrier beside the git wrapper (which has no credentials) and `crown local verify`; an agent that goes
 out of its way can still get around it, which is why verify exists.
 
 Two layers. The hook protocol (HOOK PROTOCOL below) is data: where in the hook's JSON the tool, the command, the paths and the working
 directory are, which tool names are a shell, a write or a read, and how a refusal is given back (exit status and stream, or JSON on
 standard output). It turns the hook's input into a neutral Call(kind, name, command, path, cwd) and a refusal into the hook's answer.
-The decisions (judge and everything it calls) see only the Call. The data of the runtime that qargi was built for is CLAUDE_HOOK, used
+The decisions (judge and everything it calls) see only the Call. The data of the runtime that crown was built for is CLAUDE_HOOK, used
 when the hook command names no provider; `--provider NAME` reads it from the barrier.hook of that provider's local definition instead
 (the shipped ones and the library's), and a provider whose definition has no usable hook data refuses every call, in the plain way (exit 2,
 reason on stderr), since it has no other. A refusal, a failure and an unknown class are given back in the provider's way.
@@ -18,51 +18,51 @@ changing a remote. Git is also refused every way to run another command under a 
 runs a program or reads another configuration file (GIT_RUNS_CODE: alias.*, core.pager|editor|fsmonitor|hooksPath|sshCommand|askPass|gitProxy, include.path, includeIf.*.path,
 diff.external, credential.*, filter.*, gpg.*, url.*.insteadOf, remote.*.url|uploadpack ...), and `git config` that writes such a key for later (set, --add, --replace-all or
 KEY VALUE, in any scope or --file, after -C, the key read in any case), or that can write any key (--edit, a section renamed), or whose key a variable or xargs brings
-(config_refusal); `--exec-path=DIR`, and the variables GIT_CONFIG_*, GIT_EXEC_PATH, GIT_SSH* in front of it. A git subcommand, or a qargi area or a verb of a gated area, that a variable or a substitution builds is refused.
+(config_refusal); `--exec-path=DIR`, and the variables GIT_CONFIG_*, GIT_EXEC_PATH, GIT_SSH* in front of it. A git subcommand, or a crown area or a verb of a gated area, that a variable or a substitution builds is refused.
 
 Review is read-only as a rule. A member whose definition passes `--class read-only` (the hook command in its frontmatter,
 under the protected ~/.claude/agents) is held to it on every task. A member that serves several abilities passes no class
-and falls back on `qargi local prepare`, which writes the task's ability to RUN/ability; the guard refuses any write to
+and falls back on `crown local prepare`, which writes the task's ability to RUN/ability; the guard refuses any write to
 that file and to the rest of the run's record (RUN_CONTROL), so a member cannot change the ability it is judged by. When the class says read-only, or
 the nearest run directory above the call's cwd or file path says review, the guard also refuses an edit outside OUT (RUN/out: the report
 and the manifest) and TMP (the temporary directory the lead's registry names for the run, and RUN/tmp), and a Bash command that writes anywhere else: a
 redirection, a command that creates, changes or removes files, or a git command that changes the work tree or the history (bisect, symbolic-ref with a value,
 reflog expire and delete, hash-object -w, unpack-objects and git lfs included).
 
-Skills: only a person, through qargi's own skills, changes a skill, so the guard refuses a member
-  - the lead's runs and agents: qargi local run|prepare|verify|close|clean (`local clean --discard` removes another run with no token), agent remove, project new,
+Skills: only a person, through crown's own skills, changes a skill, so the guard refuses a member
+  - the lead's runs and agents: crown local run|prepare|verify|close|clean (`local clean --discard` removes another run with no token), agent remove, project new,
     review apply, team run and task;
-  - the verbs that change one: qargi skill|tool new|import|seal|remove|unlink|link|enable|disable, qargi skill accept|unaccept
-    (they record which skills the owner accepts, in <packs>/accepted.json), qargi discover
-    install, qargi packs apply|seed|link|unlink, qargi project link|unlink (they link the project's skills, agents and memory into the
-    checkout and the runtime's memory directory, which changes what a session loads) and qargi import (it restores the pack library).
+  - the verbs that change one: crown skill|tool new|import|seal|remove|unlink|link|enable|disable, crown skill accept|unaccept
+    (they record which skills the owner accepts, in <packs>/accepted.json), crown discover
+    install, crown packs apply|seed|link|unlink, crown project link|unlink (they link the project's skills, agents and memory into the
+    checkout and the runtime's memory directory, which changes what a session loads) and crown import (it restores the pack library).
     Read-only verbs (list, show, check, effective, search, render, export) stay allowed. The verb is found after wrappers, inside `sh|bash -c STRING` and
     `eval STRING`, in the program a shell reads on its standard input (below), inside $(...) and backticks, and when the script is named directly (packs.sh, discover.py, and the scripts the shell
-    verbs call: env_apply.py is env apply in any use (qargi env plan and apply run the project's dry-run and bootstrap commands: project code; env.py is env,
+    verbs call: env_apply.py is env apply in any use (crown env plan and apply run the project's dry-run and bootstrap commands: project code; env.py is env,
     found like linker.py, so env show stays open), jsonplan.py (the --json wrapper) is the verb it is given, packs_link.py is packs link|unlink and project_link.py is project link|unlink in any use, packs_audit.py store is skill accept|unaccept, marshal_handoff.py is marshal handoff,
     linker.py (the link engine) is packs link in any use, and render.py (it can run the command a definition names) is refused in any use;
     the last two have names a project may use for its own scripts, so only the files in the lib directory of the tool or of the installed
     copy count, found from the directory the command runs in);
-  - qargi project init (it stores a whole answers file, so it is a way to models.extensions and models.accept_no_barrier, which have gated verbs;
-    found like the skill verbs), and qargi project set of any models answer, of release.*, of test_command, of gates, of env.*, of site.* (the commands, environment and site the lead later runs or builds), of packs.* (the opt-out of the render check), of git.* and review.* (the identity and the author rule qargi review apply gives the commits it applies, and the scrub command and trailer policy qargi review check runs), of runs.* (the refs that verify and clean accept as a runtime's own) and of
+  - crown project init (it stores a whole answers file, so it is a way to models.extensions and models.accept_no_barrier, which have gated verbs;
+    found like the skill verbs), and crown project set of any models answer, of release.*, of test_command, of gates, of env.*, of site.* (the commands, environment and site the lead later runs or builds), of packs.* (the opt-out of the render check), of git.* and review.* (the identity and the author rule crown review apply gives the commits it applies, and the scrub command and trailer policy crown review check runs), of runs.* (the refs that verify and clean accept as a runtime's own) and of
     roles.<role>.tools, a whole role or roles (the tools env apply installs and local prepare checks out; the other answers stay open). A project verb the guard cannot read is
     refused: set with a path that is missing or built by xargs, a variable, a substitution, a brace or a glob; and any command with the word project,
     link, unlink, set or init after it and a shell expansion or xargs in the segment (found again inside `sh -c` and `eval` strings with the quotes
     taken off, so a quote or a backslash inside the verb does not hide it). Whatever the verb would have said, it is not read. lib/gated_answers.py, the store behind
     provider enable|disable|accept (no environment variable or option opens project set to the two keys any more), is refused in any use;
-  - setting QARGI_NESTED (it makes some verbs skip their plan-token check);
-  - a write under a protected location: the pack library ($QARGI_CONF/packs, else $QARGI_HOME/config/packs, else
-    ~/.qargi/config/packs), the credentials
-    directory and install.json of the same configuration directories (not the rest of it: a member may run qargi verbs that
+  - setting CROWN_NESTED (it makes some verbs skip their plan-token check);
+  - a write under a protected location: the pack library ($CROWN_CONF/packs, else $CROWN_HOME/config/packs, else
+    ~/.crown/config/packs), the credentials
+    directory and install.json of the same configuration directories (not the rest of it: a member may run crown verbs that
     change instances, agents or projects; the guard decides by the path a write construct names, never by the verb, and a
     read of a protected path stays allowed), the skills and agents directories the provider definitions name in their resources (user_dir, below
     the home: for Claude Code ~/.claude/skills and ~/.claude/agents; project_dir, found in any path outside the run's clone, a project's
     installed ones: .claude/skills and .claude/agents), ~/.claude/plugins, and the installed copy of the tool (the tool_root in install.json:
     the skills there are linked from ~/.claude/skills), and the render/ directory of the state (the renders a runtime loads
     its skills, tools and members from: what `packs apply --target RUNTIME` makes), the providers/ directory of the state, the memory tiers (<root>/memory and
-    ~/.qargi/memory), ~/.config/anthropic, the lead's own git configuration (~/.gitconfig, ~/.config/git, ~/.git: `git config --global|--system`, `--file` outside
+    ~/.crown/memory), ~/.config/anthropic, the lead's own git configuration (~/.gitconfig, ~/.config/git, ~/.git: `git config --global|--system`, `--file` outside
     the clone and `git init` of the home directory included) and the lead's session files (lead_files: ~/.claude/settings.json, settings.local.json, CLAUDE.md,
-    commands/, hooks/, ~/.claude.json, the shell startup files such as ~/.bashrc, ~/.ssh/config and authorized_keys), for every member whatever its class. Inside the clone, found from the nearest `qargi local
+    commands/, hooks/, ~/.claude.json, the shell startup files such as ~/.bashrc, ~/.ssh/config and authorized_keys), for every member whatever its class. Inside the clone, found from the nearest `crown local
     prepare` run directory, a project directory such as .claude/skills is the work product and stays writable; the path is resolved first, so a
     symbolic link in the clone that leads to a protected root is still denied. Edit, Write and
     NotebookEdit are decided by the resolved path (symbolic links followed). A Bash command is decided by a heuristic:
@@ -71,66 +71,66 @@ Skills: only a person, through qargi's own skills, changes a skill, so the guard
     `sed|perl -i`, `awk -i inplace`, ex, vi, vim, ed, rename, sqlite3, setfacl, mkfifo, `dd of=`, a git command that changes the tree (`--work-tree` and GIT_WORK_TREE
     name the place as -C does), find with -delete or -exec (rooted above a protected directory too when it removes), the command after find -exec|-execdir|-ok|-okdir
     and parallel (a command of its own), ln of a protected location or a directory above one, and any argument of
-    tar, unzip, curl or wget. `~`, $HOME, $QARGI_CONF, ${NAME:-x} and ${NAME%/} (by the value of NAME when the environment has it, else a write through it is
+    tar, unzip, curl or wget. `~`, $HOME, $CROWN_CONF, ${NAME:-x} and ${NAME%/} (by the value of NAME when the environment has it, else a write through it is
     refused) and cd are followed (a brace word is judged as the words it stands for; $OUT is the run's out
     directory when nothing in the command could set it; a cd only as the next paragraph says). What an agent edits in its own clone, the
     repository's `skills/` directory included, and in its run directories stays allowed: protection is by the
     resolved path relative to the roots above, never by the word `skills`.
-Provider: `qargi provider accept` (it records that the owner accepts a provider surface with no read-only barrier, which lets a
+Provider: `crown provider accept` (it records that the owner accepts a provider surface with no read-only barrier, which lets a
 read-only role run there) is refused to a member, found like the skill verbs, and so is every other provider verb that changes the
 definitions (new, import, seal, remove, rename, enable, disable, attest, and any verb added later: only the ones in
 PROVIDER_READ, list, show, effective, require-barrier, skills-dirs, of, layout, require-skills, launch, addenda, notes and model, stay allowed;
 check records what it verified and may run a pack's code, and adapter-run runs the adapter, so both are refused with their own reasons).
-Release: `qargi release publish` (it creates the GitHub release of a tag), `qargi release sign` (it signs the release files with the
-lead's key), `qargi release site` (it commits the built documentation site on the lead's site branch), `qargi release assets` (it runs the
-project's release.assets_command, project code, in a worktree of the tag), `qargi release fix` (it makes a worktree on the release branch
-and, with --push, pushes it) and `qargi release step` (it marks a project's after-release step done in the lead's record) are refused to a member, found like the skill verbs, also as a verb held in a variable and through
+Release: `crown release publish` (it creates the GitHub release of a tag), `crown release sign` (it signs the release files with the
+lead's key), `crown release site` (it commits the built documentation site on the lead's site branch), `crown release assets` (it runs the
+project's release.assets_command, project code, in a worktree of the tag), `crown release fix` (it makes a worktree on the release branch
+and, with --push, pushes it) and `crown release step` (it marks a project's after-release step done in the lead's record) are refused to a member, found like the skill verbs, also as a verb held in a variable and through
 lib/release.sh and lib/release_sign.py; the other release verbs stay allowed (they need a plan token and approval of their own).
-Changelog: `qargi changelog renumber` without --check (it rewrites the changelog of a work tree) is the lead's, found like the skill verbs, also through
+Changelog: `crown changelog renumber` without --check (it rewrites the changelog of a work tree) is the lead's, found like the skill verbs, also through
 lib/changelog.sh and lib/changelog_numbers.py and when a word is held in a variable; `renumber --check` only reads and stays allowed.
-Marshal: the feature marshal (`qargi marshal`) is changed only by the lead. The guard refuses a member
-  - the verbs that change it: qargi marshal claim|set|renew|release|take|takeover|finish|enable|disable, found like the skill verbs
-    (after wrappers, in `sh -c`, `eval`, $(...), through a path to bin/qargi or marshal.sh). status and check stay allowed, and so
+Marshal: the feature marshal (`crown marshal`) is changed only by the lead. The guard refuses a member
+  - the verbs that change it: crown marshal claim|set|renew|release|take|takeover|finish|enable|disable, found like the skill verbs
+    (after wrappers, in `sh -c`, `eval`, $(...), through a path to bin/crown or marshal.sh). status and check stay allowed, and so
     does handoff, which only reads, unless it is given --write (that makes a file, as only the lead's session may) or an argument
     held in a variable (it could be --write); any other verb,
     none, or one held in a variable is refused (fail closed);
-  - the feature verbs that write the marshal: qargi feature start|finish|verify (start and finish create and finish the lead's record
+  - the feature verbs that write the marshal: crown feature start|finish|verify (start and finish create and finish the lead's record
     and push it with the lead's credentials, verify keeps the lease renewed), found the same way. list, status, merge and sync stay
     allowed (merge and sync ask the marshal, and status, merge and sync renew the lease of a feature this identity leads); any other verb or one held in
-    a variable is refused. The marshal tells a member run by the working directory (below a run directory) and by the variable QARGI_MEMBER_RUN
-    that `qargi local run` puts in the member's environment (a member that changes directory still renews nothing); the guard refuses a command that sets or
-    unsets that variable, as it does QARGI_LEAD. A member started some other way carries no variable and is told by its directory alone;
-    `qargi feature park` (it resets the parking branch to develop in the main checkout) and `qargi branch prune` (it deletes merged branches
-    and the worktrees qargi made, and with --remote branches on origin; also through lib/branch.sh, and a verb held in a variable) are the
-    lead's too, and are refused with wording of their own; so are `qargi upstream status` (it fetches into the lead's repository, which changes
-    the remote-tracking refs that `qargi local verify` compares against a run's snapshot) and `qargi upstream sync` (it fast-forwards the branch
+    a variable is refused. The marshal tells a member run by the working directory (below a run directory) and by the variable CROWN_MEMBER_RUN
+    that `crown local run` puts in the member's environment (a member that changes directory still renews nothing); the guard refuses a command that sets or
+    unsets that variable, as it does CROWN_LEAD. A member started some other way carries no variable and is told by its directory alone;
+    `crown feature park` (it resets the parking branch to develop in the main checkout) and `crown branch prune` (it deletes merged branches
+    and the worktrees crown made, and with --remote branches on origin; also through lib/branch.sh, and a verb held in a variable) are the
+    lead's too, and are refused with wording of their own; so are `crown upstream status` (it fetches into the lead's repository, which changes
+    the remote-tracking refs that `crown local verify` compares against a run's snapshot) and `crown upstream sync` (it fast-forwards the branch
     that carries the upstream line and journals the move, from a plan and a token), also through lib/upstream.sh and as a verb held in a
-    variable; `qargi upstream review` only reads the last fetch and stays allowed, and so is `qargi ref` (record --rewrite moves an agent branch and journals it, note journals a branch the lead made; any verb, also through lib/ref.sh);
-    `qargi backlog done` (it moves an item out of the backlog file into the dated archive beside it and rewrites the file, from a plan and a token; any verb but list, also through lib/backlog.sh,
-    lib/backlog.py and a verb held in a variable) is the lead's too, and `qargi backlog list` only reads and stays allowed; qargi project set of backlog.file is refused with the answers the lead later runs;
-  - a write under the features/ directory of the state ($QARGI_STATE, else <root>/state, and ~/.qargi/state), where the
+    variable; `crown upstream review` only reads the last fetch and stays allowed, and so is `crown ref` (record --rewrite moves an agent branch and journals it, note journals a branch the lead made; any verb, also through lib/ref.sh);
+    `crown backlog done` (it moves an item out of the backlog file into the dated archive beside it and rewrites the file, from a plan and a token; any verb but list, also through lib/backlog.sh,
+    lib/backlog.py and a verb held in a variable) is the lead's too, and `crown backlog list` only reads and stays allowed; crown project set of backlog.file is refused with the answers the lead later runs;
+  - a write under the features/ directory of the state ($CROWN_STATE, else <root>/state, and ~/.crown/state), where the
     marshal keeps one record per open feature (and, beside them, the `.observed-<project>.json` clock cache of the shared-refs
     backend): decided like the other protected roots, reading stays allowed;
   - a write under the marshal/ directory of the state, where `marshal enable` keeps the per-project `.enabled` switch of the
     shared-refs backend: found and decided like features/, reading stays allowed;
-  - a write under the runs/ directory of the state, where `qargi local verify` saves a copy of each passed run (OUT, the snapshots, the
-    record) that `qargi review apply --from-saved` applies: decided like features/, reading stays allowed;
-  - a write under the scrub_ok/ directory of the state, where `qargi review check` records the series whose declared take-in scrub passed and
-    `qargi review apply` skips the scrub for a series recorded there: found and decided like features/, reading stays allowed;
+  - a write under the runs/ directory of the state, where `crown local verify` saves a copy of each passed run (OUT, the snapshots, the
+    record) that `crown review apply --from-saved` applies: decided like features/, reading stays allowed;
+  - a write under the scrub_ok/ directory of the state, where `crown review check` records the series whose declared take-in scrub passed and
+    `crown review apply` skips the scrub for a series recorded there: found and decided like features/, reading stays allowed;
   - a write under the handoff/ and busy/ directories of the state, where `marshal handoff --write` records when the note was written and
-    feature verify and release verify record the whole-suite run in progress: `qargi lead compact-check` reads them. Found and decided
-    like features/, reading stays allowed. `qargi lead usage` and `compact-check` only read and stay allowed;
-  - a write to the ref journal of the state ($QARGI_STATE/ref-journal.jsonl, its lock and any rotated or temporary file next to
-    it, e.g. ref-journal.jsonl.lock, .1, .tmp): the lead's record of the branch moves its own verbs made, which `qargi local verify`
-    accepts as lead-side changes; and the same for the registry of local runs ($QARGI_STATE/local-runs.jsonl and the files like it), which names the
-    temporary directory `qargi local clean` removes for each run. Decided like features/; reading stays allowed. The journal is trusted only as far as the state
+    feature verify and release verify record the whole-suite run in progress: `crown lead compact-check` reads them. Found and decided
+    like features/, reading stays allowed. `crown lead usage` and `compact-check` only read and stay allowed;
+  - a write to the ref journal of the state ($CROWN_STATE/ref-journal.jsonl, its lock and any rotated or temporary file next to
+    it, e.g. ref-journal.jsonl.lock, .1, .tmp): the lead's record of the branch moves its own verbs made, which `crown local verify`
+    accepts as lead-side changes; and the same for the registry of local runs ($CROWN_STATE/local-runs.jsonl and the files like it), which names the
+    temporary directory `crown local clean` removes for each run. Decided like features/; reading stays allowed. The journal is trusted only as far as the state
     directory is: an executor running as the same OS user could still edit the file by code the guard cannot see (HMAC-signed
     records are a later feature);
-  - the verbs of the signed records: qargi marshal key|signers|resign (the lead's signing key, the allowed signers, a record signed
-    with the key), refused with their own reason; and a write to the allowed signers ($QARGI_STATE/marshal/<project>.signers, under
-    the marshal/ root above) or to the acceptance marks ($QARGI_STATE/features/.accepted-<project>.json, under features/), which the
+  - the verbs of the signed records: crown marshal key|signers|resign (the lead's signing key, the allowed signers, a record signed
+    with the key), refused with their own reason; and a write to the allowed signers ($CROWN_STATE/marshal/<project>.signers, under
+    the marshal/ root above) or to the acceptance marks ($CROWN_STATE/features/.accepted-<project>.json, under features/), which the
     refusal names;
-  - setting or unsetting QARGI_LEAD (the lead identity): an assignment, export, declare, printf -v, read or mapfile, unset or env -u in a command.
+  - setting or unsetting CROWN_LEAD (the lead identity): an assignment, export, declare, printf -v, read or mapfile, unset or env -u in a command.
 Signing key: the one credential a member may not even read is the lead's signing key for the marshal records,
   credentials/marshal_* (the private key and its public half) in any of the configuration directories above. The guard refuses
   the Read and Grep tools on it, and a Bash segment with any word that names it: after ~ and variables, braces,
@@ -163,7 +163,7 @@ Signing key: the one credential a member may not even read is the lead's signing
   is a name the guard cannot resolve yet.
 Residual for marshal handoff: xargs in front of it is refused (its arguments come from standard input), but other ways to build a command line the
 guard does not parse (a shell loop that reads a file, `parallel`, a script written earlier) are not seen; the redirect form `... < args` into a
-loop is accepted as residual, and `qargi local verify` and the lead's review of the output are what catch a note written by a member.
+loop is accepted as residual, and `crown local verify` and the lead's review of the output are what catch a note written by a member.
 Not covered: code that writes or reads a file itself (python -c, perl -e, node -e, a script written earlier and run) unless it
 names the key by its full path, a glob that expands to a protected path (for a write), a write to a path built from a variable (`p=DIR; echo x > $p/f`: the plain
 assignments of the line are followed for the reads of the key and for a change of directory, not for the target of a write), a read of a path built from a variable the guard cannot see
@@ -172,22 +172,22 @@ start with marshal_ or the variable is the whole word; a name the line gives mor
 A name the line assigns in plain words is taken for those values only as far as the line's own text goes: read, printf -v, a nameref, declare -l, select and word splitting can change it, which is why a cd through it
 leaves the directory unknown. The guard is best-effort and cannot resolve every shell construct.
 Reading a Bash command (passes(), segments()): a word quoted $'...' (ANSI-C) or $"..." is read as the plain string it stands for (ansi_c); then the plain, conservative split. The line is cut at every ; && || | & and newline whatever the quotes, a comment
-or a heredoc body, so a refused verb is found wherever a command could start, and it is refused as text too: `git commit -m "Docs; qargi packs seed" && make` is
+or a heredoc body, so a refused verb is found wherever a command could start, and it is refused as text too: `git commit -m "Docs; crown packs seed" && make` is
 refused, and a member writes a message to a file with its file tool and commits with `git commit -F FILE`. The one narrowing (mask_data(), for the verbs that change
 a skill or the marshal; push, gh and ssh are read in the whole text): when EVERY command of the line is echo, cat, tee, grep or git commit|log|status|diff|show|add
 (they print, write or search the text and run nothing from it; not printf, whose -v assigns a variable), the ; | & and newlines inside a quoted string are blanks and a heredoc body is cut out, so
-`git commit -m "Docs; qargi packs seed"` and a message written with `cat > msg <<'E'` are data. Another program in the line (a shell, make, a script, a
+`git commit -m "Docs; crown packs seed"` and a message written with `cat > msg <<'E'` are data. Another program in the line (a shell, make, a script, a
 function, an assignment, a keyword, a group), a comment, a backslash, a substitution, $'..', ${..}, a quote or heredoc never closed, or a heredoc
 delimiter that starts with # keeps the plain split; a file named in quotes (in a word with < or > or the word after one, or a file of tee) is never
 blanked. A line that does hold another command still has the heredoc bodies cut out that a plain writer (echo, cat, tee, grep, git commit ...) receives and does
 not pipe on, so a script written with `cat > run.sh <<'E'` and then made executable is not read as the commands its text mentions; that holds only while every
 other command of the line looks at files, makes, moves or removes them (HARMLESS: chmod, mkdir, ls, mv ...), so a shell, make, source, a script, an alias or an export
 keeps the plain split (the file could be run there). The lines of such a body that
-start a lead-only verb (qargi or one of its scripts, also behind sudo, env, a shell, a keyword, a redirection or a continuation; the word project; QARGI_LEAD,
-QARGI_NESTED, QARGI_MEMBER_RUN; marshal_; $'..') stay, and with an unquoted delimiter so do the lines the outer shell expands (a substitution, ${..}, a backslash); a body that a shell reads
+start a lead-only verb (crown or one of its scripts, also behind sudo, env, a shell, a keyword, a redirection or a continuation; the word project; CROWN_LEAD,
+CROWN_NESTED, CROWN_MEMBER_RUN; marshal_; $'..') stay, and with an unquoted delimiter so do the lines the outer shell expands (a substitution, ${..}, a backslash); a body that a shell reads
 (`bash <<E`) or a pipe carries on is read whole. As the plain split never sees such a name whole, a word that still holds a ; | & or newline after quote removal and resolves into a protected
 location (or names the signing key) is refused as a path (separator_path_refusal). A $( ), <( ), >( ) or backtick substitution, also
-inside double quotes, is a command of its own (the line is cut at it, and the text inside it is cut again on its own, so `cat <<<"$(qargi upgrade) x"` is read);
+inside double quotes, is a command of its own (the line is cut at it, and the text inside it is cut again on its own, so `cat <<<"$(crown upgrade) x"` is read);
 a line continuation is read both ways; `>|` is a redirection and is not cut; the keywords and groupings that a command follows (if, then, do, !, {, (, case
 patterns, function definitions) and redirections written before it are skipped; an unbalanced quote falls back on the words with the quotes taken off.
 A string handed to a shell (sh -c STRING, eval STRING) is read again, with the segments that follow it. So is the program a shell (sh, bash, dash, zsh, ksh; source
@@ -220,8 +220,8 @@ The run: a directory is a run when it holds ability and refs.before, or the clon
 below the clone directory of another (a repository may hold a docs/tmpdir). RUN_CONTROL files are not written, moved, removed, copied or linked, nothing is
 the run directory itself is no destination (a copy over it, an extraction, a link; run_dir_refusal), and the run directory is not removed or moved; under
 `--class read-only` the run is not asked whether the member is read-only: a run that cannot be found refuses every write (NO_RUN).
-Not seen: a script built by code (python -c ...), a program or a verb held in a variable, the output of a substitution handed to sh -c (`bash -c "$(echo qargi upgrade)"`),
-a wrapper's option that takes a value (sudo -u root qargi ...; the ones of xargs are read).
+Not seen: a script built by code (python -c ...), a program or a verb held in a variable, the output of a substitution handed to sh -c (`bash -c "$(echo crown upgrade)"`),
+a wrapper's option that takes a value (sudo -u root crown ...; the ones of xargs are read).
 
 Failure: the guard fails closed. Any unexpected exception ends in exit 2 with the reason on stderr. Input that is not
 JSON is still let through (exit 0), as before. Known limits outside this file: a hook that cannot start, exits other than 0 or 2, times out or prints invalid
@@ -256,7 +256,7 @@ REDIR = re.compile(r"^(?:\d*|&)(?:>>|>\||<>|>)(.*)$")           # > >> >| <> &> 
 GIT_OUTPUT_DIRS = {"format-patch", "archive"}                    # git subcommands whose -o names where they write
 
 SKILL_VERBS = {"new", "import", "seal", "remove", "unlink", "link", "enable", "disable", "accept", "unaccept"}
-SCRIPTS = ("qargi", "packs.sh", "discover.py", "cloud.py", "upgrade.sh", "marshal.sh", "feature.sh", "provider.py", "provider.sh",
+SCRIPTS = ("crown", "packs.sh", "discover.py", "cloud.py", "upgrade.sh", "marshal.sh", "feature.sh", "provider.py", "provider.sh",
            "memory.sh", "tierwrite.sh", "tierplan.py", "memplan.py", "packs_link.py", "project_link.py", "gated_answers.py", "project.sh", "packs_audit.py", "marshal_handoff.py", "linker.py", "render.py", "local_run.py", "local.sh", "release.sh", "release_sign.py",
            "agent.sh", "team.sh", "env.py", "env_apply.py", "branch.sh", "changelog.sh", "changelog_numbers.py", "upstream.sh", "backlog.sh", "backlog.py", "ref.sh", "jsonplan.py")
 # the command and the scripts behind the refused verbs (packs_link.py is packs link|unlink, packs_audit.py store is skill accept|unaccept,
@@ -269,18 +269,18 @@ OWN_ONLY = ("linker.py", "render.py", "env.py")                       # names to
 # (`ln -s .../linker.py x && python3 x`), and an import can be spelled in too many ways (importlib, __import__, string joins) to read from
 # the command text; a half check would suggest a guarantee the guard does not give. Like the rest of the shell reading it is a heuristic
 # against a mistake, not a wall against a member that works to get round it; the local verify of the patches is the backstop.
-MEMORY_VERBS = ("init", "move", "split", "merge", "copy")                          # qargi memory verbs that change a memory tier
+MEMORY_VERBS = ("init", "move", "split", "merge", "copy")                          # crown memory verbs that change a memory tier
 MEMORY_READ = ("tiers", "check", "get", "lint")
 PROVIDER_READ = ("", "list", "show", "effective", "require-barrier", "skills-dirs", "of", "layout", "require-skills", "launch", "addenda", "notes", "model")   # the provider verbs that only read; the rest, and any verb added later, change the definitions or run code (check, adapter-run)
 BUILT_VERB_AREAS = {"skill", "tool", "packs", "discover", "project", "local", "cloud", "memory"}   # a verb the shell builds in these is refused: one of the verbs that change something may be what it builds
-ENV_LEAD = ("plan", "apply")                                   # the verbs of qargi env that run a project's commands (lib/env_apply.py)
+ENV_LEAD = ("plan", "apply")                                   # the verbs of crown env that run a project's commands (lib/env_apply.py)
 LEAD_VERBS = {("local", "clean"), ("local", "close"), ("local", "prepare"), ("local", "verify"), ("agent", "remove"), ("project", "new"), ("review", "apply"), ("team", "run")}   # the lead's runs and agents: `local clean --discard` removes another run with no token
 MEMORY_NOTE = "propose it in your report"
 MARSHAL_READ = ("status", "check", "handoff")                # handoff only reads; with --write it makes a file and is refused (skill_verb)
 MARSHAL_SIGNING = {"key": "manages the marshal's signing key", "signers": "manages the marshal's allowed signers",
                    "resign": "signs a marshal record with the lead's key"}      # the verbs of the signed records, each refused with its own reason
-MEMBER_MARK = "QARGI_MEMBER_RUN"                             # the variable `qargi local run` puts in a member's environment (marshal_refs.in_member_run reads it): setting or unsetting it is refused
-FEATURE_OPEN = ("", "list", "status", "merge", "sync")       # the feature verbs that start, finish or verify nothing; status, merge and sync still renew the lead's own lease (check --renew), so what keeps a member from renewing it is the member mark (QARGI_MEMBER_RUN) and the run directory it works in, not this list (the rest writes, or is unknown)
+MEMBER_MARK = "CROWN_MEMBER_RUN"                             # the variable `crown local run` puts in a member's environment (marshal_refs.in_member_run reads it): setting or unsetting it is refused
+FEATURE_OPEN = ("", "list", "status", "merge", "sync")       # the feature verbs that start, finish or verify nothing; status, merge and sync still renew the lead's own lease (check --renew), so what keeps a member from renewing it is the member mark (CROWN_MEMBER_RUN) and the run directory it works in, not this list (the rest writes, or is unknown)
 BACKLOG_OPEN = ("", "list")                                 # the backlog verbs that only read: done moves an item out of the backlog file into the archive (the rest is unknown)
 UPSTREAM_OPEN = ("", "review")                               # the upstream verbs that only read: status fetches into the lead's repository and sync moves a branch (the rest is unknown)
 LEAD_BUILTINS = {"export", "declare", "typeset", "readonly", "local", "unset", "env", "read", "printf", "set", "let"}
@@ -818,11 +818,11 @@ HARMLESS = {"chmod", "mkdir", "ls", "touch", "mv", "cp", "rm", "rmdir", "ln", "p
             "basename", "dirname", "realpath", "readlink", "mktemp", "du", "file", "diff", "cmp"}   # commands that run no file and no program they are given (not sort, sed, awk, find, make, env, a shell, an alias ...)
 EXPANDED_LINE = re.compile(r"\$[({\[]|`|\\")               # in the body of a heredoc whose delimiter is not quoted: what the outer shell expands (it runs a substitution) or joins to the next line
 BODY_CUT = re.compile(r"\$\(|[;&|()`\n]")
-BODY_WORDS = re.compile(r"[\s,{}]+")                         # a brace word ({qargi,x}) is read as its alternatives
+BODY_WORDS = re.compile(r"[\s,{}]+")                         # a brace word ({crown,x}) is read as its alternatives
 ANSI_QUOTED = re.compile(r"\$['\"]")                         # $'..' and $".." spell words the plain split reads as the string they stand for (ansi_c)
 PROSE_WORD = re.compile(r"^[A-Za-z]+[,.:;!?]?$")
 BODY_NAMES = frozenset(SCRIPTS) | {"project"}               # a line of a body that starts a command with one of these names is a lead-only verb the receiver could run later
-BODY_MARKS = ("QARGI_LEAD", "QARGI_NESTED", MEMBER_MARK, KEY_PREFIX)   # and so is a line that sets one of the lead's variables or names the signing key
+BODY_MARKS = ("CROWN_LEAD", "CROWN_NESTED", MEMBER_MARK, KEY_PREFIX)   # and so is a line that sets one of the lead's variables or names the signing key
 BODY_LEADS = WRAP | SHELLS | {"eval", "source", ".", "if", "then", "do", "else", "elif", "while", "until", "!", "python", "python3", "perl", "ruby", "node", "make", "doas", "coproc"}   # words that put a command after them
 
 
@@ -838,9 +838,9 @@ def runs_something(words):
 
 
 def starts_lead_verb(line):
-    """True when a line of a heredoc body starts a command that the guard refuses, or sets a variable it protects: a command with the name of qargi or of one of its
-    scripts (also behind sudo, env, a shell, a keyword, a redirection, a brace word: `then qargi upgrade`, `bash -c qargi upgrade`, `{qargi,x} upgrade`), the word
-    project, QARGI_LEAD, QARGI_NESTED, QARGI_MEMBER_RUN, marshal_ (the signing key), and a $'..' or $".." that could spell any of them. A name in the middle of a
+    """True when a line of a heredoc body starts a command that the guard refuses, or sets a variable it protects: a command with the name of crown or of one of its
+    scripts (also behind sudo, env, a shell, a keyword, a redirection, a brace word: `then crown upgrade`, `bash -c crown upgrade`, `{crown,x} upgrade`), the word
+    project, CROWN_LEAD, CROWN_NESTED, CROWN_MEMBER_RUN, marshal_ (the signing key), and a $'..' or $".." that could spell any of them. A name in the middle of a
     sentence (`the project set of answers`) is no command."""
     if ANSI_QUOTED.search(line):
         return True
@@ -867,7 +867,7 @@ def readable_lines(body, quoted):
 
 def mask_data(command):
     """The command with its data made harmless to the plain split, or the command itself. The split (segments) cuts a line at every ; | & and newline,
-    inside quotes and heredocs too, so `git commit -m "Docs; qargi packs seed"` and a heredoc that a commit message is written from were refused as the
+    inside quotes and heredocs too, so `git commit -m "Docs; crown packs seed"` and a heredoc that a commit message is written from were refused as the
     verb they mention. When EVERY command of the line is one that only prints, writes or searches (INERT: echo, cat, tee, grep, git commit|log|status|
     diff|show|add; not printf, whose -v NAME assigns a variable, and an array subscript in NAME runs a substitution), a quoted string of it cannot run
     anything, and a heredoc body is the input of such a command: the separators in the quoted strings become blanks and the heredoc bodies are cut out
@@ -880,7 +880,7 @@ def mask_data(command):
     line only looks at files, makes them, moves them or removes them (HARMLESS: chmod, mkdir, ls ...; not a shell, make, a script, an alias, an export, an
     assignment alone: runs_something), so that the file cannot be run in the line: a script a member writes with a heredoc and then makes executable is not read as
     the commands its text mentions. The lines of such a body that start a lead-only verb stay (readable_lines), so a file
-    written with `qargi upgrade` in it is refused as before; a body whose delimiter is not quoted keeps the lines the outer shell expands. Used for the verbs
+    written with `crown upgrade` in it is refused as before; a body whose delimiter is not quoted keeps the lines the outer shell expands. Used for the verbs
     that change a skill or the marshal, not for push/gh/ssh (blocked() reads the whole text); separator_path_refusal() judges such a name as a path."""
     out = mask_scan(command, True)
     return out if out != command or "<<" not in command else mask_scan(command, False)
@@ -1190,7 +1190,7 @@ def walk(command, here, assigned=None):
 
 @functools.cache                                     # the files do not change while one command is judged
 def run_like(p):
-    """True when the directory p holds the record `qargi local prepare` makes: ability and refs.before, or the clone and out directories beside any
+    """True when the directory p holds the record `crown local prepare` makes: ability and refs.before, or the clone and out directories beside any
     other file of the record (so a run whose two files were moved away is still a run)."""
     if os.path.lexists(os.path.join(p, "ability")) and os.path.lexists(os.path.join(p, "refs.before")):
         return True
@@ -1216,7 +1216,7 @@ def is_run(p):
 
 @functools.cache                                     # the files do not change while one command is judged
 def run_dir(path):
-    """The nearest directory at or above path that `qargi local prepare` made (is_run)."""
+    """The nearest directory at or above path that `crown local prepare` made (is_run)."""
     p = os.path.realpath(path) if path else ""
     while p and p != os.path.dirname(p):
         if is_run(p):
@@ -1259,7 +1259,7 @@ RUN_CONTROL = ("ability", "class", "profile", "refs.before", "refs.after", "refs
 
 
 def control_refusal(full):
-    """The reason a write to a run directory's own record is refused, or None. RUN_CONTROL is every file of the run directory that `qargi local` reads
+    """The reason a write to a run directory's own record is refused, or None. RUN_CONTROL is every file of the run directory that `crown local` reads
     back or that names something it uses: the ability and class the guard is held to, the refs the run is compared with, the temporary directory prepare made
     (tmpdir: `local clean` takes the one to remove from the lead's registry, never from this file), the repository and the tip it asks whether the work is
     merged (repo.path, applied), the credential path, the git wrapper."""
@@ -1282,7 +1282,7 @@ def run_dir_refusal(full):
 
 @functools.cache                                     # the files do not change while one command is judged
 def run_tmps(run):
-    """The temporary directories of a run that are the member's (TMP): the one the lead's registry names for it, as `qargi local clean` reads it (the run's own
+    """The temporary directories of a run that are the member's (TMP): the one the lead's registry names for it, as `crown local clean` reads it (the run's own
     tmpdir file is not read: a member can write it), and run/tmp, where prepare puts it when there is no /dev/shm."""
     real = os.path.realpath(run)
     out = [os.path.join(real, "tmp")]
@@ -1920,12 +1920,12 @@ class MemoryReason(MarshalReason):
 
 
 def conf_dirs(P, home):
-    """The configuration directories a qargi installation may keep its packs, credentials and install record in."""
-    return (P.conf(), os.path.join(P.root(), "config"), os.path.join(home, ".qargi", "config"))
+    """The configuration directories a crown installation may keep its packs, credentials and install record in."""
+    return (P.conf(), os.path.join(P.root(), "config"), os.path.join(home, ".crown", "config"))
 
 
 _RESOURCE_DIRS = []
-# The directories of Claude Code, the runtime qargi was built for. They are held whatever the library says: a definition of that name that
+# The directories of Claude Code, the runtime crown was built for. They are held whatever the library says: a definition of that name that
 # clashes with the shipped one (or is broken) is skipped below, and its directories must not drop out of the protection with it.
 CLAUDE_RESOURCE_DIRS = ((".claude", "skills"), (".claude", "agents")), ("~/.claude/skills", "~/.claude/agents")
 
@@ -1961,7 +1961,7 @@ def resource_dirs():
                     if isinstance(u, str) and u.startswith("~/") and len(u) > 2 and os.path.join(home, u[2:]) not in user:
                         user.append(os.path.join(home, u[2:]))
         if skipped:
-            print("qargi guard: provider definitions skipped, their skills and agents directories are not protected: %s" % "; ".join(skipped), file=sys.stderr)
+            print("crown guard: provider definitions skipped, their skills and agents directories are not protected: %s" % "; ".join(skipped), file=sys.stderr)
         _RESOURCE_DIRS.append((project, user))
     return _RESOURCE_DIRS[0]
 
@@ -1972,7 +1972,7 @@ _ROOTS = {}
 def protected_roots():
     """The locations whose content is a skill, the library of them, a credential or the install record (real paths). Worked out once per
     environment (a command of thousands of segments asks for every one)."""
-    key = tuple(os.environ.get(k) for k in ("HOME", "QARGI_CONF", "QARGI_HOME", "QARGI_STATE", "XDG_CONFIG_HOME"))
+    key = tuple(os.environ.get(k) for k in ("HOME", "CROWN_CONF", "CROWN_HOME", "CROWN_STATE", "XDG_CONFIG_HOME"))
     if key not in _ROOTS:
         _ROOTS[key] = _protected_roots()
     return _ROOTS[key]
@@ -1982,17 +1982,17 @@ def _protected_roots():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import paths as P                                     # here, not at the top: an import failure is then a refusal (see main)
     home = os.path.expanduser("~")
-    # the library where the data lives, the default and the QARGI_HOME one beside an override
+    # the library where the data lives, the default and the CROWN_HOME one beside an override
     # Besides the library, only the credentials and the install record of each configuration directory: not the rest of
-    # <conf> (instances, agents, projects, profiles), which qargi verbs a member runs legitimately change.
+    # <conf> (instances, agents, projects, profiles), which crown verbs a member runs legitimately change.
     # The user's skills and agents directories are the ones the definitions name. No resource names a plugins directory yet, so the one
     # of Claude Code is kept here.
     roots = set(resource_dirs()[1]) | {os.path.join(home, ".claude", "plugins")}
-    # (the live configuration directory is one of these: QARGI_CONF, QARGI_HOME/config or ~/.qargi/config)
+    # (the live configuration directory is one of these: CROWN_CONF, CROWN_HOME/config or ~/.crown/config)
     for conf in conf_dirs(P, home):
         roots.update(os.path.join(conf, name) for name in ("packs", "credentials", "install.json"))
     roots.add(os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config"), "anthropic"))   # the ant profiles and logins
-    # the installed copy of the tool: ~/.claude/skills/qargi-* are links into it, and a write through such a link resolves
+    # the installed copy of the tool: ~/.claude/skills/crown-* are links into it, and a write through such a link resolves
     # here, so it must be a root itself (it holds the skills, the member definition and the roles a member is launched with)
     installed = P.installed_tool_root()
     if installed:
@@ -2032,13 +2032,13 @@ def lead_roots(home=None):
 
 
 def state_sub(name, P=None, home=None):
-    """The directory `name` of the state, in each of the places qargi keeps it: QARGI_STATE, else <root>/state, and the default ~/.qargi/state beside an override
+    """The directory `name` of the state, in each of the places crown keeps it: CROWN_STATE, else <root>/state, and the default ~/.crown/state beside an override
     (real paths, so a link into it is followed)."""
     if P is None:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import paths as P
     home = home or os.path.expanduser("~")
-    return {os.path.realpath(os.path.join(st, name)) for st in (P.state(), os.path.join(P.root(), "state"), os.path.join(home, ".qargi", "state"))}
+    return {os.path.realpath(os.path.join(st, name)) for st in (P.state(), os.path.join(P.root(), "state"), os.path.join(home, ".crown", "state"))}
 
 
 def render_roots(P=None, home=None):
@@ -2059,19 +2059,19 @@ def feature_roots(P=None, home=None):
 
 
 def lead_state_roots(P=None, home=None):
-    """The handoff/ and busy/ directories of the state: when the lead's last handoff note was written, and the whole-suite runs in progress. `qargi lead
+    """The handoff/ and busy/ directories of the state: when the lead's last handoff note was written, and the whole-suite runs in progress. `crown lead
     compact-check` reads both to say whether a compact is safe, so a member must not write them."""
     return state_sub("handoff", P, home) | state_sub("busy", P, home)
 
 
 def saved_runs_roots(P=None, home=None):
-    """The runs/ directory of the state: the copies `qargi local verify` saves of a passed run (its OUT, its snapshots, its record), which
-    `qargi review apply --from-saved` applies after the run directory is lost. A member must not plant or change one."""
+    """The runs/ directory of the state: the copies `crown local verify` saves of a passed run (its OUT, its snapshots, its record), which
+    `crown review apply --from-saved` applies after the run directory is lost. A member must not plant or change one."""
     return state_sub("runs", P, home)
 
 
 def scrub_ok_roots(P=None, home=None):
-    """The scrub_ok/ directory of the state: the record `qargi review check` writes for the series whose declared scrub passed, which `qargi review apply` takes
+    """The scrub_ok/ directory of the state: the record `crown review check` writes for the series whose declared scrub passed, which `crown review apply` takes
     as the scrub done. A member must not write one (it could name a series that never passed)."""
     return state_sub("scrub_ok", P, home)
 
@@ -2082,31 +2082,31 @@ def switch_roots(P=None, home=None):
 
 
 def memory_roots(P=None, home=None):
-    """The memory tiers qargi keeps by default: <root>/memory (project, shared and system) and ~/.qargi/memory. Reading stays allowed; a tier placed elsewhere by
+    """The memory tiers crown keeps by default: <root>/memory (project, shared and system) and ~/.crown/memory. Reading stays allowed; a tier placed elsewhere by
     the project's answers is not guarded."""
     if P is None:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import paths as P
     home = home or os.path.expanduser("~")
-    return {os.path.realpath(os.path.join(r, "memory")) for r in (P.root(), os.path.join(home, ".qargi"))}
+    return {os.path.realpath(os.path.join(r, "memory")) for r in (P.root(), os.path.join(home, ".crown"))}
 
 
 JOURNAL = "ref-journal.jsonl"
-REGISTRY = "local-runs.jsonl"                                # the lead's registry of local runs: which temporary directory `qargi local clean` removes for each
+REGISTRY = "local-runs.jsonl"                                # the lead's registry of local runs: which temporary directory `crown local clean` removes for each
 
 
 _STATE = {}
 
 
 def state_dirs(P=None, home=None):
-    key = tuple(os.environ.get(k) for k in ("HOME", "QARGI_CONF", "QARGI_HOME", "QARGI_STATE")) if P is None and home is None else None
+    key = tuple(os.environ.get(k) for k in ("HOME", "CROWN_CONF", "CROWN_HOME", "CROWN_STATE")) if P is None and home is None else None
     if key is not None and key in _STATE:
         return _STATE[key]
     if P is None:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import paths as P
     home = home or os.path.expanduser("~")
-    got = {os.path.realpath(st) for st in (P.state(), os.path.join(P.root(), "state"), os.path.join(home, ".qargi", "state"))}
+    got = {os.path.realpath(st) for st in (P.state(), os.path.join(P.root(), "state"), os.path.join(home, ".crown", "state"))}
     if key is not None:
         _STATE[key] = got
     return got
@@ -2130,7 +2130,7 @@ def journal_sibling(full):
 def refusal_text(what, dest, root):
     """The sentence for a refused write: the generic one, or for the render and the marshal's records the reason."""
     if os.path.basename(root).startswith(REGISTRY) and (root in journal_roots() or journal_sibling(root)):
-        return MarshalReason("%s on %s would change %s, the lead's registry of local runs (it says which temporary directory `qargi local clean` removes for each run); %s"
+        return MarshalReason("%s on %s would change %s, the lead's registry of local runs (it says which temporary directory `crown local clean` removes for each run); %s"
                              % (what, dest, root, MARSHAL_NOTE))
     if root in journal_roots() or journal_sibling(root):
         return MarshalReason("%s on %s would change %s, the lead's ref journal of branch moves; %s" % (what, dest, root, MARSHAL_NOTE))
@@ -2141,7 +2141,7 @@ def refusal_text(what, dest, root):
     if root in feature_roots():
         return MarshalReason("%s on %s would change %s, the marshal's record of the open features; %s" % (what, dest, root, MARSHAL_NOTE))
     if root in lead_state_roots():
-        return MarshalReason("%s on %s would change %s, where the lead's handoff note and whole-suite runs are recorded (qargi lead compact-check reads them); %s"
+        return MarshalReason("%s on %s would change %s, where the lead's handoff note and whole-suite runs are recorded (crown lead compact-check reads them); %s"
                              % (what, dest, root, MARSHAL_NOTE))
     if root in saved_runs_roots():
         return OwnReason("%s on %s would change %s, the lead's saved copies of passed local runs (review apply --from-saved applies them); "
@@ -2164,7 +2164,7 @@ def refusal_text(what, dest, root):
         return MemoryReason("%s on %s would change %s, a memory tier; %s" % (what, dest, root, MEMORY_NOTE))
     if root in render_roots():
         return ("%s on %s would change %s, the render of a project's skills, tools and members that a runtime loads; it is managed by "
-                "qargi and changed only by the lead" % (what, dest, root))
+                "crown and changed only by the lead" % (what, dest, root))
     return "%s on %s would change %s, a protected location (skills, the pack library, credentials)" % (what, dest, root)
 
 
@@ -2420,7 +2420,7 @@ def key_read(toks, i, here, assigned=None):
 
 
 def in_clone(full):
-    """True when the real path full lies inside the clone of the nearest run directory `qargi local prepare` made. A
+    """True when the real path full lies inside the clone of the nearest run directory `crown local prepare` made. A
     clone is made from repository content, so a .claude/skills there is the work product (reviewed as a patch), not an
     installed skill. Call it only with a resolved path: a symbolic link in the clone has then already been followed."""
     run = run_dir(os.path.dirname(full)) or run_dir(full)
@@ -2496,19 +2496,19 @@ def separator_path_refusal(command, here):
     return None
 
 
-def names_lead(t, name="QARGI_LEAD"):
-    """True when a word assigns, exports or unsets NAME, QARGI_LEAD by default (QARGI_LEAD=x, QARGI_LEAD+=x, -u QARGI_LEAD, -uQARGI_LEAD, --unset=QARGI_LEAD, bare name)."""
+def names_lead(t, name="CROWN_LEAD"):
+    """True when a word assigns, exports or unsets NAME, CROWN_LEAD by default (CROWN_LEAD=x, CROWN_LEAD+=x, -u CROWN_LEAD, -uCROWN_LEAD, --unset=CROWN_LEAD, bare name)."""
     lhs, _, rhs = t.partition("=")
     return lhs.rstrip("+") == name or (lhs in ("--unset", "-u") and rhs == name) or t == "-u" + name
 
 
 def lead_refusal(toks, i):
-    """The reason a segment (its words toks, the program at i) sets or unsets QARGI_LEAD, or None. The names it sets are env_names()'s, as for QARGI_NESTED
+    """The reason a segment (its words toks, the program at i) sets or unsets CROWN_LEAD, or None. The names it sets are env_names()'s, as for CROWN_NESTED
     (VAR=x in front, export|declare|... NAME, printf -v NAME and -vNAME, read|mapfile NAME); names_lead() adds the words that unset it (unset NAME, env -u
     NAME) and the operands of the builtins."""
     prog, rest = (os.path.basename(toks[i]), toks[i + 1:]) if i < len(toks) else ("", [])
-    if "QARGI_LEAD" in env_names(toks, i) or any(names_lead(t) for t in toks[:i + 1]) or (prog in LEAD_BUILTINS and any(names_lead(t) for t in rest)):
-        return MarshalReason("setting or unsetting QARGI_LEAD changes who the lead is and is not available to an agent; " + MARSHAL_NOTE)
+    if "CROWN_LEAD" in env_names(toks, i) or any(names_lead(t) for t in toks[:i + 1]) or (prog in LEAD_BUILTINS and any(names_lead(t) for t in rest)):
+        return MarshalReason("setting or unsetting CROWN_LEAD changes who the lead is and is not available to an agent; " + MARSHAL_NOTE)
     if MEMBER_MARK in env_names(toks, i) or any(names_lead(t, MEMBER_MARK) for t in toks[:i + 1]) or (prog in LEAD_BUILTINS and any(names_lead(t, MEMBER_MARK) for t in rest)):
         return MarshalReason("setting or unsetting %s removes the mark that tells the marshal a member is running, so that its commands renew nothing, and is not available to an agent; %s"
                              % (MEMBER_MARK, MARSHAL_NOTE))
@@ -2518,24 +2518,24 @@ def lead_refusal(toks, i):
 def bash_skill_refusal(command, here, depth, outer=None):
     joined = ansi_c(command.replace("\\\n", ""))        # a line continuation joins the lines (segments() does the same, and reads an escaped backslash right)
     if word_then_subst(HANDOFF_SUBST, joined):
-        return MarshalReason("qargi marshal handoff with a command substitution in its arguments could be given --write, which writes a file and is not available to an agent; %s"
+        return MarshalReason("crown marshal handoff with a command substitution in its arguments could be given --write, which writes a file and is not available to an agent; %s"
                              % MARSHAL_NOTE)
     if word_then_subst(PROJECT_SET_SUBST, joined):
-        return "qargi project set with a command substitution in its arguments takes a path the guard cannot read, which could be a models answer, and is not available to an agent"
+        return "crown project set with a command substitution in its arguments takes a path the guard cannot read, which could be a models answer, and is not available to an agent"
     if word_then_subst(AUDIT_SUBST, joined):
-        return "qargi skill accept (packs_audit.py with a command substitution in its arguments could be `store`) changes a skill and is not available to an agent"
+        return "crown skill accept (packs_audit.py with a command substitution in its arguments could be `store`) changes a skill and is not available to an agent"
     seen = set()                                         # the (text, directory) pairs judged
     assigned = join_assignments(outer, line_assignments(command))     # the variables the line sets (and the line that handed it this text)
     for n, ps, seg, dirs in walk(command, here, assigned):
         toks, i = parsed(seg)
-        if any(t.startswith("QARGI_NESTED=") for t in toks[:i]):
-            return "setting QARGI_NESTED skips a plan-token check and is not available to an agent"
+        if any(t.startswith("CROWN_NESTED=") for t in toks[:i]):
+            return "setting CROWN_NESTED skips a plan-token check and is not available to an agent"
         prog, rest = (os.path.basename(toks[i]), toks[i + 1:]) if i < len(toks) else ("", [])
         why = lead_refusal(toks, i)
         if why:
             return why
-        if "QARGI_NESTED" in env_names(toks, i):             # export|declare|typeset|readonly|local NAME, printf -v NAME, read NAME
-            return "setting QARGI_NESTED skips a plan-token check and is not available to an agent"
+        if "CROWN_NESTED" in env_names(toks, i):             # export|declare|typeset|readonly|local NAME, printf -v NAME, read NAME
+            return "setting CROWN_NESTED skips a plan-token check and is not available to an agent"
         for at in dirs:                                      # a cd that may not happen leaves several directories: each is judged
             if (seg, at) in seen:                            # judged already
                 continue
@@ -2640,7 +2640,7 @@ def unreadable_project_verb(command):
                                 break
                     named = [n for n, _ in rest if n in PROJECT_VERBS]
                     if (named or (rest and rest[0][1])) and (expands or xargs):
-                        return ("qargi project %s with a variable, a substitution, a brace, a glob or xargs in the command takes words the guard cannot read, and project set of a models answer, "
+                        return ("crown project %s with a variable, a substitution, a brace, a glob or xargs in the command takes words the guard cannot read, and project set of a models answer, "
                                 "project init and project link are not available to an agent" % (named[0] if named else "(a verb the shell builds)"))
                 xargs = xargs or os.path.basename(w) == "xargs"
     return None
@@ -2886,11 +2886,11 @@ def own_script(path, here):
 
 
 def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
-    """The reason a qargi command (or the script behind it, run directly) is a verb that changes a skill, or None. via_xargs: xargs
+    """The reason a crown command (or the script behind it, run directly) is a verb that changes a skill, or None. via_xargs: xargs
     stands before the program, so its arguments come from standard input, where --write could be. here: the directory the command runs
     in, and exe: the word that names the program, for the scripts that are only the tool's own (OWN_ONLY)."""
-    # a ) with no ( in a word closes a substitution or group whose start the plain split cut off (`printf -v x 'b[%s(true; qargi upgrade)]' $`
-    # runs `qargi upgrade` in an arithmetic subscript): the command ends there, so the verb is read without it
+    # a ) with no ( in a word closes a substitution or group whose start the plain split cut off (`printf -v x 'b[%s(true; crown upgrade)]' $`
+    # runs `crown upgrade` in an arithmetic subscript): the command ends there, so the verb is read without it
     words = [t.split(")")[0] if ")" in t and "(" not in t else t for t in rest if not t.startswith("-")]
     name, script = prog, exe or prog
     if prog not in SCRIPTS:
@@ -2904,7 +2904,7 @@ def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
         words = ["packs", "link"]
     if name == "render.py":
         return "lib/render.py is the renderer of member definitions and can run the command a definition names; it is not available to an agent"
-    if name == "env.py":                                 # qargi env: show reads; plan and apply are refused below
+    if name == "env.py":                                 # crown env: show reads; plan and apply are refused below
         words = ["env"] + words
     if name == "env_apply.py":                           # the library of env plan and apply: any use of it is the verb
         words = ["env", "apply"]
@@ -2938,7 +2938,7 @@ def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
         words = ["packs", "unlink" if "unlink" in words[:2] else "link"]
     if name == "project_link.py":                        # plan, apply and members-dir alike: any use of the script is the verb (the shell checks the plan token)
         words = ["project", "unlink" if "unlink" in words[:2] else "link"]
-    if name == "jsonplan.py":                            # the --json wrapper: AREA VERB ... (it runs the bin/qargi beside it); the verb it runs is judged as if it were called by name
+    if name == "jsonplan.py":                            # the --json wrapper: AREA VERB ... (it runs the bin/crown beside it); the verb it runs is judged as if it were called by name
         words = [w for w in words if w != "--json"]
     if name == "local_run.py":                           # any use of the script is `local run`
         words = ["local", "run"]
@@ -2951,7 +2951,7 @@ def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
     if name == "project.sh":
         words = ["project"] + words
     if name == "gated_answers.py":                       # the store behind provider enable|disable|accept, with no gate of its own: any use of the script is the verbs
-        return "lib/gated_answers.py stores models.extensions and models.accept_no_barrier for the verbs that have a plan token (qargi provider enable, disable, accept) and is not available to an agent"
+        return "lib/gated_answers.py stores models.extensions and models.accept_no_barrier for the verbs that have a plan token (crown provider enable, disable, accept) and is not available to an agent"
     if name == "packs_audit.py":                         # only `store` writes accepted.json; scan, report, target and acceptance read (scan and target write the file they are given)
         if words[:1] != ["store"] and not any("$" in w or "`" in w for w in words):
             return None
@@ -2967,10 +2967,10 @@ def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
         words = ["memory"] + words
     area, verb = (words + ["", ""])[:2]
     if area == "ref":
-        return OwnReason("qargi ref %s writes the lead's ref journal, which local verify trusts (record --rewrite also moves a branch of the lead's repository), and is the lead's to run; "
+        return OwnReason("crown ref %s writes the lead's ref journal, which local verify trusts (record --rewrite also moves a branch of the lead's repository), and is the lead's to run; "
                          "report in your task output a branch you think should be rewritten or noted" % (verb or "(no verb)"))
     if area == "branch":
-        return OwnReason("qargi branch %s deletes merged branches and the worktrees qargi made (with --remote, branches on origin with the lead's credentials) and is the lead's "
+        return OwnReason("crown branch %s deletes merged branches and the worktrees crown made (with --remote, branches on origin with the lead's credentials) and is the lead's "
                          "to run, from a plan and a token; report in your task output which branches are merged" % (verb or "(no verb)"))
     if area == "changelog":
         # renumber writes the changelog of a work tree and only --check reads; a --check that is the value of --project is no flag, and a word a variable
@@ -2978,100 +2978,100 @@ def skill_verb(prog, rest, via_xargs=False, here=".", exe=None):
         check = any(t == "--check" and (i == 0 or rest[i - 1] != "--project") for i, t in enumerate(rest))
         if not ((verb == "renumber" and check and not via_xargs and not any("$" in t or "`" in t for t in rest))
                 or (verb == "" and any(t in ("-h", "--help") for t in rest))):
-            return OwnReason("qargi changelog %s rewrites the changelog of a work tree and is the lead's to run; only qargi changelog renumber --check (it writes nothing) is available to an agent; "
+            return OwnReason("crown changelog %s rewrites the changelog of a work tree and is the lead's to run; only crown changelog renumber --check (it writes nothing) is available to an agent; "
                              "report the duplicate item numbers in your task output" % (verb or "(no verb)"))
     if area == "backlog" and verb not in BACKLOG_OPEN:
-        return OwnReason("qargi backlog %s moves an item out of the backlog file into the dated archive and rewrites the file (from a plan and a token) and is the lead's to run "
-                         "(qargi backlog list only reads and is allowed); report in your task output which backlog items your change finishes, with the evidence" % (verb or "(no verb)"))
+        return OwnReason("crown backlog %s moves an item out of the backlog file into the dated archive and rewrites the file (from a plan and a token) and is the lead's to run "
+                         "(crown backlog list only reads and is allowed); report in your task output which backlog items your change finishes, with the evidence" % (verb or "(no verb)"))
     if area == "upstream" and verb not in UPSTREAM_OPEN:
-        return OwnReason("qargi upstream %s %s and is the lead's to run (qargi upstream review only reads the last fetch and is allowed); "
+        return OwnReason("crown upstream %s %s and is the lead's to run (crown upstream review only reads the last fetch and is allowed); "
                          "report in your task output that the upstream line needs looking at"
-                         % (verb or "(no verb)", "fetches into the lead's repository, which changes the remote-tracking refs that qargi local verify compares" if verb == "status"
+                         % (verb or "(no verb)", "fetches into the lead's repository, which changes the remote-tracking refs that crown local verify compares" if verb == "status"
                             else "fast-forwards the branch that carries the upstream line (and journals the move), from a plan and a token,"))
-    if (name == "qargi" and builds_word(area)) or (area in BUILT_VERB_AREAS and builds_word(verb)):
-        return "qargi %s %s: a verb that a variable or a substitution builds (it could be any of the verbs that change a skill or the marshal) is not available to an agent" % (area, verb)
+    if (name == "crown" and builds_word(area)) or (area in BUILT_VERB_AREAS and builds_word(verb)):
+        return "crown %s %s: a verb that a variable or a substitution builds (it could be any of the verbs that change a skill or the marshal) is not available to an agent" % (area, verb)
     if area == "memory" and words[1:2] != [] and (verb in MEMORY_VERBS or (verb not in MEMORY_READ and any(w in MEMORY_VERBS for w in words[1:4]))):
         which = verb if verb in MEMORY_VERBS else next(w for w in words[1:4] if w in MEMORY_VERBS)
-        return MemoryReason("qargi memory %s changes a memory tier and is not available to an agent; %s" % (which, MEMORY_NOTE))
+        return MemoryReason("crown memory %s changes a memory tier and is not available to an agent; %s" % (which, MEMORY_NOTE))
     if area == "project" and verb in ("link", "unlink"):
-        return "qargi project %s changes what the checkout and the runtime's memory directory load (skills, agents, memory) and is not available to an agent" % verb
+        return "crown project %s changes what the checkout and the runtime's memory directory load (skills, agents, memory) and is not available to an agent" % verb
     if area == "project" and verb == "init":
-        return "qargi project init stores a whole answers file (the models answers that choose the runtime and what counts as a barrier among them) and is not available to an agent"
+        return "crown project init stores a whole answers file (the models answers that choose the runtime and what counts as a barrier among them) and is not available to an agent"
     if area == "project" and verb == "set":
         # the models answers choose the runtime and what counts as a read-only barrier: they have gated verbs (provider enable, provider accept),
         # and project set has no plan token, so a member may not set any of them (the owner may). The path is the second word after set. A path
         # that is missing (a substitution split the command, or xargs brings the words), or that a variable, a substitution, a brace or a glob
         # builds, is not read here and is refused
         if via_xargs or len(words) <= 3 or any(c in words[3] for c in UNREADABLE):
-            return "qargi project set takes a path the guard cannot read here (it is missing, or comes from xargs, a variable, a substitution, a brace or a glob), and a models answer is not available to an agent"
+            return "crown project set takes a path the guard cannot read here (it is missing, or comes from xargs, a variable, a substitution, a brace or a glob), and a models answer is not available to an agent"
         path = words[3]
         if path == "models" or path.startswith("models."):
-            return "qargi project set of %s changes which runtime the project uses or what counts as its barrier and is not available to an agent (qargi provider enable and qargi provider accept have a plan token)" % path
+            return "crown project set of %s changes which runtime the project uses or what counts as its barrier and is not available to an agent (crown provider enable and crown provider accept have a plan token)" % path
         if path in EXECUTED_ANSWERS or path.startswith(tuple(a + "." for a in EXECUTED_ANSWERS)):
-            return "qargi project set of %s changes a command or an environment the lead later runs, the remote it fetches from or the site it builds (the release answers, test_command, gates, env, upstream, the site answers qargi release site builds from) or the file that qargi backlog done rewrites (backlog.file) and is not available to an agent: propose the value in your report" % path
+            return "crown project set of %s changes a command or an environment the lead later runs, the remote it fetches from or the site it builds (the release answers, test_command, gates, env, upstream, the site answers crown release site builds from) or the file that crown backlog done rewrites (backlog.file) and is not available to an agent: propose the value in your report" % path
         if path == "runs" or path.startswith("runs."):
-            return "qargi project set of %s declares which refs verify and clean accept as created by a runtime (runs.owned_refs), a way round the ref check of a run, and is not available to an agent: propose the pattern in your report" % path
+            return "crown project set of %s declares which refs verify and clean accept as created by a runtime (runs.owned_refs), a way round the ref check of a run, and is not available to an agent: propose the pattern in your report" % path
         if path == "packs" or path.startswith("packs."):
-            return "qargi project set of %s opts the project out of the packs render check (packs.none) and is not available to an agent: propose the value in your report" % path
+            return "crown project set of %s opts the project out of the packs render check (packs.none) and is not available to an agent: propose the value in your report" % path
         if path in IDENTITY_ANSWERS or path.startswith(tuple(a + "." for a in IDENTITY_ANSWERS)):
-            return "qargi project set of %s changes whose name the commits qargi review apply puts on a member's work (git.author, review.keep_author), or the scrub command and trailer policy qargi review check runs on a returned series (review.scrub, review.trailer_policy: the command is the lead's, run with its rights), and is not available to an agent: propose the value in your report" % path
+            return "crown project set of %s changes whose name the commits crown review apply puts on a member's work (git.author, review.keep_author), or the scrub command and trailer policy crown review check runs on a returned series (review.scrub, review.trailer_policy: the command is the lead's, run with its rights), and is not available to an agent: propose the value in your report" % path
         if ROLE_TOOLS_PATH.fullmatch(path):
-            return "qargi project set of %s changes the tools the lead later installs and checks out (roles.<role>.tools: go install, a downloaded binary, a submodule) and is not available to an agent: propose the entry in your report" % path
+            return "crown project set of %s changes the tools the lead later installs and checks out (roles.<role>.tools: go install, a downloaded binary, a submodule) and is not available to an agent: propose the entry in your report" % path
     if area == "provider" and verb == "accept":
-        return "qargi provider accept records that you accept a provider with no read-only barrier and is not available to an agent"
+        return "crown provider accept records that you accept a provider with no read-only barrier and is not available to an agent"
     if area == "provider" and verb == "check":
-        return "qargi provider check records what it verified of a library pack (and may run the pack's code) and is not available to an agent"
+        return "crown provider check records what it verified of a library pack (and may run the pack's code) and is not available to an agent"
     if area == "provider" and verb == "adapter-run":
-        return "qargi provider adapter-run runs the adapter of a runtime, and with --check makes a private copy of a library adapter, and is not available to an agent"
+        return "crown provider adapter-run runs the adapter of a runtime, and with --check makes a private copy of a library adapter, and is not available to an agent"
     if area == "provider" and verb not in PROVIDER_READ:
-        return "qargi provider %s changes the provider definitions and is not available to an agent" % verb
+        return "crown provider %s changes the provider definitions and is not available to an agent" % verb
     if area == "release" and any(w == "site" for w in words[1:4]):
-        return "qargi release site commits the built documentation site on the lead's site branch and is not available to an agent; report that the site of the release needs building"
+        return "crown release site commits the built documentation site on the lead's site branch and is not available to an agent; report that the site of the release needs building"
     if area == "release" and any(w == "sign" for w in words[1:4]):
-        return "qargi release sign signs the release files with the lead's key, whose passphrase only the person types, and is not available to an agent; report that the tag needs signing"
+        return "crown release sign signs the release files with the lead's key, whose passphrase only the person types, and is not available to an agent; report that the tag needs signing"
     if area == "release" and any(w == "assets" for w in words[1:4]):
-        return "qargi release assets runs the project's release.assets_command, which is project code, with the lead's rights, and is not available to an agent; report that the release files need building"
+        return "crown release assets runs the project's release.assets_command, which is project code, with the lead's rights, and is not available to an agent; report that the release files need building"
     if area == "release" and any(w == "fix" for w in words[1:4]):
-        return "qargi release fix makes a worktree on the release branch and can push it with the lead's credentials, and is not available to an agent; report the fix the release branch needs"
+        return "crown release fix makes a worktree on the release branch and can push it with the lead's credentials, and is not available to an agent; report the fix the release branch needs"
     if area == "release" and any(w == "step" for w in words[1:4]):
-        return "qargi release step marks an after-release step done in the lead's record of the release and is not available to an agent; report in your task output that the step needs recording"
-    # qargi env: show only reads files, so a member may run it. plan runs the project's dry-run command (make -n still runs $(shell ...) and + lines) and
+        return "crown release step marks an after-release step done in the lead's record of the release and is not available to an agent; report in your task output that the step needs recording"
+    # crown env: show only reads files, so a member may run it. plan runs the project's dry-run command (make -n still runs $(shell ...) and + lines) and
     # apply runs its bootstrap: both run project code, with the lead's rights and terminal, and are the lead's. A verb held in a variable could be either
     if area == "env" and (verb in ENV_LEAD or builds_word(verb)):
-        return ("qargi env %s runs the project's dry-run or bootstrap command, which is project code, with the lead's rights, and is not available to an agent "
-                "(qargi env show only reads); report what you need in your task output" % (verb if verb in ENV_LEAD else "plan|apply"))
+        return ("crown env %s runs the project's dry-run or bootstrap command, which is project code, with the lead's rights, and is not available to an agent "
+                "(crown env show only reads); report what you need in your task output" % (verb if verb in ENV_LEAD else "plan|apply"))
     if area == "release" and any(w == "publish" or "$" in w or "`" in w for w in words[1:4]):   # a verb held in a variable could be publish
-        return "qargi release publish creates a GitHub release and is not available to an agent; report that the tag needs publishing"
+        return "crown release publish creates a GitHub release and is not available to an agent; report that the tag needs publishing"
     if area == "feature" and verb == "park":
-        return OwnReason("qargi feature park resets the parking branch to develop and checks it out in the main checkout (and journals the move), which is the lead's to do; "
+        return OwnReason("crown feature park resets the parking branch to develop and checks it out in the main checkout (and journals the move), which is the lead's to do; "
                          "report in your task output that the main checkout needs parking")
     if area == "feature" and verb not in FEATURE_OPEN:
-        return MarshalReason("qargi feature %s writes the feature marshal (the lead's record) and is not available to an agent (only %s are); %s"
+        return MarshalReason("crown feature %s writes the feature marshal (the lead's record) and is not available to an agent (only %s are); %s"
                              % (verb, ", ".join(v for v in FEATURE_OPEN if v), MARSHAL_NOTE))
     if area == "marshal" and verb in MARSHAL_SIGNING:
-        return MarshalReason("qargi marshal %s %s and is not available to an agent (only status, check and handoff without --write are); %s" % (verb, MARSHAL_SIGNING[verb], MARSHAL_NOTE))
+        return MarshalReason("crown marshal %s %s and is not available to an agent (only status, check and handoff without --write are); %s" % (verb, MARSHAL_SIGNING[verb], MARSHAL_NOTE))
     if area == "marshal" and verb == "handoff" and via_xargs:
-        return MarshalReason("qargi marshal handoff through xargs takes arguments the guard cannot read (one could be --write, which writes a file) and is not available to an agent; %s"
+        return MarshalReason("crown marshal handoff through xargs takes arguments the guard cannot read (one could be --write, which writes a file) and is not available to an agent; %s"
                              % MARSHAL_NOTE)
     if area == "marshal" and verb == "handoff" and any(t == "--write" or t.startswith("--write=") or ("--write".startswith(t) and len(t) > 2 and t.startswith("--"))
                                                        or "$" in t or "`" in t for t in rest):
-        return MarshalReason("qargi marshal handoff --write writes a file (or takes an argument it cannot read from a variable) and is not available to an agent (handoff without --write, status and check are); %s"
+        return MarshalReason("crown marshal handoff --write writes a file (or takes an argument it cannot read from a variable) and is not available to an agent (handoff without --write, status and check are); %s"
                              % MARSHAL_NOTE)
     if area == "marshal" and verb not in MARSHAL_READ:
-        return MarshalReason("qargi marshal %s changes the feature marshal and is not available to an agent (only status, check and handoff without --write are); %s"
+        return MarshalReason("crown marshal %s changes the feature marshal and is not available to an agent (only status, check and handoff without --write are); %s"
                              % (verb or "(no verb)", MARSHAL_NOTE))
     if (area, verb) in LEAD_VERBS or area == "task":
-        return ("qargi %s%s is the lead's (it prepares, verifies or removes runs and agents, or dispatches work, with the lead's credentials and its own record) and is not "
+        return ("crown %s%s is the lead's (it prepares, verifies or removes runs and agents, or dispatches work, with the lead's credentials and its own record) and is not "
                 "available to an agent; report what you need in your task output" % (area, " " + verb if verb else ""))
     if (area in ("skill", "tool") and verb in SKILL_VERBS) or (area, verb) in (("discover", "install"), ("packs", "apply"), ("packs", "seed"), ("packs", "link"), ("packs", "unlink"), ("local", "run")) \
-            or (area == "import" and name == "qargi") or (area == "cloud" and verb in ("set", "unset", "login")) or area == "upgrade":
+            or (area == "import" and name == "crown") or (area == "cloud" and verb in ("set", "unset", "login")) or area == "upgrade":
         if area == "upgrade":
-            return "qargi upgrade changes the installed tool and its skills and is not available to an agent"
+            return "crown upgrade changes the installed tool and its skills and is not available to an agent"
         if area == "cloud":
-            return "qargi cloud %s changes which cloud workspace a project uses and is not available to an agent" % verb
+            return "crown cloud %s changes which cloud workspace a project uses and is not available to an agent" % verb
         if area == "local":
-            return "qargi local run starts the runtime's command for the lead, with the environment it names, and is not available to an agent"
-        return "%s changes a skill and is not available to an agent" % ("qargi import" if area == "import" else "qargi %s %s" % (area, verb))
+            return "crown local run starts the runtime's command for the lead, with the environment it names, and is not available to an agent"
+        return "%s changes a skill and is not available to an agent" % ("crown import" if area == "import" else "crown %s %s" % (area, verb))
     return None
 
 
@@ -3084,7 +3084,7 @@ def protected_write(toks, i, here):
     if prog in SCRIPTS or (prog in SHELLS or re.match(r"^python[0-9.]*$", prog)) and args and os.path.basename(args[0]) in SCRIPTS:
         words = args if prog in SCRIPTS else args[1:]
         if words[:2] == ["packs", "render"]:                 # render writes its output directory: judge every operand
-            cands += [("qargi packs render", c) for t in words[2:] for c in {t, t.split("=", 1)[-1]}]
+            cands += [("crown packs render", c) for t in words[2:] for c in {t, t.split("=", 1)[-1]}]
     if prog == "find" and any(t in FIND_ACTIONS for t in rest):
         removes = "-delete" in rest or any(os.path.basename(t) in DESTRUCTIVE for t in rest)        # find -delete and -exec rm walk the tree below the path and remove it
         cands += [("find -delete" if removes else "find", t) for t in rest if not t.startswith("-") and t not in ("(", "!")][:8]
@@ -3377,9 +3377,9 @@ def clear_caches():
 def judge(call):
     """The refusal (a sentence for the member, ending in what to do instead) a Call earns, or None. The neutral core."""
     if call.kind == "shell" and "\0" in (call.command or ""):
-        return "qargi guard: a NUL byte in a command cuts it short for the shell and hides the rest from this check, so it is not available to an agent. Write the text without it."
+        return "crown guard: a NUL byte in a command cuts it short for the shell and hides the rest from this check, so it is not available to an agent. Write the text without it."
     if call.kind == "shell" and len(call.command or "") > MAX_COMMAND:
-        return ("qargi guard: a command of more than %d characters cannot be checked in the time the hook has, so it is not available to an agent. "
+        return ("crown guard: a command of more than %d characters cannot be checked in the time the hook has, so it is not available to an agent. "
                 "Write the text to a file with the Write tool, or run it in parts." % MAX_COMMAND)
     clear_caches()
     _DEADLINE[0] = _CLOCK[0]() + BUDGET
@@ -3387,23 +3387,23 @@ def judge(call):
         _OUT[0] = out_dir(call)
         return decide_call(call)
     except TooNested:
-        return ("qargi guard: substitutions nested more than %d deep cannot be checked in the time the hook has, so the command is not available to an agent. "
+        return ("crown guard: substitutions nested more than %d deep cannot be checked in the time the hook has, so the command is not available to an agent. "
                 "Write it in parts." % MAX_NESTED)
     except TooBroad:
-        return ("qargi guard: a glob in this command names too many directories to check (more than %d entries to read), so it is not available to an agent. "
+        return ("crown guard: a glob in this command names too many directories to check (more than %d entries to read), so it is not available to an agent. "
                 "Write a narrower path." % GLOB_ENTRIES)
     except TooManyBraces:
-        return ("qargi guard: a brace expression in this command stands for more than %d words (or the braces of the command for more than %d), which cannot be checked one by one "
+        return ("crown guard: a brace expression in this command stands for more than %d words (or the braces of the command for more than %d), which cannot be checked one by one "
                 "in the time the hook has, so it is not available to an agent. Write the paths out or run it in parts." % (MAX_BRACE, MAX_BRACE_WORK))
     except TooManyValues:
-        return ("qargi guard: a value of this command built from other variables is longer than %d characters, or a word built from variables stands for more than %d words, "
+        return ("crown guard: a value of this command built from other variables is longer than %d characters, or a word built from variables stands for more than %d words, "
                 "which cannot be followed one by one in the time the hook has, so it is not available to an agent. Write the paths out or run it in parts."
                 % (MAX_VALUE_LEN, MAX_BRACE))
     except TooManyDirs:
-        return ("qargi guard: this command changes directory in more than %d ways the guard cannot tell apart (a cd inside ( ), a substitution, a condition or a pipe may "
+        return ("crown guard: this command changes directory in more than %d ways the guard cannot tell apart (a cd inside ( ), a substitution, a condition or a pipe may "
                 "or may not change where the next command runs), so it is not available to an agent. Write it in parts." % MAX_DIRS)
     except TooSlow:
-        return ("qargi guard: checking this command took longer than %d seconds, so it is not available to an agent. "
+        return ("crown guard: checking this command took longer than %d seconds, so it is not available to an agent. "
                 "Run it in smaller parts." % BUDGET)
     finally:
         _DEADLINE[0] = _OUT[0] = None
@@ -3419,17 +3419,17 @@ def decide_call(call):
     hint = TEXT_HINT if call.kind == "shell" and QUOTED.search(call.command or "") else ""
     why = blocked(call.command) if call.kind == "shell" else None
     if why:
-        return "qargi guard: %s. Agents never push; return patches instead.%s" % (why, hint)
+        return "crown guard: %s. Agents never push; return patches instead.%s" % (why, hint)
     why = skill_refusal(call)
     if isinstance(why, MarshalReason):
-        return "qargi guard: %s.%s" % (why, hint if type(why) in (MarshalReason, TextReason) else "")
+        return "crown guard: %s.%s" % (why, hint if type(why) in (MarshalReason, TextReason) else "")
     if why:
-        return ("qargi guard: %s. Only a person, through qargi's own skills, changes a skill; propose the change in your report.%s" % (why, hint))
+        return ("crown guard: %s. Only a person, through crown's own skills, changes a skill; propose the change in your report.%s" % (why, hint))
     why = review_refusal(call)
     if isinstance(why, MarshalReason):
-        return "qargi guard: %s." % why
+        return "crown guard: %s." % why
     if why:
-        return "qargi guard: %s. A review reads the work and writes its report to OUT." % why
+        return "crown guard: %s. A review reads the work and writes its report to OUT." % why
     return None
 
 
@@ -3438,7 +3438,7 @@ def decide(hook):
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
-        return refuse(hook, "qargi guard: the input is not valid UTF-8, so the guard cannot read the call; refusing it.")
+        return refuse(hook, "crown guard: the input is not valid UTF-8, so the guard cannot read the call; refusing it.")
     try:
         data = json.loads(text)
     except ValueError:
@@ -3457,17 +3457,17 @@ def main():
                 raise HookError("--provider needs the name of a provider")
             hook = hook_of(name)
         except Exception as e:
-            print("qargi guard: cannot use the hook protocol of provider %s (%s); refusing every call until the hook command or the definition is fixed." % (name or "?", e),
+            print("crown guard: cannot use the hook protocol of provider %s (%s); refusing every call until the hook command or the definition is fixed." % (name or "?", e),
                   file=sys.stderr)
             return 2
     cls = read_class(sys.argv[1:])
     if cls not in CLASSES:
-        return refuse(hook, "qargi guard: unknown class %r in the hook command; refusing every call until the member is refreshed." % cls)
+        return refuse(hook, "crown guard: unknown class %r in the hook command; refusing every call until the member is refreshed." % cls)
     CLASS = cls
     try:
         return decide(hook)
     except Exception as e:                                # fail closed: a guard that cannot decide refuses
-        return refuse(hook, "qargi guard: internal error (%s: %s); refusing the call because the guard could not check it."
+        return refuse(hook, "crown guard: internal error (%s: %s); refusing the call because the guard could not check it."
                       % (type(e).__name__, e))
 
 

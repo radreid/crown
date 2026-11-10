@@ -1,4 +1,4 @@
-"""The description of the qargi command line: the single source of the terminal help, the man page and
+"""The description of the crown command line: the single source of the terminal help, the man page and
 the bash completion. tests/test_help.py checks it against the scripts, so a flag or a verb that is added
 without being described here fails the suite.
 
@@ -9,11 +9,11 @@ pack-tool, member, file, dir, none, or a tuple of fixed words."""
 TAGLINE = "A gathering place for agent work: dispatch, review, remember."
 
 INTRO = (
-    "qargi dispatches one-off, task-scoped development tasks to sandboxed agents and takes the work back as "
+    "crown dispatches one-off, task-scoped development tasks to sandboxed agents and takes the work back as "
     "reviewable patches. An agent is a member on this machine (local, the default) or a "
     "cloud agent (only when you ask for it in that request). Agents work in their own clone and "
     "never push. A team adds a lead that coordinates members for build, write and review on one task. "
-    "Everything qargi stores about you and your projects lives outside every repository. Inside a project's repository you can leave out its name."
+    "Everything crown stores about you and your projects lives outside every repository. Inside a project's repository you can leave out its name."
 )
 
 ROLES = ("build", "write", "review", "test", "lead")
@@ -38,7 +38,7 @@ def _provider_models():
 
 def __getattr__(name):
     """MODELS is read from the runtime descriptors the first time it is asked for (completion of a model value), not at import:
-    every qargi command imports this table before it runs, and reading the descriptors is the costly part."""
+    every crown command imports this table before it runs, and reading the descriptors is the costly part."""
     if name == "MODELS":
         globals()["MODELS"] = _provider_models()
         return globals()["MODELS"]
@@ -56,7 +56,7 @@ def verb(summary, args=(), opts=(), desc="", examples=()):
 
 HOOK_REC = ("Reads the hook's JSON on stdin and appends one small line to the run's event file under the state directory "
             "(ids, times, names and hashes; never command, message or error text). It always exits 0 at once, even on malformed input, "
-            "so it cannot block an agent. Register it with qargi supervise hooks.")
+            "so it cannot block an agent. Register it with crown supervise hooks.")
 ASKED = opt("--asked", "the request, in your words, that names the cloud instance; recorded in the audit log", "REQUEST")
 PLAN = opt("--plan", "the plan token printed by the same command without --approved", "TOKEN")
 APPROVED = opt("--approved", "your go-ahead for exactly that plan, in your words; recorded in the audit log", "WORDS")
@@ -70,15 +70,15 @@ KIND = opt("--kind", "which store: memory or reference (default: both)", "KIND",
 
 REASONS = ("wrong-scope", "broke-check", "style", "too-slow", "too-costly", "skill-ignored", "skill-wrong", "brief-unclear", "gate-noise", "other")
 
-# Options every verb takes, handled once by bin/qargi (lib/jsonplan.py), not by the verb. A verb that documents an option of the same name keeps it.
+# Options every verb takes, handled once by bin/crown (lib/jsonplan.py), not by the verb. A verb that documents an option of the same name keeps it.
 GLOBAL_OPTS = [opt("--json", "print the result as one JSON object with the verb, the plan, the token, the command that applies it and the exit status "
                              "(the output instead, when the verb printed no plan token); never supplies --plan or --approved")]
 
 PROJECT_OPT = opt("--project", "the project, instead of the one inferred from here", "PROJECT", "project")
 MEMBER_PROJECT_OPT = opt("--project", "the project the member belongs to (default: the one in effect when it has the member, else the only project that has it)", "PROJECT", "project")
-AS_OPT = opt("--as", "act as this lead identity (default: the session id in QARGI_LEAD, else user@host)", "ID")
+AS_OPT = opt("--as", "act as this lead identity (default: the session id in CROWN_LEAD, else user@host)", "ID")
 RESOLVED_OPT = opt("--resolved", "use the merge you resolved and committed in the conflict worktree")
-REMOTE_NOTE = ("It asks the live origin with git ls-remote (QARGI_REMOTE_TIMEOUT seconds, default 10) where the branches are, not the last fetch, "
+REMOTE_NOTE = ("It asks the live origin with git ls-remote (CROWN_REMOTE_TIMEOUT seconds, default 10) where the branches are, not the last fetch, "
                "and says 'remote not checked' when origin cannot be reached.")
 SUITE_FAIL_NOTE = ("The output of the suite is kept in STATE/suite-logs/PROJECT.feature-NAME.log (PROJECT.release-VERSION.log for a release; the last run of each). When "
                    "the suite fails, the last lines of the output are the failing steps and tests that its report names (the FAILED: and FAIL lines of tests/run.sh; "
@@ -88,8 +88,8 @@ GATES_NOTE = ("Declared gates: the project answer gates is an ordered list of {n
               "feature verify runs the gates of tier feature in order and release verify the feature tier, then the release tier, each stopping at the first failure (the rest are listed as not run). "
               "The verdict line is still 'full suite: pass|fail at SHA', and the run record and the status lines list each gate with its result.")
 OTHER_RUNS_NOTE = ("Before it starts it warns on standard error, and goes on, when another suite may be running: a whole-suite run of the project in progress, a local run "
-                   "of the repository with a file changed in the last QARGI_ACTIVE_MINUTES minutes (default 10), or a tests/run.sh process in the repository (Linux).")
-TAG_NOTE = ("When the tag VERSION exists it also warns about a tag that has no GitHub release (asked with a read-only gh release view, through QARGI_GH, default gh; "
+                   "of the repository with a file changed in the last CROWN_ACTIVE_MINUTES minutes (default 10), or a tests/run.sh process in the repository (Linux).")
+TAG_NOTE = ("When the tag VERSION exists it also warns about a tag that has no GitHub release (asked with a read-only gh release view, through CROWN_GH, default gh; "
             "a gh that is missing or not logged in is a note) and about a tagged commit that lacks .github/workflows/release.yml while the branch has it, because "
             "a pushed tag starts that workflow only when its own commit contains it. Warnings and notes never fail the verb.")
 HOTFIX_OPT = opt("--hotfix", "a hotfix: branch from master, finish into master and the open release branch (or develop)")
@@ -110,37 +110,37 @@ COMMANDS = {
         "desc": ("The answers are the repository, its long-lived branches, the roles that exist (build, write, review, test) "
                  "with each role's base branch, model, effort, packages and skills, the memory stores, the budget, and "
                  "optionally a lead with teams and a push grant. Provisioning and dispatch read them. Push policy per role "
-                 "is none: an agent never pushes; the lead's grant is separate (qargi help push)."),
+                 "is none: an agent never pushes; the lead's grant is separate (crown help push)."),
         "scripts": ["project.sh"],
         "verbs": {
             "template": verb("Print an answers file with defaults", [("NAME", "none")], desc="Edit it, then store it with init. models.provider is empty and must be set (the provider the project's agents run on; there is no default); project validate reports it while it is not. No role names a model: it takes the provider's tier once one is set."),
             "init": verb("Validate and store an answers file", [("NAME", "none")],
                          [opt("--answers", "the answers file to store", "FILE", "file"), opt("--force", "replace stored answers")],
-                         examples=["qargi project template acme > acme.json", "qargi project init acme --answers acme.json"]),
+                         examples=["crown project template acme > acme.json", "crown project init acme --answers acme.json"]),
             "new": verb("Start a new project: its directory, a git repository on the methodology's branches and generic files", [("NAME", "none")],
                         [opt("--methodology", "the methodology (default gitflow)", "NAME", "methodology"), opt("--dir", "where to create it (default ./NAME; must be absent or empty)", "DIR", "dir"),
                          opt("--param", "a methodology parameter as name=value (repeat), for example test_command; gates=JSON declares gates, which are stored in the answers too when --url is given", "NAME=VALUE"),
-                         opt("--url", "the repository URL; with it the qargi answers are stored too", "URL"),
-                         opt("--deployment", "a deployment option to record and explain (see qargi methodology deployment)", "ID"),
-                         opt("--provider", "the provider the project's agents run on (models.provider, with its models); not stored when omitted (qargi provider list)", "NAME"),
+                         opt("--url", "the repository URL; with it the crown answers are stored too", "URL"),
+                         opt("--deployment", "a deployment option to record and explain (see crown methodology deployment)", "ID"),
+                         opt("--provider", "the provider the project's agents run on (models.provider, with its models); not stored when omitted (crown provider list)", "NAME"),
                          opt("--provider-local", "the runtime of the local surface (models.provider.local); use it with --provider-cloud instead of --provider", "NAME"),
                          opt("--provider-cloud", "the runtime of the cloud surface (models.provider.cloud)", "NAME"), PLAN, APPROVED],
                         desc=("Prints the plan (directory, branches, files, deployment options with instructions) and a token; with --plan and --approved it creates the "
                               "directory, runs git init, writes the generic files in a first commit and creates the long-lived branches. Nothing is pushed and no remote "
                               "is created: say where it goes with git. The files mention no tool of yours. They include an AGENTS.md with a Development environment section and a Makefile "
-                              "with stub bootstrap and doctor targets (the doctor fails until you fill it in); see qargi help environment."),
-                        examples=["qargi project new acme --param test_command='make test'", "qargi project new acme --dir ~/src/acme --url https://github.com/me/acme"]),
+                              "with stub bootstrap and doctor targets (the doctor fails until you fill it in); see crown help environment."),
+                        examples=["crown project new acme --param test_command='make test'", "crown project new acme --dir ~/src/acme --url https://github.com/me/acme"]),
             "attach": verb("Attach to an existing repository: read it, show the answers and the gaps, store on approval", [("[DIR]", "dir")],
                            [opt("--name", "the project name (default: from the remote or the directory)", "NAME"),
                             opt("--methodology", "the methodology to compare with (default gitflow)", "NAME", "methodology"),
                             opt("--url", "the repository URL, when it has no origin remote", "URL"),
-                            opt("--provider", "the provider the project's agents run on (models.provider, with its models); not stored when omitted (qargi provider list)", "NAME"),
+                            opt("--provider", "the provider the project's agents run on (models.provider, with its models); not stored when omitted (crown provider list)", "NAME"),
                          opt("--provider-local", "the runtime of the local surface (models.provider.local); use it with --provider-cloud instead of --provider", "NAME"),
                          opt("--provider-cloud", "the runtime of the cloud surface (models.provider.cloud)", "NAME"),
                             PLAN, APPROVED, opt("--force", "replace the detected answers, keep the rest")],
                            desc=("Reads the repository (branches, tags, version and changelog files, test command, CI) and changes nothing in it. Prints the answers it "
                                  "would store, the gaps against the methodology and what it could not determine, and a plan token. With --plan and --approved it "
-                                 "stores the answers outside the repository. The safe gaps are closed by qargi project adopt, the rest by hand. It reads the tree of the "
+                                 "stores the answers outside the repository. The safe gaps are closed by crown project adopt, the rest by hand. It reads the tree of the "
                                  "methodology's integration branch (develop), else of the default branch, else of HEAD, and says which; never the working tree. It prints "
                                  "origin as read and the https url it normalises to. When the stored answers declare gates it lists them after the test command line (tier, name, command, "
                                  "the feature tier first) and says they replace the detected test command. If answers are already stored it shows stored against detected, lists the fields "
@@ -156,53 +156,53 @@ COMMANDS = {
                                 "are listed as left for you, and so are the bootstrap and doctor targets a repository with a task runner lacks (an existing file is not edited), and long-lived branches "
                                 "that share no history (a master made as a snapshot has no merge base with develop): none is joined here, and the line says that release push joins the history of master. "
                                 "The AGENTS.md section it drafts names the repository's own runner. Refused (exit 2) with a dirty working tree, a detached HEAD, no commits, a project that is not attached, and in a member run."),
-                          examples=["qargi project adopt acme", 'qargi project adopt acme --plan TOKEN --approved "go ahead"']),
+                          examples=["crown project adopt acme", 'crown project adopt acme --plan TOKEN --approved "go ahead"']),
             "set": verb("Change one answer", [("NAME", "project"), ("PATH", "key"), ("VALUE", "value")],
-                        desc=("PATH is dotted (budget_cents, roles.write.effort, lead.push); VALUE is JSON or a plain string. models.extensions and models.accept_no_barrier are refused here: they change only through qargi provider enable|disable and qargi provider accept. "
+                        desc=("PATH is dotted (budget_cents, roles.write.effort, lead.push); VALUE is JSON or a plain string. models.extensions and models.accept_no_barrier are refused here: they change only through crown provider enable|disable and crown provider accept. "
                               "roles.ROLE.tools is the list of the tools a role needs beyond its apt packages, each {kind, name, ...}: kind go (name a package path, version a tag: go install NAME@VERSION), "
                               "kind binary (name the file name, version, url of the file itself, sha256 of it: downloaded to ~/.local/bin and kept only when the hash matches) and kind submodule "
-                              "(name as in .gitmodules, path: checked out in each member clone by qargi local prepare). env plan lists them, env apply installs them and env check reports one that is "
+                              "(name as in .gitmodules, path: checked out in each member clone by crown local prepare). env plan lists them, env apply installs them and env check reports one that is "
                               "missing or wrong; a member's guard refuses setting them (and a whole role), as it refuses release.*, test_command, gates, env.*, site.* and backlog.*. "
-                              "backlog.file is the markdown file of the project's backlog (qargi backlog); a path outside the repository is fine. "
-                              "git.author ('Name <email>') is the author qargi review apply gives the commits it applies, and review.keep_author true keeps the member's author instead; "
-                              "review.scrub (a command line or a list of words) is run by qargi review check (and by qargi review apply, unless a passing check recorded the same series) on the applied series with the range in QARGI_SCRUB_BASE and QARGI_SCRUB_TIP, and review.trailer_policy reject fails a commit with a "
+                              "backlog.file is the markdown file of the project's backlog (crown backlog); a path outside the repository is fine. "
+                              "git.author ('Name <email>') is the author crown review apply gives the commits it applies, and review.keep_author true keeps the member's author instead; "
+                              "review.scrub (a command line or a list of words) is run by crown review check (and by crown review apply, unless a passing check recorded the same series) on the applied series with the range in CROWN_SCRUB_BASE and CROWN_SCRUB_TIP, and review.trailer_policy reject fails a commit with a "
                               "Co-Authored-By or Generated-with trailer (none is the default); a member's guard refuses setting them. "
                               "runs.owned_refs is a list of glob patterns for the refs a runtime or harness creates in the repository, which local verify and clean accept and name (see local verify); "
                               "the guard refuses it to a member too."),
-                        examples=["qargi project set acme roles.write.effort high", "qargi project set acme packs.none true", "qargi project set acme git.author 'Example Author <author@example.com>'",
-                                  "qargi project set acme roles.test.tools '[{\"kind\":\"go\",\"name\":\"acme.test/ci\",\"version\":\"v1.2.0\"}]'"]),
+                        examples=["crown project set acme roles.write.effort high", "crown project set acme packs.none true", "crown project set acme git.author 'Example Author <author@example.com>'",
+                                  "crown project set acme roles.test.tools '[{\"kind\":\"go\",\"name\":\"acme.test/ci\",\"version\":\"v1.2.0\"}]'"]),
             "show": verb("Print the stored answers and what they mean", [("NAME", "project")],
                          desc=("The answers go to standard output as JSON (so they can be piped). When the project declares gates, which replace the test command in feature verify and release verify, "
                                "they are listed on standard error (tier, name, command, the feature tier first).")),
             "list": verb("List the stored projects"),
             "validate": verb("Check an answers file without storing it (a WARN line for each pack linked to a role that is not in the pack library, and for a profile that still carries the shipped template header)", [("FILE", "file")]),
             "profile": verb("Check the repository's profile: the shipped template header, and gate commands the repository does not know (check)", [("SUBCOMMAND", "none"), ("NAME", "project", True)],
-                            [opt("--profile", "the profile file to read (default: ~/.qargi/config/profiles/<repository>.md, the repository being the project's directory name)", "FILE", "file")],
+                            [opt("--profile", "the profile file to read (default: ~/.crown/config/profiles/<repository>.md, the repository being the project's directory name)", "FILE", "file")],
                             desc=("Read only, so a member may run it. check reads the profile (the gates, rules and review steps of a repository, outside the repository) and prints "
                                   "FAIL for each line at the top that is still the shipped example's (the Example profile title and the Copy to line of examples/myproject/profile.md), "
                                   "exit 1; and WARN for each backticked command in its Gates section that is found in none of the repository's instruction files and Makefile targets "
                                   "(a make target of the Makefile, the command's text in one of the three files, or a script that exists), exit 0. No profile is fine (said, exit 0); "
                                   "a --profile file that is not there is exit 2. Without NAME the project is the one in effect, else the repository of the current directory. "
                                   "project validate prints the header finding as a WARN line."),
-                            examples=["qargi project profile check acme", "qargi project profile check --profile ./profile.md"]),
-            "link": verb("Make this work tree load the project's skills, agents and memory from ~/.qargi", [("PROJECT", "project", True)],
+                            examples=["crown project profile check acme", "crown project profile check --profile ./profile.md"]),
+            "link": verb("Make this work tree load the project's skills, agents and memory from ~/.crown", [("PROJECT", "project", True)],
                          [opt("--resource", "what to link: skills, agents, memory (comma separated; default every one the runtime links and that exists)", "LIST", ("skills", "agents", "memory")), PLAN, APPROVED],
                          desc=("One plan and one token for every resource, each placed and linked the way the project's runtime says (a directory link, one link per entry, or a copy). "
-                               "A real directory in the way is moved to NAME.qargi-backup, never deleted. Run it inside a work tree to link that one; nothing records which work trees exist. "
+                               "A real directory in the way is moved to NAME.crown-backup, never deleted. Run it inside a work tree to link that one; nothing records which work trees exist. "
                                "A member's guard refuses it.")),
             "unlink": verb("Undo project link in this work tree and restore the backups", [("PROJECT", "project", True)], [opt("--resource", "what to link: skills, agents, memory (comma separated; default every one the runtime links and that exists)", "LIST", ("skills", "agents", "memory")), PLAN, APPROVED]),
         },
     },
     "agent": {
         "summary": "Name the members: the local agents that do the work",
-        "desc": ("A member is a local agent you name, rendered from the one member definition qargi ships, with the "
+        "desc": ("A member is a local agent you name, rendered from the one member definition crown ships, with the "
                  "roles it serves: build, write, review, test (all four by default). The render is kept in the configuration directory "
                  "(agents/PROJECT/NAME.EXT beside agents.json, outside every repository) and written from there to the runtime's agents "
                  "location; a checkout cleaned or cloned afresh gets it back with agent refresh. The task block names the role and carries its role "
                  "text (roles/<role>/ROLE.md); there is no skill to load. Review is read-only as a "
                  "rule: the guard refuses changes to the clone under that role. Under every role it refuses the verbs that change "
-                 "a skill (qargi skill|tool new, import, seal, remove, link, unlink, enable, disable; qargi discover install; qargi packs apply) "
-                 "and writes in the pack library, the credentials directory and install.json, ~/.claude/skills and any .claude/skills directory; it fails closed. Dispatch spawns the member qargi agent for "
+                 "a skill (crown skill|tool new, import, seal, remove, link, unlink, enable, disable; crown discover install; crown packs apply) "
+                 "and writes in the pack library, the credentials directory and install.json, ~/.claude/skills and any .claude/skills directory; it fails closed. Dispatch spawns the member crown agent for "
                  "ROLE prints."),
         "scripts": ["agent.sh"],
         "verbs": {
@@ -213,16 +213,16 @@ COMMANDS = {
                          opt("--project", "the project the member belongs to (required): its models.provider renders it, the render is kept in the configuration directory (agents/PROJECT/) and the runtime's file goes where the runtime links project agents (the checkout, hidden from git, or the project render once `project link` is applied)", "PROJECT", "project")],
                         desc=("A member belongs to a project, and the definition is rendered by the provider of that project. "
                               "Refuses a name that exists, a name that is not kebab-case, the name of a built-in agent type of that provider, no --project (exit 2), and a project with no provider (exit 2: there is no default provider). Nothing is written to a runtime's user-level directory."),
-                        examples=["qargi agent add forge --roles build,test --project myproject", "qargi agent add scribe --roles write --model opus --project myproject",
-                                  "qargi agent add worker --project myproject    # the write-class base: build, write and test"]),
+                        examples=["crown agent add forge --roles build,test --project myproject", "crown agent add scribe --roles write --model opus --project myproject",
+                                  "crown agent add worker --project myproject    # the write-class base: build, write and test"]),
             "list": verb("List the members of every project, their roles and definitions", [],
                          [opt("--project", "only the members of this project", "PROJECT", "project")],
                          desc="One row per member, with no header line: PROJECT, NAME, ROLES (comma separated), MODEL/EFFORT, FILE, then in brackets MISSING (the runtime's file is gone), "
                               "STALE (the copy in the configuration directory is gone or changed, or the definition, catalog, renderer or an extension changed since the render) or DRIFT (the file was edited by hand), "
-                              "each followed by the command that fixes it: qargi agent refresh NAME --project P. Members are kept per project, so two projects can each have a worker."),
+                              "each followed by the command that fixes it: crown agent refresh NAME --project P. Members are kept per project, so two projects can each have a worker."),
             "rename": verb("Rename a member and its definition", [("OLD", "member"), ("NEW", "none")], [MEMBER_PROJECT_OPT],
                            desc="Within its project. The project is --project, else the one in effect, else the only project that has a member OLD; a name two or more projects hold, with none named or in effect, is refused (exit 2) and lists them."),
-            "refresh": verb("Re-render a member from the member definition qargi ships now", [("NAME", "member")], [MEMBER_PROJECT_OPT],
+            "refresh": verb("Re-render a member from the member definition crown ships now", [("NAME", "member")], [MEMBER_PROJECT_OPT],
                             desc="The project is found as for rename. Keeps its name, roles and model, and writes the copy in the configuration directory and the runtime's file again: a file that is gone (a cleaned checkout, a fresh clone) comes back, a file edited by hand is replaced (the output says so). "
                                  "Use it after an upgrade changes the definition (for example its hook); an unchanged member is left alone. Sessions started afterwards use the new definition."),
             "models": verb("Show the base members, the profiles with their resolved models and efforts, and each member",
@@ -249,7 +249,7 @@ COMMANDS = {
     "role": {
         "summary": "List and check the roles: what a member or cloud agent is for",
         "desc": ("A role is a directory with role.json (its class, write or read-only, and a description) and ROLE.md (its instructions). "
-                 "Four ship with qargi: build, write, review and test (review is read-only). Add your own under ~/.qargi/config/roles/NAME/: "
+                 "Four ship with crown: build, write, review and test (review is read-only). Add your own under ~/.crown/config/roles/NAME/: "
                  "a name of one lower-case token, never lead. The class decides what the guard allows a member (read-only: nothing in the clone "
                  "changes); the text of a role cannot change it. A task block carries the role's text; a cloud agent of the role has it in its system prompt."),
         "scripts": ["role.sh"],
@@ -275,9 +275,9 @@ COMMANDS = {
             "list": verb("List the open features: purpose, distance from develop, and the files two features both change", [], [PROJECT_OPT],
                          desc=("Several features can be open at once. Two that change the same file will conflict whichever lands second: keep related work in one feature, unrelated work in another. "
                                "It also flags each worktree of the project outside the worktree root (answers worktrees.root, default <state>/worktrees/PROJECT) with the git worktree move that "
-                               "fixes it; the main checkout, the worktrees inside it (the agent runtime makes its own there) and qargi's temporary worktrees are not flagged.")),
+                               "fixes it; the main checkout, the worktrees inside it (the agent runtime makes its own there) and crown's temporary worktrees are not flagged.")),
             "park": verb("Put the project's main checkout on its parking branch, reset to develop", [], [PROJECT_OPT],
-                         desc=("qargi moves develop without touching a working tree, so develop cannot be checked out in the project's main checkout. The checkout rests on a "
+                         desc=("crown moves develop without touching a working tree, so develop cannot be checked out in the project's main checkout. The checkout rests on a "
                                "parking branch instead (answers repo.parking_branch, default scratch). This makes it: git checkout -B BRANCH develop in the main checkout, creating the "
                                "branch when missing. Refused when the working tree is not clean, or when the parking branch has commits develop lacks (they are listed; re-implement "
                                "them with an agent task based on develop, or keep them on a branch of their own). After feature finish, release finish and hotfix finish moved "
@@ -285,7 +285,7 @@ COMMANDS = {
                                "The parking branch is never pushed or merged.")),
             "sync": verb("Merge develop into the feature (after another feature landed, before this one's checkpoint)", [("NAME", "none")], [PROJECT_OPT, RESOLVED_OPT],
                          desc=("With the answer release.changelog.numbered true it then checks the changelog for duplicate item numbers and warns (exit status unchanged); "
-                               "feature finish refuses them. See qargi changelog.")),
+                               "feature finish refuses them. See crown changelog.")),
             "merge": verb("Merge a verified task branch into feature/NAME with --no-ff", [("NAME", "none"), ("BRANCH", "branch")], [PROJECT_OPT, PLAN, APPROVED, RESOLVED_OPT],
                           desc=("NAME may be a detached long-lived branch of the answers (repo.detached) instead of a feature: BRANCH must then be an agent/* branch, "
                                 "and the merge, local only, prints a plan and token like a merge into develop (--plan, --approved). A detached branch never meets develop, master, "
@@ -293,13 +293,13 @@ COMMANDS = {
                                 "For a feature, --plan and --approved are not used. When the registry of local runs names a run of BRANCH (its slug) that still exists and has no passing "
                                 "local verify, a warning names the run; the merge goes on.")),
             "status": verb("Show the feature: commits ahead of develop and whether the whole suite passed at its head", [("NAME", "none")], [PROJECT_OPT],
-                           desc=REMOTE_NOTE + " With declared gates a 'gates:' line lists each with its result at the last run. Flags worktrees outside the worktree root like list. When the whole-suite result is for an older head it says why (the commits on the branch since the run, a merge of a task branch or of develop named as such) and that the next step is qargi feature verify NAME."),
+                           desc=REMOTE_NOTE + " With declared gates a 'gates:' line lists each with its result at the last run. Flags worktrees outside the worktree root like list. When the whole-suite result is for an older head it says why (the commits on the branch since the run, a merge of a task branch or of develop named as such) and that the next step is crown feature verify NAME."),
             "verify": verb("Run the project's whole test suite on the feature's head and record the result", [("NAME", "none")], [PROJECT_OPT],
                            desc=GATES_NOTE + " " + OTHER_RUNS_NOTE + " " + SUITE_FAIL_NOTE),
             "finish": verb("Merge the feature into develop with --no-ff and delete it", [("NAME", "none")],
                            [PROJECT_OPT, opt("--keep", "keep the branch"), PLAN, APPROVED, RESOLVED_OPT],
                            desc=("Needs a passing whole-suite run at the feature's head. A feature behind develop is refused (exit 1, nothing changed); when both sides "
-                                 "changed the same files since their merge base, the message lists them and says to run qargi feature sync first. With the answer release.changelog.numbered true it also refuses a changelog with duplicate item numbers (qargi changelog renumber). Pushes develop if the repository has an origin. With the answer branches.delete_merged "
+                                 "changed the same files since their merge base, the message lists them and says to run crown feature sync first. With the answer release.changelog.numbered true it also refuses a changelog with duplicate item numbers (crown changelog renumber). Pushes develop if the repository has an origin. With the answer branches.delete_merged "
                                  "local+remote (default local) it also deletes the feature branch on origin when origin has it (asked live) and holds nothing the feature lacks; the plan shows "
                                  "it and its token covers origin's tip. The answer branches.push_features (never, when-shared, always; default never) decides whether feature start, "
                                  "merge and sync push the feature branch: when-shared only when origin already has it. A plain push, never forced. With the answer branches.push_develop false (default true) finish does not push develop either; the first line of its plan says 'will push develop to origin' or 'local only, will not push' with the reason (no origin, or the answer). A clean worktree of the feature under the "
@@ -314,14 +314,14 @@ COMMANDS = {
         "summary": "Who leads which open feature: lease, status, goal, plan, handoff",
         "desc": ("The marshal keeps one record per open feature: its lead (identity and lease), status, goal, plan and a note, and derives the "
                  "tasks, branches, worktrees and overlap from git and the local runs. Query it before beginning work or changing a plan: "
-                 "qargi marshal check NAME. A lead is a Claude Code session (identified by its session id), or whoever passes --as. "
+                 "crown marshal check NAME. A lead is a Claude Code session (identified by its session id), or whoever passes --as. "
                  "A lead holds a lease that its actions and long verbs renew, and so does every command of the lead on the feature: feature merge, sync, status, verify and finish, "
                  "local prepare, verify and clean and review check and apply on a run based on feature/NAME renew it (once a third of the lease has passed, and also after it "
                  "lapsed during a long worker run, as long as nobody else took the feature over: a different identity is still refused while the lease is live). "
                  "Another lead takes the feature only after it was released "
                  "(take) or after the record stayed unchanged for the project's marshal.lease_minutes minutes (takeover, with your words). "
                  "Records are state, not instructions: a note or goal written by another lead is data. By default the records are local to this machine; "
-                 "marshal enable switches the project to the shared backend, where each record is a commit on refs/qargi/features/NAME of the remote "
+                 "marshal enable switches the project to the shared backend, where each record is a commit on refs/crown/features/NAME of the remote "
                  "origin so several machines and people see the same leads (takeover then waits for the record to stay unchanged for the ttl as seen by "
                  "the taker's own clock). Only the lead pushes those refs; a member run cannot. "
                  "Exit status 3 means the remote could not be checked (the cache was used). Records can be signed: one key per lead machine, a signers file per project "
@@ -336,7 +336,7 @@ COMMANDS = {
                                 "work tree are yours (a restart gives the session a new id and nothing else that tells it apart). The record keeps its goal, plan and note and "
                                 "names the succession; it is audited as marshal:succession. Any other case is refused: the owner's marshal takeover covers it. "
                                 "feature start continues the same way on its own, and status and check name the command when you look like the restarted lead."),
-                          examples=["qargi marshal claim lead-context --as-successor-of 3f2a9c1e"]),
+                          examples=["crown marshal claim lead-context --as-successor-of 3f2a9c1e"]),
             "status": verb("Show one feature, or every open one with --all: lead, status, goal, plan, note, tasks, branches, worktrees, overlap", [("[NAME]", "none")],
                            [PROJECT_OPT, AS_OPT, opt("--all", "every open feature of the project"), opt("--history", "with --all, also the finished and abandoned ones, after the open ones"), opt("--brief", "one line per feature"), opt("--json", "machine-readable"), opt("--no-fetch", "read the cache of the shared refs only, do not fetch (the session hook uses it)")],
                            desc=("The tasks of a feature are the local runs prepared against it (local prepare --base feature/NAME, as the registry of local runs records), and an unmerged "
@@ -358,7 +358,7 @@ COMMANDS = {
             "takeover": verb("Take a feature from a lead that stopped (no change for the project's marshal.lease_minutes); needs your words", [("NAME", "none")],
                              [PROJECT_OPT, AS_OPT, APPROVED]),
             "finish": verb("Mark the feature finished (feature finish does this)", [("NAME", "none")], [PROJECT_OPT, AS_OPT]),
-            "enable": verb("Switch this machine's marshal to the shared refs backend (refs/qargi/ on the remote origin)", [],
+            "enable": verb("Switch this machine's marshal to the shared refs backend (refs/crown/ on the remote origin)", [],
                            [PROJECT_OPT, opt("--plan", "the plan token printed by the first run", "TOKEN"), APPROVED,
                             opt("--integrity", "off, advisory or strict: how records are signed and checked", "MODE", ("off", "advisory", "strict"))],
                            desc=("Without options it prints the plan and a plan token; apply with --plan TOKEN --approved WORDS (audited as marshal:enable). It needs a remote named origin. "
@@ -366,7 +366,7 @@ COMMANDS = {
                                  "strict ignores records not signed by a trusted key and falls back to the last accepted record. Not available in a member run.")),
             "key": verb("Create this machine's signing key for the marshal records (key init)", [("SUBCOMMAND", "none")],
                         [opt("--principal", "the name the key is trusted under (default person@machine)", "ID"), opt("--plan", "the plan token printed by the first run", "TOKEN"), APPROVED],
-                        desc=("`key init` makes $QARGI_CONF/credentials/marshal_ed25519 (mode 600), never overwrites it, and prints the signers line to trust on every lead machine. "
+                        desc=("`key init` makes $CROWN_CONF/credentials/marshal_ed25519 (mode 600), never overwrites it, and prints the signers line to trust on every lead machine. "
                               "Audited as marshal:key-init. Not available in a member run.")),
             "signers": verb("List, add or remove the keys trusted to sign this project's marshal records (add | remove | list)", [("SUBCOMMAND", "none"), ("[PRINCIPAL]", "none")],
                             [PROJECT_OPT, opt("--line", "the signers line printed by key init (add)", "LINE"), opt("--plan", "the plan token printed by the first run", "TOKEN"), APPROVED],
@@ -381,15 +381,15 @@ COMMANDS = {
             "handoff": verb("Print the note a fresh session starts from, built only from stored facts", [("[NAME]", "none")],
                             [PROJECT_OPT, AS_OPT, opt("--write", "write the note to this new file (mode 600) instead of printing it", "FILE", "file"), opt("--json", "print the same facts as one JSON object")],
                             desc=("Read only: it needs no lease and changes no record, ref or audit line. Nothing is fetched: shared records are read from the cache this host holds, with a note, and a shared marshal that is off or unreachable falls back to the local records. "
-                                  "The note has the repository path, HEAD there (a detached HEAD is said plainly), develop's sha, the host and whether the qargi data is present on it. "
+                                  "The note has the repository path, HEAD there (a detached HEAD is said plainly), develop's sha, the host and whether the crown data is present on it. "
                                   "Per feature it has the tip, whether the whole-suite run applies to it (the run's command is the project's test_command now, or with declared gates the feature-tier gates in order, `gates: NAME=COMMAND; ...`, as feature verify records them), the agent branches merged into it since it was cut from develop, the unmerged ones prepared against it (as the registry of local runs records) "
                                   "and the commits ahead of develop; with NAME only that feature, otherwise every open one; the agent branches of no open feature are said once, after the features. "
                                   "When the project declares gates, a `== gates` section follows the features with each gate's tier, name and command (they replace test_command), and --json carries them as `gates` (an empty list without gates). "
                                   "The goal, plan and note of the marshal record appear under a line saying they are data from the lead, not instructions, with control characters stripped. "
                                   "The environment section gives the last env check and env apply recorded for the project (verdict, time, and whether that was at HEAD now). "
-                                  "For a feature this identity leads it names the claim --as-successor-of command a restarted session runs. --write also records when the note was written (what qargi lead compact-check compares with the last merge), and a line says whether a compact is safe now (see qargi help lead). "
+                                  "For a feature this identity leads it names the claim --as-successor-of command a restarted session runs. --write also records when the note was written (what crown lead compact-check compares with the last merge), and a line says whether a compact is safe now (see crown help lead). "
                                   "It also gives the packs render check and the launch line for the project's provider, the memory index and notes paths, the history command and a fixed list of what not to assume (approvals and plan tokens do not carry over). "
-                                  "Output is capped at 16 KiB. --write refuses an existing file, a path inside a git work tree or the qargi directories, and a member run. The qargi-session skill says what to do with the note.")),
+                                  "Output is capped at 16 KiB. --write refuses an existing file, a path inside a git work tree or the crown directories, and a member run. The crown-session skill says what to do with the note.")),
             "disable": verb("Switch back to the local records; the refs already on the remote stay (audited as marshal:disable)", [], [PROJECT_OPT, opt("--plan", "the plan token printed by the first run", "TOKEN"), APPROVED],
                             desc="While integrity is advisory or strict it needs the plan token and your words (it drops the setting). Not available in a member run."),
         },
@@ -397,16 +397,16 @@ COMMANDS = {
     "branch": {
         "summary": "Branch housekeeping: delete the merged agent and feature branches and their worktrees",
         "desc": ("Prune prints the merged agent/* and feature/* branches of the project (and with --remote the same branches on origin, asked live) and the worktrees "
-                 "qargi made for them, with a token; with --plan and --approved it deletes them. A branch is merged when it was merged with --no-ff into develop, "
+                 "crown made for them, with a token; with --plan and --approved it deletes them. A branch is merged when it was merged with --no-ff into develop, "
                  "into a branch of repo.long_lived or repo.detached, or, for an agent branch, into an open feature, and is still in that branch's history; a branch that merely sits at the tip of one of them "
                  "was never merged and is kept. It never deletes master, develop, the branches of repo.long_lived and repo.detached, the parking branch, an unmerged branch, "
-                 "or a branch checked out in a worktree qargi did not make (the main checkout, the runtime's own worktrees) or in a dirty one; each kept branch is listed with "
+                 "or a branch checked out in a worktree crown did not make (the main checkout, the runtime's own worktrees) or in a dirty one; each kept branch is listed with "
                  "the reason. A remote branch is deleted as a lease on the tip the plan showed."),
         "scripts": ["branch.sh"],
         "verbs": {
             "prune": verb("List, or with the token and an approval delete, the merged agent/* and feature/* branches and their worktrees", [],
                           [PROJECT_OPT, opt("--remote", "also the merged agent/* and feature/* branches on origin"), PLAN, APPROVED],
-                          examples=["qargi branch prune", "qargi branch prune --remote --plan TOKEN --approved \"yes, prune them\""]),
+                          examples=["crown branch prune", "crown branch prune --remote --plan TOKEN --approved \"yes, prune them\""]),
         },
     },
     "changelog": {
@@ -424,7 +424,7 @@ COMMANDS = {
                                    "while it rests on the parking branch). Only when a number is duplicated, the items are numbered again, consecutively in file order from the number of the "
                                    "first one, and every '(item N)' cross-reference inside the section follows the item it means: with a duplicated N, the nearest item numbered N at or "
                                    "before the reference, else the nearest after it. The file is rewritten and not committed. Without --check it is the lead's: a member run may only use --check."),
-                             examples=["qargi changelog renumber --check", "qargi changelog renumber"]),
+                             examples=["crown changelog renumber --check", "crown changelog renumber"]),
         },
     },
     "upstream": {
@@ -433,7 +433,7 @@ COMMANDS = {
                  "the branch it follows (upstream.branch) and the local branch that carries the upstream line and nothing else (upstream.into, default upstream); "
                  "upstream.overlay_check, optional, is a command array that checks the overlay still applies or builds. status fetches that one branch of that "
                  "remote (the only verb that reaches the network) and says where the branch stands; review and sync work from the last fetch. The upstream line "
-                 "never meets develop directly: after a sync, cut a feature and merge the branch into it (qargi feature start upstream-X, then qargi feature merge "
+                 "never meets develop directly: after a sync, cut a feature and merge the branch into it (crown feature start upstream-X, then crown feature merge "
                  "upstream-X BRANCH), fix the overlay there, and let the feature land as any other. Nothing is pushed."),
         "scripts": ["upstream.sh"],
         "verbs": {
@@ -441,19 +441,19 @@ COMMANDS = {
                            desc="The fetch is of that one branch of that remote, with no tags; it changes the remote-tracking ref and nothing else."),
             "review": verb("List the upstream commits not yet in the local branch, with the files each one touches; a commit that touches a file the overlay changed is marked", [],
                            [PROJECT_OPT, opt("--limit", "show at most N commits, newest first (default 30)", "N")],
-                           desc="The overlay is what develop changed since it parted from the upstream line (their merge base). Reads the last fetch (qargi upstream status); changes nothing."),
+                           desc="The overlay is what develop changed since it parted from the upstream line (their merge base). Reads the last fetch (crown upstream status); changes nothing."),
             "sync": verb("Fast-forward the local branch to the fetched upstream branch (--ff-only), with the token and an approval", [], [PROJECT_OPT, PLAN, APPROVED],
                          desc=("Refused when the branch has commits of its own (not a fast-forward): it carries the upstream line only. Creates the branch at the upstream tip "
                                "when it does not exist yet. The move is journaled; nothing is pushed and nothing is merged into develop: the next step is printed. With "
                                "upstream.overlay_check set, the command then runs on a trial merge of the branch into develop in a temporary worktree (the fast-forward "
                                "stands either way; a failure or a merge conflict exits 1)."),
-                         examples=["qargi upstream sync", "qargi upstream sync --plan TOKEN --approved \"yes, take the upstream commits\""]),
+                         examples=["crown upstream sync", "crown upstream sync --plan TOKEN --approved \"yes, take the upstream commits\""]),
         },
     },
     "backlog": {
         "summary": "The project's backlog: list its open items, move a done one to the dated archive",
         "desc": ("The backlog is a markdown file that the project answer backlog.file names (a path: ~/ works, a relative path is taken from the repository, "
-                 "and the file may live outside it, in a memory store for instance; qargi project set PROJECT backlog.file PATH). "
+                 "and the file may live outside it, in a memory store for instance; crown project set PROJECT backlog.file PATH). "
                  "An item is a top-level list line written '- [ID] text' (or '* [ID] text'), ID a lowercase slug of letters, digits and hyphens, two characters or more "
                  "(so a task-list box '- [x] text' is no id), with the indented lines after it. Any other top-level list line is an item without an id and is listed as unnumbered; "
                  "headings, paragraphs and fenced code blocks are not items. feature finish and release finish print a plan line, 'backlog items named in these commits: ID, ...', "
@@ -464,22 +464,22 @@ COMMANDS = {
             "list": verb("List the open items with their ids; an item without an id is shown as '-', a duplicated id is flagged", [],
                          [PROJECT_OPT, opt("--json", "print the file, the items (id, line, text, full text, duplicate) and the duplicated ids as one JSON object")],
                          desc="Read only, so a member may run it. Exit 1 when backlog.file is unset or its file is missing.",
-                         examples=["qargi backlog list", "qargi backlog list --json"]),
+                         examples=["crown backlog list", "crown backlog list --json"]),
             "done": verb("Move an item, with the evidence and the date, to the archive file beside the backlog and remove it from the backlog, with the token and an approval", [("ID", "none")],
                          [PROJECT_OPT, opt("--evidence", "the words that show the item is done (they are archived with the item and the date)", "TEXT"), PLAN, APPROVED],
                          desc=("The plan shows the item and the file it goes to. Applied, the item (as written, with its indented lines), the date and the evidence are appended to "
                                "NAME-archive-YYYY-MM.md in the directory of the backlog file (NAME is the backlog file's name without .md; the archive is created when absent), "
                                "and then the item is removed from the backlog. Nothing is deleted without the plan. Refused when the id is not there, or is used by more than one item "
                                "(make the ids unique first). Not available in a member run."),
-                         examples=["qargi backlog done fix-names --evidence \"merged, suite green\"",
-                                   "qargi backlog done fix-names --evidence \"merged, suite green\" --plan TOKEN --approved \"yes\""]),
+                         examples=["crown backlog done fix-names --evidence \"merged, suite green\"",
+                                   "crown backlog done fix-names --evidence \"merged, suite green\" --plan TOKEN --approved \"yes\""]),
         },
     },
     "ref": {
         "summary": "Record in the lead's ref journal a branch move or a branch that no flow verb made",
-        "desc": ("The ref journal ($QARGI_STATE/ref-journal.jsonl) is the lead's record of the branch and tag moves qargi's verbs make (feature, release, branch prune, "
-                 "review apply, with their pushes); qargi local verify and local clean accept and name what it records. qargi ref record adds the one move a lead makes by hand "
-                 "that verify must still accept: the rewrite of an agent branch that keeps its content. qargi ref note adds the branches the lead made by hand or pushed "
+        "desc": ("The ref journal ($CROWN_STATE/ref-journal.jsonl) is the lead's record of the branch and tag moves crown's verbs make (feature, release, branch prune, "
+                 "review apply, with their pushes); crown local verify and local clean accept and name what it records. crown ref record adds the one move a lead makes by hand "
+                 "that verify must still accept: the rewrite of an agent branch that keeps its content. crown ref note adds the branches the lead made by hand or pushed "
                  "(git branch, git push), so that verify does not blame the run for them."),
         "scripts": ["ref.sh"],
         "verbs": {
@@ -490,18 +490,18 @@ COMMANDS = {
                                  "and REF unless it is at OLD now; the move is then a compare-and-swap (git update-ref REF NEW OLD), so nothing moves when REF changed meanwhile. "
                                  "The journal line has verb ref:rewrite and the reason, and a run prepared before the move verifies and is cleaned with it named as a rewrite; "
                                  "local clean, local list, lead compact-check and feature finish follow the applied tip of a run to NEW (one test, lib/merged.py). No working tree, other ref or origin is touched. Not available in a member run."),
-                           examples=["qargi ref record --rewrite agent/fix-names 1a2b3c4 5d6e7f8 --why \"reworded two messages\""]),
+                           examples=["crown ref record --rewrite agent/fix-names 1a2b3c4 5d6e7f8 --why \"reworded two messages\""]),
             "note": verb("Journal a branch you made by hand, or pushed to origin, so that local verify accepts it", [("REF", "none")],
                          [opt("--why", "a reason, journaled with a local branch", "TEXT"), PROJECT_OPT],
                          desc=("REF (give several) is a branch NAME, or origin/NAME for the branch NAME of origin, whose live value is asked (git ls-remote); the branch must exist now. "
                                "The journal line (verb ref:note) goes from the ref being absent to the value it has now, or, when you noted that ref before, from where the earlier note left it "
                                "(pushing the same branch again); a second note is refused when the earlier note's value is not an ancestor of the current one (the ref was rewritten: inspect it; "
-                               "qargi ref record --rewrite records a rewrite of an agent branch that keeps its tree). The note prints the author and subject of the tip, and REF@SHA "
+                               "crown ref record --rewrite records a rewrite of an agent branch that keeps its tree). The note prints the author and subject of the tip, and REF@SHA "
                                "(7 to 40 hex digits) notes REF only while it is at SHA, so the lead notes what it looked at. Nothing is created, moved or pushed. A run prepared before it then verifies with the branch named as one you noted. "
                                "Only a ref that did not exist when the run was prepared (or that you noted before) is accepted this way: a ref that existed then and has moved, "
                                "a deletion, and any ref you did not note stay offending, so a branch the run's agent made or moved is still found. Note only what you made. "
                                "Not available in a member run. The harness's own worktree branches (worktree-bridge-NAME, held by the locked worktree bridge-NAME of the harness) need no note: verify leaves them out."),
-                         examples=["qargi ref note feature/search origin/feature/search", "qargi ref note feature/search@1a2b3c4d"]),
+                         examples=["crown ref note feature/search origin/feature/search", "crown ref note feature/search@1a2b3c4d"]),
         },
     },
     "release": {
@@ -521,12 +521,12 @@ COMMANDS = {
                  "release assets runs in a clean worktree of the tag, and release.assets (files or globs to attach, {version} replaced), taken in that worktree by release publish. "
                  "release.after_steps is a list of steps ({version} replaced), each a one-line string (a command or a reminder: its text is its name) or an object "
                  "{name, command, who (lead or owner), evidence (what shows it was done)}; the names are distinct. release finish prints them as 'after the release:' lines and records them as pending; "
-                 "release step marks one done; qargi never runs them. "
+                 "release step marks one done; crown never runs them. "
                  "release.notes_file (a file relative to the repository, {version} replaced; default none) is the text release publish uses for the notes, and release push warns when it leaves out an item of the version's changelog section. "
                  "A member may not set them: the lead runs them. "
                  "A project with a documentation site on a detached branch sets site.enabled to true, and optionally site.branch (default gh-pages when repo.detached "
                  "lists it) and site.config (the site.json on that branch, default site/site.json, with the hand pages in the folder pages/ beside it): then "
-                 "release finish ends with 'next: qargi release site VERSION' (the methodology's after_release step) and release status has a site line."),
+                 "release finish ends with 'next: crown release site VERSION' (the methodology's after_release step) and release status has a site line."),
         "scripts": ["release.sh"],
         "verbs": {
             "start": verb("Cut release/VERSION from develop (hotfix/VERSION from master) and bump the version", [("VERSION", "none")], [PROJECT_OPT, HOTFIX_OPT, opt("--date", "the changelog and man page date (default today)", "YYYY-MM-DD"),
@@ -547,11 +547,11 @@ COMMANDS = {
             "status": verb("Show the branch, its commits and whether the whole suite passed at its head", [("VERSION", "none")], [PROJECT_OPT, HOTFIX_OPT],
                          desc=("The full-suite verdict names the command that produced it, when it ran, how long it took and the mode the command names (-j N, shard I/K), from the suite record (a record made before the duration was kept shows the command and the time only). When release.test_command is set and is not that command, "
                                "a line of its own says so: the pass is then not the release gate (release verify runs release.test_command). With declared gates a 'gates:' line lists each with its result at the last run. " + REMOTE_NOTE + " " + TAG_NOTE + " Only when the optional answer release.sign is set (the default is not) and the tag has no GitHub release, it also says 'awaiting signature' "
-                               "until qargi release sign recorded a signature that still holds (no signed file or signature changed), and then 'VERSION is ready for signing: "
-                               "qargi release sign VERSION' when the repository is at the tag with the files built, or what stands in the way. "
+                               "until crown release sign recorded a signature that still holds (no signed file or signature changed), and then 'VERSION is ready for signing: "
+                               "crown release sign VERSION' when the repository is at the tag with the files built, or what stands in the way. "
                                "When site.enabled is true a site line says 'site: not built for VERSION', 'site: built at SHA, not pushed' or 'site: pushed' "
-                               "(the commit of qargi release site on the site branch, and whether the live origin has it). "
-                               "While the release branch exists and the repository has an origin it shows the checks of the branch's pull request (gh pr checks, through QARGI_GH): "
+                               "(the commit of crown release site on the site branch, and whether the live origin has it). "
+                               "While the release branch exists and the repository has an origin it shows the checks of the branch's pull request (gh pr checks, through CROWN_GH): "
                                "a verdict and one line per check with its state, pass, fail or pending; a missing gh, no pull request or no checks is a warning. "
                                "With release.version_files set, a line says that every listed file contains VERSION on the branch, or warns of the ones that do not (bump these on the release branch). "
                                "A branch that shares no history with master (no merge base) gets a warning that release push joins it. "
@@ -559,7 +559,7 @@ COMMANDS = {
                                "for each entry of the answer release.assets ({version} replaced; a glob by its base name) whether the release has it, for each file of release.sign.files whether its .sig is attached (UNSIGNED when not), "
                                "and the project's own after-steps: the ones release finish recorded, else the optional answer release.after_steps ({version} replaced). Each is shown "
                                "as '[done] NAME (WHO, TIME, evidence: TEXT)' or '[pending] NAME (WHO): COMMAND', the done ones first and the pending ones last; a pending step of the owner reads "
-                               "'waits for the owner: run COMMAND', and a step that needs evidence says so. qargi release step marks one done; the list is kept in a file under the state directory.")),
+                               "'waits for the owner: run COMMAND', and a step that needs evidence says so. crown release step marks one done; the list is kept in a file under the state directory.")),
             "verify": verb("Run the project's whole test suite on the release branch (develop's head before it starts) and record the result", [("VERSION", "none")],
                            [PROJECT_OPT, HOTFIX_OPT, opt("--strict", "refuse, before anything runs, when a CI job matches no declared gate name")],
                            desc=TAG_NOTE + " The exit status stays the suite's result. The command is release.test_command when the project sets one, else test_command. " + GATES_NOTE + " "
@@ -599,7 +599,7 @@ COMMANDS = {
                                  "When the answer release.after_steps lists steps (a string, or an object {name, command, who, evidence}; {version} replaced), it prints each as an 'after the release: [pending] NAME (WHO): COMMAND' line, never runs them, and "
                                  "records them as pending under the state's release directory (PROJECT-VERSION.after.json) for release status and release step. "
                                  "It ends with a 'next: ...' line for each after_release step of the methodology whose answer is true: with site.enabled, "
-                                 "'next: qargi release site VERSION'.")),
+                                 "'next: crown release site VERSION'.")),
             "step": verb("Mark an after-release step of VERSION done, with the evidence", [("VERSION", "none"), ("NAME", "none")],
                          [PROJECT_OPT, opt("--evidence", "what shows the step was done, one line (a line to quote); required when the step's answer has an evidence", "TEXT"),
                           opt("--again", "record a step that is marked done already once more")],
@@ -608,41 +608,41 @@ COMMANDS = {
                                "'[done] NAME (WHO, TIME, evidence: TEXT)'. It changes only that record: it never runs the step's command, which is the lead's or the owner's to do first. "
                                "Refused: a step that needs evidence (its answer has an evidence) without --evidence; a NAME or VERSION the record does not have (the message lists the names); "
                                "a step already marked done, unless --again. A lead's verb: a member's guard refuses it."),
-                         examples=["qargi release step 0.2.3 'announce 0.2.3 to the list'", "qargi release step 0.2.3 'post the notes' --evidence 'the address of the post'"]),
+                         examples=["crown release step 0.2.3 'announce 0.2.3 to the list'", "crown release step 0.2.3 'post the notes' --evidence 'the address of the post'"]),
             "assets": verb("Build the release files of the tag VERSION in a clean worktree of it, with the project's release.assets_command", [("VERSION", "none")],
                            [PROJECT_OPT, opt("--recreate", "remove the existing asset worktree of VERSION and build again from the tag")],
                            desc=("Makes a clean detached worktree of the tag VERSION under the state directory (release-assets/PROJECT-VERSION), runs the answer release.assets_command in it "
-                                 "(a command line, run by bash -c, or a list of words with {version} replaced and no shell; QARGI_RELEASE_VERSION is set) and records the worktree, so the "
-                                 "repository's own checkout is never touched. It prints where the files are and the next command: qargi release sign VERSION when release.sign is set, "
-                                 "else qargi release publish VERSION. release sign and release publish then take the files from the worktree: release.sign.files, release.assets "
+                                 "(a command line, run by bash -c, or a list of words with {version} replaced and no shell; CROWN_RELEASE_VERSION is set) and records the worktree, so the "
+                                 "repository's own checkout is never touched. It prints where the files are and the next command: crown release sign VERSION when release.sign is set, "
+                                 "else crown release publish VERSION. release sign and release publish then take the files from the worktree: release.sign.files, release.assets "
                                  "and relative --asset or --asset-dir names are looked up there. Refused when release.assets_command is not set, when the tag is missing, when the "
-                                 "worktree exists already (--recreate removes it and builds again; its files may be signed) and in a member run or when QARGI_NESTED is set (exit 2). "
+                                 "worktree exists already (--recreate removes it and builds again; its files may be signed) and in a member run or when CROWN_NESTED is set (exit 2). "
                                  "A command that fails leaves the worktree for you to look at and records nothing. It changes no branch and needs no plan token: it runs the command "
                                  "the lead put in the answers."),
-                           examples=["qargi release assets 0.2.3", "qargi release assets 0.2.3 --recreate"]),
+                           examples=["crown release assets 0.2.3", "crown release assets 0.2.3 --recreate"]),
             "sign": verb("Sign the release files from the tag with your own key, on your own terminal, and record that they verify", [("VERSION", "none")], [PROJECT_OPT],
                          desc=("Signing is optional and off by default: it applies only to a project whose answers hold release.sign (otherwise this exits 2 and nothing else changes). "
-                               "Run it in your terminal, in the project's repository checked out at the tag (git checkout --detach VERSION, with the release files built from it), or after qargi release assets VERSION, "
+                               "Run it in your terminal, in the project's repository checked out at the tag (git checkout --detach VERSION, with the release files built from it), or after crown release assets VERSION, "
                                "which builds them in a worktree of the tag that sign then uses in place of the repository (the files are signed, verified and recorded there): "
                                "after finish, before publish. For each file of the answer release.sign.files it runs ssh-keygen -Y sign -f KEY -n NAMESPACE FILE attached to "
                                "your terminal (stdin, stdout and stderr are yours; nothing is captured and no input is logged), so you type the key's passphrase there and it "
-                               "never passes through qargi, a log or an agent; no ssh agent is asked. Then it runs release.sign.verify_command (a list of words, no shell) in the "
+                               "never passes through crown, a log or an agent; no ssh agent is asked. Then it runs release.sign.verify_command (a list of words, no shell) in the "
                                "repository and records the result, the tag's commit and the hash of every signed file and signature under the state's release directory. "
                                "Refused (exit 1) when stdin is no terminal, HEAD is not exactly the tag VERSION, on a branch other than master, or a tracked file is modified; "
-                               "refused (exit 2) in a member run, when QARGI_NESTED is set or when release.sign is not set. A member run cannot sign. The answers: release.sign.key (an ssh private key), "
+                               "refused (exit 2) in a member run, when CROWN_NESTED is set or when release.sign is not set. A member run cannot sign. The answers: release.sign.key (an ssh private key), "
                                "release.sign.namespace, release.sign.files (relative to the repository) and optionally release.sign.verify_command.")),
             "publish": verb("Create the GitHub release of an existing tag, with its changelog section (or a notes file) as the notes and the assets attached", [("VERSION", "none")],
                             [PROJECT_OPT, PLAN, APPROVED,
-                             opt("--asset", "attach this file to the release; repeat for several, on top of the answer release.assets. A relative name is taken in the release asset worktree (qargi release assets) when there is one, else in the repository; a full path must lie in a worktree of the repository", "FILE"),
+                             opt("--asset", "attach this file to the release; repeat for several, on top of the answer release.assets. A relative name is taken in the release asset worktree (crown release assets) when there is one, else in the repository; a full path must lie in a worktree of the repository", "FILE"),
                              opt("--asset-dir", "attach every regular file of this directory (not its subdirectories), named like --asset; repeat for several", "DIR"),
                              opt("--notes-file", "take the notes from this file (relative to the repository) instead of the changelog section; the answer release.notes_file does the same", "FILE")],
                             desc=("For a tag that has no GitHub release, for example one pushed before the release workflow existed. The plan shows the tag, its commit, "
                                   "the notes (the VERSION section of CHANGELOG.md at the tag, found by release.changelog.released, or the notes file), the sha256 of every asset and the command: gh release create VERSION "
-                                  "--verify-tag --title \"PROJECT VERSION\" --notes-file FILE ASSET... (gh is run through QARGI_GH, default gh, and must be logged in); the token covers "
+                                  "--verify-tag --title \"PROJECT VERSION\" --notes-file FILE ASSET... (gh is run through CROWN_GH, default gh, and must be logged in); the token covers "
                                   "the notes and the assets. The assets are --asset, the files of --asset-dir and release.assets (names or globs, {version} replaced; a glob that matches nothing refuses), regular files inside the asset worktree "
-                                  "of qargi release assets, the repository or another worktree of it (a symbolic link that leaves them, a path with a .git component and two files of one base name are refused), attached by the same call that creates the release. "
+                                  "of crown release assets, the repository or another worktree of it (a symbolic link that leaves them, a path with a .git component and two files of one base name are refused), attached by the same call that creates the release. "
                                   "It refuses when GitHub has the release already, when the tag is missing, when the notes are empty, and, when the answer release.sign is set, until "
-                                  "qargi release sign recorded an ok for VERSION and none of the signed files or signatures changed since (without release.sign, which is the default, there is no such wait); --verify-tag makes gh refuse a tag that is not on origin. "
+                                  "crown release sign recorded an ok for VERSION and none of the signed files or signatures changed since (without release.sign, which is the default, there is no such wait); --verify-tag makes gh refuse a tag that is not on origin. "
                                   "Needs the plan token and an approval; a member run cannot publish.")),
             "site": verb("Build the documentation site of the tag VERSION and commit it on the detached site branch; never pushes", [("VERSION", "none")],
                          [PROJECT_OPT, PLAN, APPROVED],
@@ -654,36 +654,36 @@ COMMANDS = {
                                "committed is removed by the commit. The plan shows the build's warnings and the size of the change, and the token covers the tag, the branch's tip and the tree to commit; "
                                "the apply commits it as 'Site: built from release VERSION' and moves the branch, touching no working tree, and prints the git push "
                                "command for you to run. Nothing is committed when the build is already there. Refused when the branch is checked out somewhere, "
-                               "when the tag is missing and when the build reports an error; refused (exit 2) in a member run and when QARGI_NESTED is set."),
-                         examples=["qargi release site 0.2.3", "qargi release site 0.2.3 --plan TOKEN --approved \"yes, commit the site\""]),
+                               "when the tag is missing and when the build reports an error; refused (exit 2) in a member run and when CROWN_NESTED is set."),
+                         examples=["crown release site 0.2.3", "crown release site 0.2.3 --plan TOKEN --approved \"yes, commit the site\""]),
         },
     },
     "doctor": {
-        "summary": "Check this host for what makes qargi fail quietly: logind, the guard, /dev/shm, the window table",
+        "summary": "Check this host for what makes crown fail quietly: logind, the guard, /dev/shm, the window table",
         "desc": ("Read-only, and a member may run it. It prints one line per check, `ok|warn|unknown  name: detail`, and after a warning the indented lines that say what you can do; "
                  "it changes nothing and runs none of the fixes. It does not fail on a finding: the exit status is 0, or 1 with --strict when any check warns (2 for a usage error "
                  "or a project that is not stored). A check that cannot be made (no logind, a tool that is missing, no project) says unknown, never warn. The project is the one "
                  "named, else the one in effect; without one the checks that need it say unknown. The checks: "
-                 "remove-ipc: the logind setting RemoveIPC (busctl; QARGI_BUSCTL names another program) with the user's linger (loginctl; QARGI_LOGINCTL); with RemoveIPC on and "
+                 "remove-ipc: the logind setting RemoveIPC (busctl; CROWN_BUSCTL names another program) with the user's linger (loginctl; CROWN_LOGINCTL); with RemoveIPC on and "
                  "no linger, logind removes the user's IPC objects, among them what lives in /dev/shm, when the last session ends, and the warning prints the drop-in "
                  "/etc/systemd/logind.conf.d/remove-ipc.conf (`[Login]`, `RemoveIPC=no`) with `sudo systemctl reload systemd-logind`, or `loginctl enable-linger USER`. "
-                 "guard: `qargi` is found on PATH and `qargi __guard` answers as the guard does (it allows a harmless call and refuses git push), and with a project, no member is "
-                 "missing, stale or edited (the states of qargi agent list). "
-                 "shm: the free space under /dev/shm (QARGI_RUN_TMP moves it) and the orphaned qargi-run.* directories there, the listing of qargi local clean --orphans; it warns on "
-                 "an orphan or on less than 10% free (QARGI_DOCTOR_MIN_FREE moves the limit, in percent). "
+                 "guard: `crown` is found on PATH and `crown __guard` answers as the guard does (it allows a harmless call and refuses git push), and with a project, no member is "
+                 "missing, stale or edited (the states of crown agent list). "
+                 "shm: the free space under /dev/shm (CROWN_RUN_TMP moves it) and the orphaned crown-run.* directories there, the listing of crown local clean --orphans; it warns on "
+                 "an orphan or on less than 10% free (CROWN_DOCTOR_MIN_FREE moves the limit, in percent). "
                  "window-source: where the context-window table of the project's local runtime comes from (its definition, or the answer lead.context_window, which overrides it) "
                  "and whether each model id its roles name is in the table; an id that is not there warns, since its window is only assumed. "
                  "--json prints {project, checks: [{name, status, detail, fix}], warnings, strict, exit}."),
         "scripts": ["doctor.py", "orphans.sh"],
         "usage": [("PROJECT", "project", True)],
         "opts": [PROJECT_OPT, opt("--strict", "exit 1 when any check warns (the default exit status is 0)"), opt("--json", "print the checks as JSON")],
-        "examples": ["qargi doctor", "qargi doctor acme --strict", "QARGI_RUN_TMP=/dev/shm qargi doctor --json"],
+        "examples": ["crown doctor", "crown doctor acme --strict", "CROWN_RUN_TMP=/dev/shm crown doctor --json"],
     },
     "env": {
         "summary": "What a repository declares about its development environment",
-        "desc": ("qargi defines no file for this. A project declares its environment with a section of AGENTS.md (or README.md) headed "
+        "desc": ("crown defines no file for this. A project declares its environment with a section of AGENTS.md (or README.md) headed "
                  "Development environment, Environment or Setup, the version pins in the standard files, and two runnable targets: bootstrap "
-                 "(install or update, idempotent) and doctor (check only). qargi reads them; see qargi help environment."),
+                 "(install or update, idempotent) and doctor (check only). crown reads them; see crown help environment."),
         "scripts": ["env.py", "env_check.py"],
         "verbs": {
             "show": verb("Print what was found (section, pins, submodules, runner, targets) and the commands in effect", [],
@@ -693,8 +693,8 @@ COMMANDS = {
                                "(at most 1 MB each; a symbolic link that leaves the repository is refused). The commands are derived from the targets "
                                "(make bootstrap, make -n bootstrap, make doctor) and replaced by the project's answers env.doctor_command, "
                                "env.bootstrap_command and env.dry_run_command; env.known_failures lists doctor lines accepted on this host. Each line says where it came from."),
-                         examples=["qargi env show", "qargi env show --project acme --json", "qargi project set acme env.doctor_command 'make doctor'"]),
-            "check": verb("Run the project's doctor, add the qargi layer (links, members, packs, memory) and print ENV OK or ENV INCOMPLETE", [],
+                         examples=["crown env show", "crown env show --project acme --json", "crown project set acme env.doctor_command 'make doctor'"]),
+            "check": verb("Run the project's doctor, add the crown layer (links, members, packs, memory) and print ENV OK or ENV INCOMPLETE", [],
                           [PROJECT_OPT, opt("--repo", "the repository directory (default: the project's repo.path, else the repository around here)", "DIR", "dir"),
                            opt("--timeout", "seconds the doctor may run (default 300, at most 3600)", "SECONDS"), opt("--json", "print the result as JSON")],
                           desc=("A member may run it. It RUNS THE PROJECT'S CODE: the doctor command (env.doctor_command, else the doctor or check target) is run once, "
@@ -709,7 +709,7 @@ COMMANDS = {
                                 "loads the project's skills, agents and memory, whether the members are current (STALE, DRIFT), packs check and memory check. "
                                 "The last line is ENV OK or ENV INCOMPLETE: N missing (...); exit status 0, 1 or 2 (usage, no such project, no repository). "
                                 "The verdict, HEAD, time and commands are recorded under check in state/env/PROJECT.json (mode 600, the other keys are kept); no command output is."),
-                          examples=["qargi env check", "qargi env check --project acme --timeout 60", "qargi env check --repo ~/src/acme --json"]),
+                          examples=["crown env check", "crown env check --project acme --timeout 60", "crown env check --repo ~/src/acme --json"]),
             "plan": verb("Run the dry run of the bootstrap, show it grouped by privilege, print a plan token (the lead's; runs project code)", [],
                          [PROJECT_OPT, opt("--repo", "the repository directory (default: the project's repo.path, else the repository around here)", "DIR", "dir"),
                           opt("--approve-exec", "the executable of the dry-run command (make for make -n bootstrap); without it nothing is run and the exit status is 2", "NAME")],
@@ -717,13 +717,13 @@ COMMANDS = {
                                "of the other runners evaluates project code too. So the plan itself runs project code, and needs --approve-exec naming the "
                                "executable; read the project's files first. The command runs without a shell, in the repository, with standard input from /dev/null, "
                                "a minimal environment (PATH with absolute entries, HOME, USER, LOGNAME, LANG, LC_ALL, LC_CTYPE, TERM, TZ, TMPDIR) and a limit of "
-                               "QARGI_ENV_TIMEOUT seconds (default 120). Its output is shown line by line, the privileged lines (a command in the line is sudo, doas, "
+                               "CROWN_ENV_TIMEOUT seconds (default 120). Its output is shown line by line, the privileged lines (a command in the line is sudo, doas, "
                                "pkexec, su or run0) apart from the others, then the executables seen in the lines. Lines and executables are read from the text, "
                                "best effort: a recipe can run more than its dry run shows. Then the tools the roles declare (roles.ROLE.tools), each with its state here "
                                "(ok, missing, wrong, path: in a directory PATH lacks); apply installs the go tools and binaries that are missing or wrong, so the token line "
                                "names go in --approve-exec when a go tool is among them. The plan token is a hash over the output, the commands, the tools, the repository "
                                "and its HEAD, and the host name. A member's guard refuses it."),
-                         examples=["qargi env plan --approve-exec make", "qargi env plan --project acme --approve-exec make"]),
+                         examples=["crown env plan --approve-exec make", "crown env plan --project acme --approve-exec make"]),
             "apply": verb("Run the bootstrap command once, for a plan you showed (the lead's)", [],
                           [PROJECT_OPT, opt("--repo", "the repository directory (default: the project's repo.path, else the repository around here)", "DIR", "dir"),
                            PLAN, APPROVED,
@@ -735,16 +735,16 @@ COMMANDS = {
                                 "it in a terminal you are at. No password is read or kept. Apply writes two lines to the audit log (start and result, with your words), "
                                 "then installs the declared tools the plan showed as missing or wrong: go install NAME@VERSION for a go tool, and for a binary the file at its URL, downloaded to a temporary name, "
                                 "kept only when its sha256 is the declared one, made executable and moved to ~/.local/bin/NAME (a failed tool is named, the others still run, exit 1). "
-                                "It records the run in ~/.qargi/state/env/NAME.json (mode 600) and then runs qargi env check (the project's doctor), whose verdict ends the output and whose exit status is the verb's. QARGI_DRY_RUN stops it "
+                                "It records the run in ~/.crown/state/env/NAME.json (mode 600) and then runs crown env check (the project's doctor), whose verdict ends the output and whose exit status is the verb's. CROWN_DRY_RUN stops it "
                                 "after the checks, before the bootstrap runs. A member's guard refuses it."),
-                          examples=["qargi env apply --plan 0123456789ab --approved \"install the tools\" --approve-exec make,go",
-                                    "qargi env apply --plan 0123456789ab --approved \"go\" --approve-exec make,pacman --allow-root"]),
+                          examples=["crown env apply --plan 0123456789ab --approved \"install the tools\" --approve-exec make,go",
+                                    "crown env apply --plan 0123456789ab --approved \"go\" --approve-exec make,pacman --allow-root"]),
         },
     },
     "provision": {
         "summary": "Create the cloud agent, deployment and environment of an instance",
         "desc": ("Renders the agent, the shared environment, the memory stores it attaches and a manual-run deployment, "
-                 "shows the plan, and creates them only with your go-ahead. Names follow qargi help naming. Provision the "
+                 "shows the plan, and creates them only with your go-ahead. Names follow crown help naming. Provision the "
                  "role agents first; the lead (PROJECT-lead) needs them to exist. When the project's repository is on this host and declares a bootstrap "
                  "command, plan also prints it as suggested text for the environment's setup script; it is only printed, never run."),
         "scripts": ["provision.sh"],
@@ -758,7 +758,7 @@ COMMANDS = {
                           opt("--memory-store", "attach this memory store instead of the project's", "ID", "store"),
                           opt("--reference-store", "attach this reference store", "ID", "store"),
                           opt("--force", "overwrite what changed on the server outside this config since the last apply (ant apply --force); the plan token covers it, so give it to plan and to apply")],
-                         examples=["qargi provision plan acme-write"]),
+                         examples=["crown provision plan acme-write"]),
             "apply": verb("Create the resources of an approved plan", [("NAME", "instance", True)],
                           [ASKED, PLAN, APPROVED, opt("--project", "the project, instead of NAME", "PROJECT", "project"), opt("--role", "the role, or a base (worker, reviewer)", "ROLE", ROLES + ("worker", "reviewer")), opt("--force", "overwrite what changed on the server outside this config since the last apply (ant apply --force); the plan token covers it, so give it to plan and to apply")],
                           desc="Brings new memory stores to the canon, seeds the roles, records the ids and registers the instance."),
@@ -779,8 +779,8 @@ COMMANDS = {
                           opt("--apt", "packages for a provisioned environment", "PACKAGES"),
                           opt("--networking", "network access", "MODE", ("unrestricted", "limited")),
                           opt("--no-session", "do not start a standby session"), ASKED, PLAN, APPROVED],
-                         desc="Usually you provision (qargi provision) and the instance is registered for you.",
-                         examples=["qargi instances init --location local --agent ./agent.md --name acme-build"]),
+                         desc="Usually you provision (crown provision) and the instance is registered for you.",
+                         examples=["crown instances init --location local --agent ./agent.md --name acme-build"]),
             "list": verb("List the instances (cloud ones whose prompt is out of date are marked STALE) and their active sessions", [], [opt("--reconcile", "flag live sessions the tracker does not know")]),
             "show": verb("Show an instance and what is stale or misnamed", [("NAME", "instance")], [opt("--reconcile", "also flag untracked live sessions")]),
             "remove": verb("Forget an instance (the registry entry only)", [("NAME", "instance")], desc="Refused while it has open sessions."),
@@ -798,14 +798,14 @@ COMMANDS = {
                  "and role), user-role, project, or project-role. Imported content is shown, hashed and approved before it is stored, and "
                  "any later change is drift until you seal it again. Only you, with the person present, change a skill: a local member's "
                  "guard refuses the verbs new, import, seal, remove, link, unlink, accept, unaccept, enable and disable, and writes in the pack library, "
-                 "and QARGI_NESTED does not stand in for the plan token of import and seal."),
+                 "and CROWN_NESTED does not stand in for the plan token of import and seal."),
         "scripts": ["packs.sh"],
         "verbs": "PACK",
     },
     "tool": {
         "summary": "Create or import tools (MCP servers with an allowlist) and attach them by scope",
         "desc": ("A tool is an MCP server with an explicit list of allowed tools and a permission policy for each. A write-like tool "
-                 "cannot run unattended unless the tool is marked write_ok. Everything else works as for skills (qargi help skill)."),
+                 "cannot run unattended unless the tool is marked write_ok. Everything else works as for skills (crown help skill)."),
         "scripts": ["packs.sh"],
         "verbs": "PACK",
     },
@@ -819,9 +819,9 @@ COMMANDS = {
             "apply": verb("Update an existing cloud agent, or render for a local runtime", [("INSTANCE|PROJECT", "instance")], [TARGET, ASKED, PLAN, APPROVED],
                           desc=("Without --target (or with managed-agents) this updates the existing cloud agent INSTANCE with its skills and tools; "
                                 "the lead's GitHub tool arrives this way when the project grants a cloud push. It needs --asked, and always needs --plan "
-                                "(QARGI_NESTED does not skip it); a local member's guard refuses it.\n"
+                                "(CROWN_NESTED does not skip it); a local member's guard refuses it.\n"
                                 "With --target claude-code it takes PROJECT instead of INSTANCE and needs no --asked. Without --approved it prints a plan token. "
-                                "With --plan and --approved it renders the project's enabled skills and tools into $QARGI_STATE/render/PROJECT/RUNTIME (claude-code for this target), replacing the "
+                                "With --plan and --approved it renders the project's enabled skills and tools into $CROWN_STATE/render/PROJECT/RUNTIME (claude-code for this target), replacing the "
                                 "previous render atomically, and prints the exact `claude --add-dir ...` launch line (with --mcp-config and --settings when the "
                                 "render has them). A local runtime cannot enforce role scoping, so the render is the union of the project's roles and role scoping "
                                 "is advisory there. Skills render under .claude/skills; tool packs render mcp.json and settings.json. Nothing is written into a "
@@ -831,11 +831,11 @@ COMMANDS = {
                                 "name outside letters, digits, _, . and -. Each plan stages into its own hidden directory and a lock serializes "
                                 "concurrent applies; the second refuses if the render changed meanwhile. The swap installs only the tree the token "
                                 "approved; the token also covers the file modes, which the manifest records.")),
-            "seed": verb("Add or update the baseline packs shipped with qargi in your library", [],
+            "seed": verb("Add or update the baseline packs shipped with crown in your library", [],
                          [opt("--install", "only add the packs the library lacks, without a token (install.sh --user runs this)"), PLAN, APPROVED],
-                         desc=("qargi ships a few packs (packs/ in its tree). Seeding stores them in your library. Without --approved it prints one line per pack "
+                         desc=("crown ships a few packs (packs/ in its tree). Seeding stores them in your library. Without --approved it prints one line per pack "
                                "(add, update, current or kept) and a plan token. A pack you edited and sealed, or one of your own with the same name, is kept and "
-                               "never overwritten; an untouched shipped copy is updated when qargi ships a newer text. Seeding never links a pack: nothing "
+                               "never overwritten; an untouched shipped copy is updated when crown ships a newer text. Seeding never links a pack: nothing "
                                "reaches a project or an agent until you link it.")),
             "check": verb("Check a render for drift (read only)", [("PROJECT", "project")], [TARGET],
                           desc=("Needs --target claude-code. Writes nothing and exits 1 on any finding: library drift (a pack changed or failed review since it "
@@ -847,8 +847,8 @@ COMMANDS = {
                                 "the library copy (even when the manifest was edited with it), a changed file mode, a group- or world-writable "
                                 "render, a malformed manifest, and a manifest that names another project or whose role scoping is not advisory.\n"
                                 "It ends with a section, skills a session would load, that gives every skill a session opened in the checkout would load one state: "
-                                "qargi (a library pack with approved content, or a skill shipped with qargi), accepted (skill accept), drifted (accepted, "
-                                "but its content changed: this exits 1), excluded (switched off in the provider's settings; qargi only reads them) or unmanaged "
+                                "crown (a library pack with approved content, or a skill shipped with crown), accepted (skill accept), drifted (accepted, "
+                                "but its content changed: this exits 1), excluded (switched off in the provider's settings; crown only reads them) or unmanaged "
                                 "(everything else, shown with what to do about it; this does not change the exit status). When the checkout's skills directory "
                                 "is not linked to the render it adds a note naming packs link.")),
             "link": verb("Make the project's checkout load its packs by itself", [("PROJECT", "project")], [PLAN, APPROVED],
@@ -857,11 +857,11 @@ COMMANDS = {
                                "--plan TOKEN --approved. If the directory is absent it creates the link; if it is already that link it says so and exits 0. It refuses "
                                "a link to anywhere else, a symlinked parent, a checkout that is not the top of a git work tree, a missing render, and files "
                                "tracked by git. If it is a real directory the plan lists each skill in it as same, differs or new against the library and "
-                               "offers skill import and skill link for the new ones; apply then moves the directory to the backup name (skills.qargi-backup "
+                               "offers skill import and skill link for the new ones; apply then moves the directory to the backup name (skills.crown-backup "
                                "beside it) and links, so skills not imported stop loading until they are. Nothing is deleted. If git does not ignore the path "
                                "it prints the line to add to .git/info/exclude and never edits that file. A provider that has no such directory is "
                                "refused (exit 3). Every verb that takes --target (packs apply, packs check), packs link and unlink, skill accept and marshal handoff "
-                               "exit 2 when the project has no provider (qargi project set P models.provider NAME). A local member's guard refuses it.")),
+                               "exit 2 when the project has no provider (crown project set P models.provider NAME). A local member's guard refuses it.")),
             "unlink": verb("Undo packs link", [("PROJECT", "project")], [PLAN, APPROVED],
                            desc=("Removes only the symbolic link that points to this project's render and, if the backup exists, moves it back to the skills "
                                  "directory. Refuses a link to anywhere else, a real directory in its place, and a backup with no link of ours. Same plan token "
@@ -889,7 +889,7 @@ COMMANDS = {
                  opt("--role", "the role a base session runs (required for <project>-worker and <project>-reviewer)", "ROLE"),
                  opt("--profile", "the profile of the role (default: the role's own)", "PROFILE"),
                  opt("--opt-in", "confirm an opt-in profile such as researcher"), ASKED],
-        "examples": ['qargi send acme-build "$BRIEF" --label rename-verb --asked "use the cloud builder for this"'],
+        "examples": ['crown send acme-build "$BRIEF" --label rename-verb --asked "use the cloud builder for this"'],
     },
     "status": {
         "summary": "Show tracked cloud sessions, or one session",
@@ -902,7 +902,7 @@ COMMANDS = {
                  "(list_cost, in the units of the budget flags: cents, per the docs) and the spend per applied session, how long each "
                  "session pending review has waited (oldest first), the sessions that look stale (running, or idle and pending review, "
                  "with no refresh for --stale-after), the idle sessions split by why they stopped when that is recorded, and the time "
-                 "from creation to close. A second section lists local runs from the run directories qargi local prepare made: finished "
+                 "from creation to close. A second section lists local runs from the run directories crown local prepare made: finished "
                  "(manifest DONE or BLOCKED), no manifest and still changing, or no manifest and quiet for --local-stale-after "
                  "(possibly stalled). The output says what it cannot tell you; it never prints a session's note or request."),
         "scripts": ["report.py"],
@@ -910,13 +910,13 @@ COMMANDS = {
                  opt("--instance", "only this instance's sessions (leaves the local runs out)", "NAME", "instance"),
                  opt("--stale-after", "a running or idle-pending cloud session unseen for this long looks stale (default 2h)", "DURATION"),
                  opt("--local-stale-after", "a local run without a manifest and without file changes for this long is possibly stalled (default 30m)", "DURATION"),
-                 opt("--runs-root", "also scan DIR/qargi.* for local runs the registry does not list (or set QARGI_RUNS_ROOT)", "DIR", "dir"),
+                 opt("--runs-root", "also scan DIR/crown.* for local runs the registry does not list (or set CROWN_RUNS_ROOT)", "DIR", "dir"),
                  opt("--json", "print the figures as JSON")],
-        "examples": ["qargi report", "qargi report --since 2026-10-01 --instance acme-build --json"],
+        "examples": ["crown report", "crown report --since 2026-10-01 --instance acme-build --json"],
     },
     "watch": {
         "summary": "Wait for a cloud session to stop; prints one line when it does",
-        "desc": "Run it in the background. The line is QARGI WATCH <sid> idle|terminated|budget_reached|budget_tight|timeout|auth|error. budget_tight ends it early, with the cost and the ceiling in cents, so you can raise the ceiling (qargi instances budget NAME CENTS --session SID) and watch again.",
+        "desc": "Run it in the background. The line is CROWN WATCH <sid> idle|terminated|budget_reached|budget_tight|timeout|auth|error. budget_tight ends it early, with the cost and the ceiling in cents, so you can raise the ceiling (crown instances budget NAME CENTS --session SID) and watch again.",
         "scripts": ["watch.sh"],
         "usage": [("SID", "session:active"), ("MAX_SECONDS", "seconds", True)],
         "opts": [opt("--warn", "end the watch early with budget_tight when the cost reaches this percent of the ceiling (default 85; 0: never)", "PCT")],
@@ -939,30 +939,30 @@ COMMANDS = {
     "mark": {
         "summary": "Record what happened to a session's work",
         "scripts": ["session.sh"],
-        "desc": "With --why, also records the reason (a code from lib/reasons.json); qargi report counts the reasons.",
+        "desc": "With --why, also records the reason (a code from lib/reasons.json); crown report counts the reasons.",
         "usage": [("SID", "session:active"), ("STATE", ("applied", "rejected", "pending"))],
         "opts": [opt("--why", "why: wrong-scope, broke-check, style, too-slow, too-costly, skill-ignored, skill-wrong, brief-unclear, gate-noise or other", "CODE", REASONS)],
     },
     "upgrade": {
         "summary": "Move the installed tool to a newer branch or tag of its origin",
-        "desc": ("Works on the root-owned checkout install.sh recorded (for example /opt/qargi). Without --approved it fetches the target, "
+        "desc": ("Works on the root-owned checkout install.sh recorded (for example /opt/crown). Without --approved it fetches the target, "
                  "shows the commits and files that would change and prints a plan token. With --plan TOKEN --approved \"...\" it applies exactly "
                  "that: a branch on the current branch moves forward only (fast-forward), another branch is checked out at its tip, a tag is "
                  "checked out detached; install.sh --user then runs as you and the members to refresh are listed. The git commands that write "
-                 "into the checkout run through sudo (QARGI_SUDO names another command). When the members file (~/.qargi/config/agents.json) is not in "
+                 "into the checkout run through sudo (CROWN_SUDO names another command). When the members file (~/.crown/config/agents.json) is not in "
                  "the current shape, which every agent verb refuses, the plan and the end of the upgrade say so and how to redo it; nothing is "
                  "changed for that. A member or agent cannot use it."),
         "scripts": ["upgrade.sh"],
         "opts": [opt("--branch", "the branch to move to (default: the installed checkout's current branch)", "BRANCH"),
                  opt("--tag", "a tag to check out instead", "TAG"), PLAN, APPROVED],
-        "examples": ["qargi upgrade --branch develop", "qargi upgrade --branch develop --plan 1a2b3c4d5e6f --approved \"upgrade to develop\"", "qargi upgrade --tag v0.2.0"],
+        "examples": ["crown upgrade --branch develop", "crown upgrade --branch develop --plan 1a2b3c4d5e6f --approved \"upgrade to develop\"", "crown upgrade --tag v0.2.0"],
     },
     "methodology": {
         "summary": "List and inspect the development and release methodologies",
         "desc": ("A methodology is the way a project is developed and released, as data: its branches, versioning and changelog, test tiers, "
-                 "CI, release steps and deployment options, and the generic files a new project starts with. One ships with qargi (gitflow); "
-                 "add your own under ~/.qargi/config/methodologies/NAME/ (methodology.json and a scaffold/ directory). These verbs only read; "
-                 "qargi project new and adopt write, and only after a plan."),
+                 "CI, release steps and deployment options, and the generic files a new project starts with. One ships with crown (gitflow); "
+                 "add your own under ~/.crown/config/methodologies/NAME/ (methodology.json and a scaffold/ directory). These verbs only read; "
+                 "crown project new and adopt write, and only after a plan."),
         "scripts": ["methodology.py"],
         "verbs": {
             "list": verb("List the methodologies and where they live"),
@@ -970,16 +970,16 @@ COMMANDS = {
             "check": verb("Validate one methodology, or all of them", [("[NAME]", "methodology")]),
             "files": verb("Print the scaffold rendered with the parameters, writing nothing", [("NAME", "methodology")],
                           [opt("--param", "a parameter as name=value (repeat)", "NAME=VALUE")],
-                          examples=["qargi methodology files gitflow --param project=acme --param test_command='make test'"]),
+                          examples=["crown methodology files gitflow --param project=acme --param test_command='make test'"]),
             "deployment": verb("List the deployment options, or print one option's instructions", [("NAME", "methodology"), ("[ID]", "none")]),
         },
     },
     "cloud": {
         "summary": "Which ant profile and workspace each project uses",
         "desc": ("A project can be bound to an ant profile and the workspace that profile must reach (the project's optional cloud answer). "
-                 "Every qargi command about that project then runs ant under that profile, and a cloud call is refused if the profile no "
+                 "Every crown command about that project then runs ant under that profile, and a cloud call is refused if the profile no "
                  "longer reaches the workspace, so work never lands in another project's workspace. A project without a binding uses ant's "
-                 "active profile. qargi stores and checks the binding; it never reads or writes a token. login runs ant auth login on your "
+                 "active profile. crown stores and checks the binding; it never reads or writes a token. login runs ant auth login on your "
                  "terminal; a member or a script cannot."),
         "scripts": ["cloud.py"],
         "verbs": {
@@ -991,7 +991,7 @@ COMMANDS = {
             "check": verb("Check that the profile exists and reaches the workspace (reads the ant profile only)", [("PROJECT", "project", True)]),
             "login": verb("Log the project's profile in, bound to its workspace (your terminal only)", [("PROJECT", "project")]),
         },
-        "examples": ["qargi cloud set qargi --profile qargi --workspace-id wrkspc_01AbC...", "qargi cloud login qargi", "qargi cloud check"],
+        "examples": ["crown cloud set crown --profile crown --workspace-id wrkspc_01AbC...", "crown cloud login crown", "crown cloud check"],
     },
     "provider": {
         "summary": "List and check the model providers: tiers, models and what each can do",
@@ -1000,7 +1000,7 @@ COMMANDS = {
                  "the one surface it serves (local or cloud) and a capability matrix for it: model and effort overrides at dispatch, a fixed tool "
                  "list per agent, a read-only barrier, a session budget ceiling, memory stores, skills and MCP. A capability that is not "
                  "verified counts as not supported. A provider with no read-only barrier on its surface cannot serve the review role there "
-                 "unless you accept that with qargi provider accept. The project's models.provider chooses the provider; there is no default, and a verb that needs one refuses a project with none (exit 2). "
+                 "unless you accept that with crown provider accept. The project's models.provider chooses the provider; there is no default, and a verb that needs one refuses a project with none (exit 2). "
                  "A family name (what several runtimes of one vendor share) stands for the runtime of a surface only in a project's models.provider and in provider of; "
                  "every verb that takes a NAME (show, check, model, addenda, adapter-run, effective, require-barrier, layout, launch, require-skills) takes a runtime name, and a family name is refused as an unknown provider."),
         "scripts": ["provider.py", "provider.sh", "conformance/library.py"],
@@ -1059,7 +1059,7 @@ COMMANDS = {
         "summary": "What members noticed and did not act on, and what became of it",
         "desc": ("Collecting a session's outputs records each noticed_not_acted_on note of its manifest (stored short, secret-looking strings "
                  "redacted) in the append-only events file beside the audit log. Each note stays open until you give it a disposition: "
-                 "followup, dismissed (with --why), accepted or superseded. qargi report shows how many are open and how old the oldest is."),
+                 "followup, dismissed (with --why), accepted or superseded. crown report shows how many are open and how old the oldest is."),
         "scripts": ["noticed.py"],
         "verbs": {
             "list": verb("Print the open notes, oldest first", [], [opt("--all", "every note, with its disposition")]),
@@ -1083,7 +1083,7 @@ COMMANDS = {
                         [opt("--task", "the file with the task block (default RUN/task.md)", "FILE", "file"), opt("--model", "a tier or a model id the runtime accepts (default the balanced tier)", "MODEL"),
                          opt("--effort", "an effort level; dropped with a note when the runtime cannot map it", "LEVEL"), opt("--timeout", "seconds before the process group is killed (default from the definition)", "S"),
                          opt("--again", "run a second time in the same run"), opt("--dry-run", "print the argv, the working directory and the prompt, and run nothing")],
-                        desc=("Only for a runtime whose dispatch mode is command; a runtime that works inside the session (dispatch mode in-session) is refused: dispatch it as its notes say (qargi provider notes spawn). "
+                        desc=("Only for a runtime whose dispatch mode is command; a runtime that works inside the session (dispatch mode in-session) is refused: dispatch it as its notes say (crown provider notes spawn). "
                               "The command is built from the definition without a shell, runs in a scrubbed environment (only the names the pack's env_pass lists, which the review shows), and its output goes to OUT/transcript. "
                               "A read-only run needs the barrier the definition declares (or your acceptance). A library pack's executable runs only from its sealed copy. "
                               "Exit status: 0 the command succeeded, 1 it failed (or a usage error, such as no task block), 2 refused (a barrier the run cannot have, a refused definition), 3 the runtime cannot be run this way (not a command runtime, its command is not on PATH), 4 transport (the definition maps the command's exit to it).")),
@@ -1105,23 +1105,23 @@ COMMANDS = {
                                   "findings and the fix, packs apply --target RUNTIME PROJECT. The run goes on, and stdout and the "
                                   "TASK-BLOCK PATHS block are unchanged.\n"
                                   "A --scratch on a tmpfs (/dev/shm, often /tmp) is warned about on stderr: a reboot empties it and loses the run (its clone, commits "
-                                  "and output); prefer a directory on disk, such as ~/.cache/qargi-runs.")),
+                                  "and output); prefer a directory on disk, such as ~/.cache/crown-runs.")),
             "verify": verb("Compare the repository's refs with the snapshot taken by prepare", [("RUN_DIR", "dir", True)],
-                           [opt("--saved", "verify the lead's saved copy of a passed run whose directory is gone (ID: the name of the run directory, qargi.XXXXXX)", "ID")],
+                           [opt("--saved", "verify the lead's saved copy of a passed run whose directory is gone (ID: the name of the run directory, crown.XXXXXX)", "ID")],
                            desc=("OUT without a report, for an uncollected run or a read-only run, is said with its likely cause: a runtime can refuse the member's write tool for a report file, so the file never reached OUT; "
                                  "the member is told to write its OUT files with the shell (a heredoc) and to collect again (for a read-only run it is a note, and the exit status stays the refs verdict). "
                                  "Fails first, with exit 1 and \"OUT is empty: the member did not collect\", when the clone holds commits past BASE_SHA and RUN/out holds neither patches nor a report: "
                                  "the refs are compared all the same and their verdict is printed next to that message (exit 2 when they changed), but nothing is recorded: the run is not verified, and the member must collect (its DONE needs ls OUT/patches to list the patches) before apply or close. "
                                  "Exits 2 when refs changed (1 before), 3 when the lead's registry does not vouch for the run: it is not in it, names no repository for it, or RUN/repo.path, repo.url or cred.path differ "
                                  "from it (the repository and the credential come from the registry; a member can write the run directory). "
-                                 "It accepts the lead's own moves and names each one (\"develop moved by qargi feature finish\"): what the lead's ref journal records (the branches and tags "
-                                 "that qargi's flow verbs move, push to origin or delete: feature finish and park, release and hotfix finish and push, branch prune, review apply, "
-                                 "the parking branch following develop, a rewrite recorded with qargi ref record --rewrite), a remote-tracking ref of origin that says what origin has "
+                                 "It accepts the lead's own moves and names each one (\"develop moved by crown feature finish\"): what the lead's ref journal records (the branches and tags "
+                                 "that crown's flow verbs move, push to origin or delete: feature finish and park, release and hotfix finish and push, branch prune, review apply, "
+                                 "the parking branch following develop, a rewrite recorded with crown ref record --rewrite), a remote-tracking ref of origin that says what origin has "
                                  "(a fetch), the parking branch (repo.parking_branch, default scratch) fast-forwarded to develop's tip, by hand too, and the branches and branches of origin you noted "
-                                 "(qargi ref note: a ref that did not exist when the run was prepared; one the run's agent could have made or moved and you did not note still fails). "
+                                 "(crown ref note: a ref that did not exist when the run was prepared; one the run's agent could have made or moved and you did not note still fails). "
                                  "It also leaves out the harness's own bridge branches: a branch worktree-bridge-NAME while the locked worktree bridge-NAME of the harness (in its worktrees directory under the main checkout) holds it and its moves are fast-forwards (or once the worktree and the branch are gone). "
                                  "The refs a runtime or harness creates in the repository can be declared in the project answer runs.owned_refs, a list of glob patterns for full ref names "
-                                 "(qargi project set PROJECT runs.owned_refs '[\"refs/heads/foo-*\"]'; only the lead sets it, and project validate checks it): a local ref that matches one is accepted in either phase and "
+                                 "(crown project set PROJECT runs.owned_refs '[\"refs/heads/foo-*\"]'; only the lead sets it, and project validate checks it): a local ref that matches one is accepted in either phase and "
                                  "named (\"foo-x created; accepted: refs/heads/foo-* (owned by the runtime, per runs.owned_refs)\"). A pattern needs a literal prefix of at least 3 characters after refs/NAMESPACE/, "
                                  "may not match develop, master, a repo.long_lived branch, or be able to match anything inside the git-flow branches (agent/, feature/, release/, hotfix/) or the tags (rel*/0* is refused as release/ is), "
                                  "and a ref is never taken as owned when it is the base of a run that is not cleaned or closed, a worktree-bridge-* branch, a git-flow branch or a tag; a ref that matches no valid pattern is checked as before, in the strict phase too. "
@@ -1131,29 +1131,29 @@ COMMANDS = {
                                  "your fast-forwards of develop and master and of agent|feature|release|hotfix/* branches, and new branches there. Anything else (a push, a tag, "
                                  "a deletion or a rewrite nobody journaled) fails. Run it on every run before merging any of them. "
                                  "When it passes it copies OUT, a run bundle beside it and the snapshots to <state>/runs/<run id>/, so a run lost with its directory (a reboot "
-                                 "that emptied a tmpfs) can still be applied: qargi review apply --from-saved ID. --saved ID compares the refs against that copy's snapshots.")),
+                                 "that emptied a tmpfs) can still be applied: crown review apply --from-saved ID. --saved ID compares the refs against that copy's snapshots.")),
             "close": verb("Close a verified run whose patches you applied by hand (git am): it is no longer open", [("RUN_DIR", "dir")],
                           [opt("--applied-by-am", "the way the run was taken in: you applied its patches by hand with git am (the only way close knows; required)")],
                           desc=("Marks the run in the lead's registry (closed: the time, closed_by: applied-by-am), never in the run directory, which a member can write; the files are kept. "
-                                "A closed run is no longer listed as open or counted as applied and not merged by qargi lead compact-check and the compaction advice, no longer blocks "
-                                "qargi feature finish and is listed by marshal status as closed; qargi local list shows closed in the APPLIED column. qargi local clean then removes it "
+                                "A closed run is no longer listed as open or counted as applied and not merged by crown lead compact-check and the compaction advice, no longer blocks "
+                                "crown feature finish and is listed by marshal status as closed; crown local list shows closed in the APPLIED column. crown local clean then removes it "
                                 "without asking for an applied tip (its commits are taken as applied by hand); clean --applied removes it too. Refused for a run that has no passing "
-                                "local verify (verify it first: close must not hide changed refs), a run whose refs changed since that verify (close runs the refs check again), a read-only run, one applied with qargi review apply (merge that branch), "
+                                "local verify (verify it first: close must not hide changed refs), a run whose refs changed since that verify (close runs the refs check again), a read-only run, one applied with crown review apply (merge that branch), "
                                 "a run already closed or cleaned. When the applied branch was rewritten by hand (its tip is not the review:apply tip in your ref journal, the trees are the same and no rewrite is recorded), "
-                                "the refusal for an applied run also names the fix: qargi ref record --rewrite BRANCH OLD NEW --why ..., with the branch and both tips filled in. Not available in a member run."),
-                          examples=["qargi local close ./run --applied-by-am"]),
+                                "the refusal for an applied run also names the fix: crown ref record --rewrite BRANCH OLD NEW --why ..., with the branch and both tips filled in. Not available in a member run."),
+                          examples=["crown local close ./run --applied-by-am"]),
             "clean": verb("Remove a collected, verified run and its temporary directory", [("RUN_DIR", "dir", True)],
                           [opt("--discard", "drop the run on purpose: also a run whose output holds no manifest, whose commits were never merged or whose repository refs changed (verify's outcome is printed as a warning)"),
                            opt("--applied", "clean every run under --scratch whose work is recorded applied (review apply) and merged into a branch other than agent/*; the others are kept and named, and the exit status is 1 when an applied run was kept"),
                            opt("--stale", "list the finished runs (RUN/verified or RUN/applied exists) under --scratch that are at least DAYS days old, from the run's start (a run with no start time is named as skipped); with --yes clean each of them by the rules below, and keep and name those clean refuses; a run still in progress is never listed", "DAYS"),
                            opt("--yes", "with --stale: clean the runs it lists (without it nothing changes)"),
-                           opt("--orphans", "list the qargi-run.XXXXXX directories under /dev/shm (or QARGI_RUN_TMP) that no run of your registry names, each with its age and whether it is named; a plan and a token, nothing removed"),
+                           opt("--orphans", "list the crown-run.XXXXXX directories under /dev/shm (or CROWN_RUN_TMP) that no run of your registry names, each with its age and whether it is named; a plan and a token, nothing removed"),
                            opt("--days", "with --orphans: remove only the orphans older than DAYS days, and with nothing in them newer (default 2, at least 1)", "DAYS"),
                            opt("--plan", "with --orphans: the plan token printed by the same command without --approved", "TOKEN"),
                            opt("--approved", "with --orphans and --plan: your go-ahead for exactly that plan, in your words; recorded in the audit log", "WORDS"),
                            opt("--scratch", "with --applied or --stale: the directory the runs were prepared in; only the run directories directly under it are looked at", "DIR", "dir")],
                           desc=("Prepare makes a private temporary directory for the run (TMP, on /dev/shm when it exists) that the agent puts its test "
-                                "sandboxes in; clean removes it with the clone, the bare copy and the output (only when it is a qargi-run.XXXXXX directory under /dev/shm or QARGI_RUN_TMP, or inside the run). "
+                                "sandboxes in; clean removes it with the clone, the bare copy and the output (only when it is a crown-run.XXXXXX directory under /dev/shm or CROWN_RUN_TMP, or inside the run). "
                                 "It refuses a run whose output has no manifest (collect first), except a read-only run (an advisor or a review: its product is a report, never patches) whose output holds a report.md (or NAME-report.md; a regular file, directly in OUT), "
                                 "which closes with a plain clean when its refs are unchanged and its clone holds no commit; and one whose repository refs changed (that is evidence); the lead's own moves that verify accepts "
                                 "(a feature finish since the run was prepared, for one) are no change and are named in its output. It also refuses a run whose clone holds commits that were "
@@ -1168,23 +1168,23 @@ COMMANDS = {
                                 "the saved work is applied and merged, and refuses otherwise; clean RUN --discard drops them whatever they hold. --stale counts such a run by "
                                 "the start time of its record, and with --yes drops it unless its saved copy holds work that was never applied (kept and named). "
                                 "When the applied branch is not merged because you rewrote it by hand (its tip is not the review:apply tip in your ref journal, the trees are the same and no rewrite is recorded), "
-                                "the refusal also names the fix, with the branch and both tips filled in: git branch -f BRANCH OLD, then qargi ref record --rewrite BRANCH OLD NEW --why ...; clean then follows the rewrite. "
+                                "the refusal also names the fix, with the branch and both tips filled in: git branch -f BRANCH OLD, then crown ref record --rewrite BRANCH OLD NEW --why ...; clean then follows the rewrite. "
                                 "When the refusal for an OUT with no manifest finds no report either, it names the likely cause too: a runtime can refuse the member's write tool for a report file, "
                                 "so the files never reached OUT; the member writes them with the shell (a heredoc). "
-                                "--orphans is for what no run owns: prepare makes a qargi-run.XXXXXX directory under /dev/shm (QARGI_RUN_TMP moves it) for each run, and clean RUN removes only the one your registry names for that run, "
+                                "--orphans is for what no run owns: prepare makes a crown-run.XXXXXX directory under /dev/shm (CROWN_RUN_TMP moves it) for each run, and clean RUN removes only the one your registry names for that run, "
                                 "so a prepare that failed halfway, a dropped record or a replaced state directory leaves one behind. --orphans lists every such directory with its age (from its modification time) and says whether a run of "
                                 "the registry names it, live or not; a link and a file are named and left. Only the registry of this state directory is consulted: the runs of another state directory "
-                                "on the host (another QARGI_STATE or QARGI_HOME) are not, so their directories look orphaned once they are older than --days; check the age and the directory before you approve. Without --approved it prints the plan and its token and removes nothing. "
+                                "on the host (another CROWN_STATE or CROWN_HOME) are not, so their directories look orphaned once they are older than --days; check the age and the directory before you approve. Without --approved it prints the plan and its token and removes nothing. "
                                 "With --plan TOKEN --approved WORDS it removes only the directories that no registry names, that are older than --days (default 2, at least 1) and have nothing in them newer; "
                                 "each is checked again at the moment of removal, a directory that appeared or changed since the plan makes the token stale, and the removal is in the audit log with your words. "
                                 "A named directory is never removed by it, whatever its age. It takes no RUN_DIR, --applied, --discard, --stale, --yes or --scratch; --days, --plan and --approved are for it only. "
                                 "A clean marks the run's record cleaned and removes its saved copy."),
-                          examples=["qargi local clean --applied --scratch /tmp/scratch", "qargi local clean --stale 14 --scratch /tmp/scratch", "qargi local clean --stale 14 --scratch /tmp/scratch --yes",
-                                    "qargi local clean --orphans --days 3", "qargi local clean --orphans --days 3 --plan TOKEN --approved \"remove them\""]),
+                          examples=["crown local clean --applied --scratch /tmp/scratch", "crown local clean --stale 14 --scratch /tmp/scratch", "crown local clean --stale 14 --scratch /tmp/scratch --yes",
+                                    "crown local clean --orphans --days 3", "crown local clean --orphans --days 3 --plan TOKEN --approved \"remove them\""]),
             "list": verb("List the local runs: role, slug, age, whether applied and merged", [],
                          [opt("--scratch", "the directory the runs were prepared in (default: the runs of the registry that still exist)", "DIR", "dir")],
                          desc=("Read-only. One row per run: ROLE, SLUG, AGE, APPLIED (RUN/applied exists: review apply ran; closed for a run closed with close --applied-by-am), MERGED (the applied tip is on a branch other than agent/*; ? for a run of a repository URL) and RUN. "
-                               "It is the list that qargi local clean --applied --scratch DIR acts on. A directory is a run only when the lead's registry names it (a directory a member makes beside its own run is not one), "
+                               "It is the list that crown local clean --applied --scratch DIR acts on. A directory is a run only when the lead's registry names it (a directory a member makes beside its own run is not one), "
                                "and the AGE is ? when the run's started file is not a number. A run of the registry whose directory is gone and that clean did not remove "
                                "is listed after the others as directory gone, with its saved copy and the review apply --from-saved command that applies it.")),
         },
@@ -1201,13 +1201,13 @@ COMMANDS = {
                                 "A review run passes with a report.md (or PREFIXreport.md, as in a team run) that has a Findings section instead of patches. "
                                 "Prints OK, WARN or FAIL lines and a summary; exit 1 when any line is FAIL (warnings alone exit 0). "
                                 "When the run is in the lead's registry and the project declared a take-in scrub, a series that passes is then scrubbed: the answer review.scrub (a command line or a list of words) "
-                                "runs in a throw-away checkout of the applied series (the run's base commit, then every patch with git am), with the range in QARGI_SCRUB_BASE and QARGI_SCRUB_TIP, and the answer "
+                                "runs in a throw-away checkout of the applied series (the run's base commit, then every patch with git am), with the range in CROWN_SCRUB_BASE and CROWN_SCRUB_TIP, and the answer "
                                 "review.trailer_policy reject fails any commit whose message has a Co-Authored-By or Generated-with trailer (none, the default, checks nothing). One more line says scrub: ok, or "
                                 "scrub: FAIL and the first lines of the output (scrub: not run when the series check failed), and a failing scrub exits 1. The checkout is a shared clone, so no branch, tag or worktree entry "
                                 "is made in the repository. Both answers are the run's own copy taken by local prepare; with neither set nothing changes. A member's guard refuses setting them, and a member's own check (the member mark that local run sets is in its environment) does not run the scrub: it says scrub: not run (a member's check; the lead's check runs it) and does not fail.")),
             "apply": verb("Apply a collected, checked run to a task branch of the repository", [("RUN_DIR", "dir", True)],
                           [PROJECT_OPT, opt("--branch", "the branch to create (default agent/<slug> of the run)", "BRANCH", "branch"),
-                           opt("--from-saved", "apply the copy local verify saved of a passed run whose directory is gone (ID: qargi.XXXXXX), with the same checks", "ID")],
+                           opt("--from-saved", "apply the copy local verify saved of a passed run whose directory is gone (ID: crown.XXXXXX), with the same checks", "ID")],
                           desc=("Refuses a run applied already or closed (local close --applied-by-am), and unless review check passes for RUN_DIR/out (warnings allowed) and local verify accepts the run (a refs-changed result "
                                 "prints the diff). Creates the branch at the commit the run's base branch had when the run was prepared and applies every patch "
                                 "of out/patches in order with git am, in a temporary worktree of the project's repository: your checkout is never touched and no "
@@ -1223,7 +1223,7 @@ COMMANDS = {
                                 "series (the patches in order and the declared scrub): then it prints the one line scrub: skipped (review check passed it for this series). A series changed after the check is scrubbed "
                                 "again; a failing scrub (scrub: FAIL and the first lines of the output) refuses the apply and nothing is applied. The record is the lead's, in its state directory. "
                                 "A member's apply does not run the scrub (scrub: not run), as its check does not."),
-                          examples=["qargi review apply ./run", "qargi feature merge search agent/fix-names", "qargi local clean ./run"]),
+                          examples=["crown review apply ./run", "crown feature merge search agent/fix-names", "crown local clean ./run"]),
         },
     },
     "team": {
@@ -1251,7 +1251,7 @@ COMMANDS = {
         "scripts": ["memory.sh", "tierwrite.sh", "tierplan.py", "tiers.py"],
         "verbs": {
             "lint": verb("Check a store against the canon", [("STORE_ID", "store")], [opt("--kind", "recipes or reference (for a store before the canon)", "KIND", ("recipes", "reference"))]),
-            "get": verb("Print one note", [("STORE_ID", "store"), ("PATH", "none")], examples=["qargi memory get memstore_01ABC /shared/INDEX.md"]),
+            "get": verb("Print one note", [("STORE_ID", "store"), ("PATH", "none")], examples=["crown memory get memstore_01ABC /shared/INDEX.md"]),
             "tiers": verb("List the project's memory tiers (repo, cloud, project, shared, system): where each is, whether it exists, its notes", [],
                           [PROJECT_OPT, opt("--json", "machine-readable")],
                           desc=("A tier is one memory store of the standard layout at a fixed rank, highest first: repo > cloud > project > shared > system. "
@@ -1265,7 +1265,7 @@ COMMANDS = {
                          [PROJECT_OPT, PLAN, APPROVED],
                          desc=("Without --approved it shows what would be created and a plan token and changes nothing. It refuses a tier that holds files that are not "
                                "a standard store, one whose place overlaps another tier, a repo tier outside the checkout, and the cloud tier (provision creates that). "
-                               "The repo tier is written inside your repository checkout: qargi never commits it, so review it and commit or ignore it yourself. "
+                               "The repo tier is written inside your repository checkout: crown never commits it, so review it and commit or ignore it yourself. "
                                "A tier that is already set up says so and exits 0.")),
             "move": verb("Move notes from one tier to another, with the original archived in the first", [("PATH", "none")],
                          [PROJECT_OPT, opt("--from", "the tier the notes are in", "TIER", ("repo", "cloud", "project", "shared", "system")),
@@ -1276,11 +1276,11 @@ COMMANDS = {
             "split": verb("Copy the notes a selector picks into another store, optionally archiving the originals", [("FROM", "file"), ("TO", "file")],
                           [PREFIX, ROLE_SEL, NOTE_KIND, opt("--archive", "move the originals to /_archive/<date>/ in FROM (with their origin in Sources:)"), PLAN, APPROVED],
                           desc="At least one of --prefix, --role and --note-kind is needed; a note must match every one given. Notes already in TO are left; a different one goes to /_conflicts/<date>/ in TO.",
-                          examples=["qargi memory split ./memory ./build --role build --archive", "qargi memory split ./memory ./build --role build --archive --plan TOKEN --approved \"go\""]),
+                          examples=["crown memory split ./memory ./build --role build --archive", "crown memory split ./memory ./build --role build --archive --plan TOKEN --approved \"go\""]),
             "merge": verb("Add every note of FROM that TO lacks", [("FROM", "file"), ("TO", "file")],
                           [POLICY, PLAN, APPROVED],
                           desc="FROM is only read. A note whose original sits in TO's archive is moved back from it, so merging what a split wrote undoes the split.",
-                          examples=["qargi memory merge ./build ./memory"]),
+                          examples=["crown memory merge ./build ./memory"]),
             "copy": verb("Copy notes into another store, leaving the source as it is", [("FROM", "file"), ("TO", "file")],
                          [PREFIX, ROLE_SEL, NOTE_KIND, POLICY, PLAN, APPROVED],
                          desc="Without a selector every note is copied except /CANON.md. Each copy records its origin in Sources:."),
@@ -1304,13 +1304,13 @@ COMMANDS = {
         },
     },
     "credential": {
-        "summary": "Check or set up the tokens qargi uses",
+        "summary": "Check or set up the tokens crown uses",
         "desc": "Tokens live in files only you can read, outside every repository, and never in a command line, the tracker or the audit log.",
         "scripts": ["cred.sh"],
         "verbs": {
             "check": verb("Probe the repository token: it must read and should not push", [("PROJECT", "project")],
                           [opt("--allow-write-token", "accept a token that can push, knowingly")]),
-            "setup": verb("Set up the cloud lead's write token (prefer: qargi lead grant)", [("KIND", ("lead-push",)), ("PROJECT", "project")],
+            "setup": verb("Set up the cloud lead's write token (prefer: crown lead grant)", [("KIND", ("lead-push",)), ("PROJECT", "project")],
                           [opt("--from-file", "read the token from a file instead of stdin", "FILE", "file"),
                            opt("--allow-more-repos", "accept a token that can also write to other repositories"), ASKED, PLAN, APPROVED],
                           desc=("Checks the token itself against GitHub (fine-grained, this repository only, no Administration), stores it mode 600, "
@@ -1333,9 +1333,9 @@ COMMANDS = {
                            [opt("--kind", "only this kind: skill, mcp, package or agent-tool", "KIND", ("skill", "mcp", "package", "agent-tool")),
                             opt("--role", "only tools recommended for this role", "ROLE", ROLES),
                             opt("--online", "also search the MCP registry and Anthropic's skills")],
-                           examples=["qargi discover search pdf", "qargi discover search github --online --kind mcp"]),
+                           examples=["crown discover search pdf", "crown discover search github --online --kind mcp"]),
             "recommend": verb("Rank the catalog for the roles of a project", [("PROJECT", "project", True)],
-                              [opt("--role", "only this role", "ROLE", ROLES)], examples=["qargi discover recommend acme --role build"]),
+                              [opt("--role", "only this role", "ROLE", ROLES)], examples=["crown discover recommend acme --role build"]),
             "show": verb("Show one entry: what it is, its risk and how it installs", [("ID", "entry")]),
             "install": verb("Install an entry: review, approval, scope, link", [("ID", "entry")],
                             [opt("--scope", "user, user-role, project or project-role (default: ask)", "SCOPE", ("user", "user-role", "project", "project-role")),
@@ -1344,7 +1344,7 @@ COMMANDS = {
                              opt("--dry-run", "print the plan and stop; changes nothing"),
                              opt("--compatible", "the providers the pack works with (default: the catalog entry's, else asked)", "LIST")],
                             desc="Interactive: it asks at the terminal, and your answers are the recorded approvals.",
-                            examples=["qargi discover install skill-pdf --project acme --role write"]),
+                            examples=["crown discover install skill-pdf --project acme --role write"]),
         },
     },
     "export": {
@@ -1358,20 +1358,20 @@ COMMANDS = {
         "usage": [],
         "opts": [opt("--project", "only these projects, comma separated (default: ask, or all)", "NAMES", "project"),
                  opt("--only", "the parts: config, definitions, memories, state, credentials (default: ask)", "PARTS", ("config", "definitions", "memories", "state", "credentials")),
-                 opt("--out", "the file to write (default: qargi-export-<time>.tar.gz[.gpg] here)", "FILE", "file"),
+                 opt("--out", "the file to write (default: crown-export-<time>.tar.gz[.gpg] here)", "FILE", "file"),
                  opt("--password-file", "encrypt with the first line of this file", "FILE", "file"),
                  opt("--no-encrypt", "write the archive without a password (for scripts)")],
-        "examples": ["qargi export", "qargi export --project acme --only config,memories --no-encrypt --out acme.tar.gz"],
+        "examples": ["crown export", "crown export --project acme --only config,memories --no-encrypt --out acme.tar.gz"],
     },
     "import": {
         "summary": "Restore from an export, choosing what and how",
-        "desc": ("Reads an archive made by qargi export (asking for the password when it is encrypted), shows what is inside, asks which "
+        "desc": ("Reads an archive made by crown export (asking for the password when it is encrypted), shows what is inside, asks which "
                  "parts and projects to import and, for each part, how to treat what already exists: merge (add what is missing), overwrite "
                  "(also replace what differs) or replace (make it match the archive, removing the rest). It then prints the plan and writes "
                  "nothing until you confirm; replaced and removed items are saved under the state directory first. The archive is treated as "
                  "untrusted data: names and checksums are verified. Definitions are restored as files only (rebuild with provision). Memory "
                  "notes go to the stores named in the project's answers. An archive's project answers never add or change models.extensions or "
-                 "models.accept_no_barrier (they take a plan token and an approval: qargi provider enable, disable, accept): the stored value stays, "
+                 "models.accept_no_barrier (they take a plan token and an approval: crown provider enable, disable, accept): the stored value stays, "
                  "or the key is left out, and a note says so. It asks at a terminal; --dry-run shows the plan without one."),
         "scripts": ["transfer.py"],
         "usage": [("FILE", "file")],
@@ -1380,7 +1380,7 @@ COMMANDS = {
                  opt("--mode", "merge, overwrite or replace for every part (default: ask for each)", "MODE", ("merge", "overwrite", "replace")),
                  opt("--password-file", "the password is the first line of this file", "FILE", "file"),
                  opt("--dry-run", "print the plan and stop; changes nothing")],
-        "examples": ["qargi import acme.tar.gz.gpg", "qargi import acme.tar.gz --dry-run --only memories"],
+        "examples": ["crown import acme.tar.gz.gpg", "crown import acme.tar.gz --dry-run --only memories"],
     },
     "lead": {
         "summary": "The lead session: its context, and the cloud lead's right to push",
@@ -1391,7 +1391,7 @@ COMMANDS = {
         "scripts": ["lead.sh", "lead_usage.py"],
         "verbs": {
             "usage": verb("How much of this session's context is in use: tokens of the last turn, percent of the window, transcript size", [],
-                          [PROJECT_OPT, opt("--session", "read the transcript of this session id (default: QARGI_LEAD, else the newest of this directory)", "ID"),
+                          [PROJECT_OPT, opt("--session", "read the transcript of this session id (default: CROWN_LEAD, else the newest of this directory)", "ID"),
                            opt("--transcript", "read this transcript file", "FILE", "file"), opt("--json", "machine-readable")],
                           desc=("The runtime of the project says where its session transcripts are and how to read them (resources.transcripts of its definition): "
                                 "the context in use is the input, cache-read and cache-creation tokens of the last assistant turn. The window is the project answer "
@@ -1399,20 +1399,20 @@ COMMANDS = {
                                 "definition's single window, which is only a guess: the lines that show a percentage then say (window assumed N; set lead.context_window), "
                                 "and --json says window_source answer, model or assumed. When the tokens in use exceed that guessed window the real window is larger: the text then "
                                 "says tokens exceed the assumed window N instead of a percentage, and --json keeps percent and sets window_exceeded to true. Read only; a transcript that cannot be found or read prints unknown and exits 0."),
-                          examples=["qargi lead usage", "qargi project set acme lead.context_window 1000000"]),
+                          examples=["crown lead usage", "crown project set acme lead.context_window 1000000"]),
             "compact-check": verb("Is a /compact safe now? Exit 0 safe, 1 not, with every reason and the block to re-read after it", [],
                                   [PROJECT_OPT, opt("--advise", "also say whether a compact is advised: from 50% of the window, strongly from 70%"), opt("--json", "machine-readable")],
                                   desc=("Not safe while a local run is prepared and not verified, verified and not applied, or applied and not merged; a merge waits for its "
                                         "resolution; a whole-suite run (feature verify, release verify) is running; the handoff note written by marshal handoff --write is older "
-                                        "than the last merge; or a release or hotfix branch is open. An applied run counts as merged by the test local list and local clean use: its applied tip is on a branch other than agent/*, or the commit the tip was rewritten to (ref record --rewrite) is, wherever the run directory lies. It prints the restart block: the handoff note, qargi marshal status, "
-                                        "qargi feature status and the open runs, so the lead resumes from stored state. Read only. qargi cannot run /compact itself: the "
+                                        "than the last merge; or a release or hotfix branch is open. An applied run counts as merged by the test local list and local clean use: its applied tip is on a branch other than agent/*, or the commit the tip was rewritten to (ref record --rewrite) is, wherever the run directory lies. It prints the restart block: the handoff note, crown marshal status, "
+                                        "crown feature status and the open runs, so the lead resumes from stored state. Read only. crown cannot run /compact itself: the "
                                         "lead (or the person) does. feature finish, the last feature merge of a feature's runs, release finish and marshal handoff print "
                                         "one line when the context is at or above the project answer lead.compact_advice_pct (default 40; 0 turns it off)."),
-                                  examples=["qargi lead compact-check --advise"]),
+                                  examples=["crown lead compact-check --advise"]),
             "grant": verb("Guided: create or rotate the grant in three confirmed steps", [("PROJECT", "project:teams")],
                           [opt("--from-file", "read the token from a file instead of asking", "FILE", "file")],
                           desc="Explains how to create the fine-grained token, checks it, then: token and vault; the GitHub tool; the Push rules. Skips what is in place.",
-                          examples=["qargi lead grant acme"]),
+                          examples=["crown lead grant acme"]),
             "status": verb("Show what is in place and what is missing", [("PROJECT", "project:teams")]),
             "revoke": verb("Take the grant away", [("PROJECT", "project:teams")],
                            desc="Removes the tool and the Push rules, detaches and archives the credential, deletes the token file. Revoke the token on GitHub yourself."),
@@ -1438,46 +1438,46 @@ COMMANDS = {
     },
     "supervise": {
         "summary": "Find stalled agent runs: notify, prepare a nudge, never act alone",
-        "desc": ("Hooks only record (the run-event verbs of qargi hook append ids, times, a tool name and a hash to a per-run file under "
+        "desc": ("Hooks only record (the run-event verbs of crown hook append ids, times, a tool name and a hash to a per-run file under "
                  "the state directory; no command, message or error text). One idempotent "
                  "tick is the only actor: it folds those files, the local-run registry and the session tracker into runs.json and classifies "
                  "each unfinished run in a fixed order: waiting on an approval (not a stall), stopped by an API error, interim (turn ended, "
                  "background work running, a cap of about 35 minutes), looping (three identical tool digests in a row), suspected dead (no "
                  "activity for too long); for cloud sessions requires_action, budget_reached, stale while running, idle awaiting review. It acts "
-                 "only by printing `QARGI SUPERVISE <class> <run> <next-action>` lines, appending to supervisor.log and the audit log "
+                 "only by printing `CROWN SUPERVISE <class> <run> <next-action>` lines, appending to supervisor.log and the audit log "
                  "(origin supervisor), and PREPARING a nudge in nudges.jsonl. A nudge is a fixed template, at most 2 per run with at least "
                  "10 minutes between them, never while the run waits on an approval or has little budget left, and never an approval. A "
                  "script cannot message a local subagent: the coordinating session delivers the prepared nudge and records it with delivered, "
                  "and only then does it count. A cloud nudge is sent only by nudge, which needs --asked. Nothing sends automatically; the "
-                 "thresholds are data in lib/supervise-defaults.json, conservative floors until `qargi report` shows real run lengths. "
+                 "thresholds are data in lib/supervise-defaults.json, conservative floors until `crown report` shows real run lengths. "
                  "Run the tick on a timer or a loop; status warns when it has not run for twice its interval."),
         "scripts": ["supervise.sh", "supervise.py"],
         "verbs": {
             "tick": verb("Fold the events, classify the runs, print what needs attention, prepare nudges",
                          opts=[opt("--now", "act as of this time (2026-10-30T12:00:00Z); for tests and replays", "ISO"), opt("--json", "print the result as JSON")],
                          desc="Run twice with nothing new it prints nothing the second time.",
-                         examples=["qargi supervise tick"]),
+                         examples=["crown supervise tick"]),
             "status": verb("Show the runs by class and the nudges waiting; warns when the tick is overdue",
                            opts=[opt("--now", "compare the last tick with this time", "ISO"), opt("--json", "print the registry as JSON")]),
             "nudge": verb("Send the fixed nudge to a cloud session, only when the caps allow", [("SID", "session:active")],
                           [ASKED, opt("--now", "act as of this time; for tests and replays", "ISO")],
                           desc=("Refused when the session waits on an approval or has little budget left, when 2 nudges were already counted, or "
                                 "within 10 minutes of the last one. The message is the fixed template, never text from the agent."),
-                          examples=["qargi supervise nudge sesn_abc --asked \"nudge it, it has been quiet for hours\""]),
+                          examples=["crown supervise nudge sesn_abc --asked \"nudge it, it has been quiet for hours\""]),
             "delivered": verb("Record that you delivered a local run's prepared nudge", [("KEY", "none")],
                               [opt("--now", "record this delivery time; for tests and replays", "ISO")],
                               desc="KEY is the agent id the tick printed. Only then does the nudge count against the cap."),
             "hooks": verb("Print the settings.json hook snippet for the run-event handlers",
-                          opts=[opt("--qargi", "the command to put in the snippet (default qargi)", "COMMAND")],
+                          opts=[opt("--crown", "the command to put in the snippet (default crown)", "COMMAND")],
                           desc="It never writes the file: merge the entries into your Claude Code settings.json yourself."),
         },
     },
     "help": {
         "summary": "Show help",
-        "desc": "qargi help shows the commands; qargi help COMMAND the verbs and options of one; qargi help TOPIC explains an idea. Every command also takes --help.",
+        "desc": "crown help shows the commands; crown help COMMAND the verbs and options of one; crown help TOPIC explains an idea. Every command also takes --help.",
         "scripts": [],
         "usage": [("COMMAND|TOPIC", "help", True)],
-        "opts": [opt("--man", "print the manual page source (roff); view it with: qargi help --man | man -l -")],
+        "opts": [opt("--man", "print the manual page source (roff); view it with: crown help --man | man -l -")],
     },
     "version": {"summary": "Print the version", "scripts": [], "usage": []},
 }
@@ -1485,7 +1485,7 @@ COMMANDS = {
 # skill and tool share one set of verbs
 PACK_VERBS = {
     "new": verb("Create a pack from a template", [("NAME", "none")], [opt("--compatible", "the providers the pack works with: runtime or family names, comma separated, or any", "LIST")]),
-    "import": verb("Import a pack from a directory, file or pinned git URL, after a review (a top-level .pack.json in the source is qargi's own record: ignored, not copied)", [("SOURCE", "file")],
+    "import": verb("Import a pack from a directory, file or pinned git URL, after a review (a top-level .pack.json in the source is crown's own record: ignored, not copied)", [("SOURCE", "file")],
                    [opt("--compatible", "the providers the pack works with: runtime or family names, comma separated, or any", "LIST"), opt("--name", "store it under this name", "NAME"), opt("--ref", "the git ref to pin", "REF"), opt("--path", "a subdirectory of the source", "SUB"), PLAN, APPROVED]),
     "list": verb("List the library, or what a project and role get", [("PROJECT", "project", True), ("ROLE", "role", True)]),
     "show": verb("Show a pack", [("NAME", "pack")]),
@@ -1505,13 +1505,13 @@ PACK_VERBS = {
 }
 USER_OPT = opt("--user", "record it for every project instead of this one")
 SKILL_VERBS = dict(PACK_VERBS)
-SKILL_VERBS["accept"] = verb("Accept a skill a session loads that qargi does not manage", [("PROJECT", "project"), ("NAME", "none")], [USER_OPT, PLAN, APPROVED],
+SKILL_VERBS["accept"] = verb("Accept a skill a session loads that crown does not manage", [("PROJECT", "project"), ("NAME", "none")], [USER_OPT, PLAN, APPROVED],
     desc=("Finds NAME among the skills a session opened in the project's checkout would load (the checkout, the render and the user's skills directory; "
-          "see qargi packs check) and applies only to one that is unmanaged or drifted. Without --plan it prints the same review as skill import "
+          "see crown packs check) and applies only to one that is unmanaged or drifted. Without --plan it prints the same review as skill import "
           "(files, scripts, URLs, network commands, secret findings) and a plan token that covers the scope, the name and the content hash. With "
           "--plan and --approved it records the name, the content hash, the path and your words in the acceptances file, for this project or, with "
           "--user, for every project, and writes an audit line. An accepted skill shows as accepted in packs check; if its content changes it shows "
-          "as drifted and packs check exits 1. qargi skills, excluded skills and skills already accepted are refused with the reason. A local "
+          "as drifted and packs check exits 1. crown skills, excluded skills and skills already accepted are refused with the reason. A local "
           "member's guard refuses it."))
 SKILL_VERBS["unaccept"] = verb("Remove the acceptance of a skill", [("PROJECT", "project"), ("NAME", "none")], [USER_OPT, PLAN, APPROVED],
     desc=("Gated like accept. Removes only the record: the skill itself is not touched and shows as unmanaged again. Refused when there is no such "
@@ -1523,20 +1523,20 @@ TOPICS = {
     "concepts": ("The model in one page", [
         "Task: you describe one task and an executable check that decides it is done. An agent works on it in its own clone and hands back "
         "numbered patches, one per commit, with a manifest. Nothing is pushed.",
-        "Roles are build, write, review, test and lead: build changes code, write writes the operational docs, review judges a change and changes no file, test writes and runs tests, lead coordinates a team. Each role is defined by its role text, which comes with the task block. The local workers are members you name and give roles (qargi agent add NAME --roles build,test); qargi agent for ROLE prints the member that serves it. "
+        "Roles are build, write, review, test and lead: build changes code, write writes the operational docs, review judges a change and changes no file, test writes and runs tests, lead coordinates a team. Each role is defined by its role text, which comes with the task block. The local workers are members you name and give roles (crown agent add NAME --roles build,test); crown agent for ROLE prints the member that serves it. "
         "A role has its own model, effort, skills and packages, stored in the project's answers.",
         "Local or cloud: local (a member on this machine) is the default. The cloud is used only when your request for that task names it, "
         "and every cloud verb records your words with --asked.",
-        "You decide: the coordinator re-verifies everything an agent returns (qargi review check), applies it as separate commits, and "
+        "You decide: the coordinator re-verifies everything an agent returns (crown review check), applies it as separate commits, and "
         "asks you before anything is pushed."]),
     "roles": ("Roles and members", [
         "Role build: changes the code with its tests, manual page, help and changelog.",
         "Role write: writes the operational documentation on its own branch.",
         "Role review: reads a change, runs its checks and reports a verdict, and changes no file.",
         "Role test: writes and repairs tests and proves them failing first and stable.",
-        "Role lead: it does no work of its own; it coordinates a team of members on one task (qargi team, the skill qargi-team).",
-        "A member is a local agent you name (qargi agent add forge --roles build,test), rendered from the one member definition "
-        "qargi ships. The task block names the role and carries its role text; there is no role skill to load. qargi agent for ROLE prints the member "
+        "Role lead: it does no work of its own; it coordinates a team of members on one task (crown team, the skill crown-team).",
+        "A member is a local agent you name (crown agent add forge --roles build,test), rendered from the one member definition "
+        "crown ships. The task block names the role and carries its role text; there is no role skill to load. crown agent for ROLE prints the member "
         "dispatch spawns. A cloud agent serves one role, is named <project>-<role> and carries its role text in its prompt.",
         ]),
     "approvals": ("Plans, tokens and your go-ahead", [
@@ -1550,13 +1550,13 @@ TOPICS = {
         "with a null token. A verb that describes a --json option of its own keeps it.",
         "--asked \"your request\" is required by every cloud verb: it records that you asked for the cloud. Both are written to an "
         "append-only audit log in the state directory.",
-        "qargi lead grant and revoke are interactive instead: you confirm each step at the terminal, and that is the approval.",
+        "crown lead grant and revoke are interactive instead: you confirm each step at the terminal, and that is the approval.",
         "The rules. The token covers the plan the person saw, and an apply refuses when the plan is no longer that one. The --approved text is "
         "recorded, not verified: it is not proof that a person agreed. Never allow-list a gated verb in the runtime's settings: the permission "
         "prompt is the person's real control. A member never applies: it reports the plan and its token, and the lead shows them to the person "
-        "(what the member's guard refuses: qargi help guard)."]),
+        "(what the member's guard refuses: crown help guard)."]),
     "guard": ("What a member's guard refuses", [
-        "The guard hooks a member's calls: a barrier, not a wall; qargi local verify is its backstop.",
+        "The guard hooks a member's calls: a barrier, not a wall; crown local verify is its backstop.",
         "It refuses verbs that change shared state: skill and tool new, import, seal, remove, unlink, link, enable, disable, accept and unaccept; "
         "discover install; import; packs apply, seed, link and unlink; project set (models, release, test_command, gates, env, site, backlog, packs, runs, upstream, git, review, roles.ROLE.tools, a whole role), init, new, link and unlink; "
         "provider new, import, seal, remove, enable, disable, attest, accept, check and adapter-run (the rest "
@@ -1569,11 +1569,11 @@ TOPICS = {
         "lead's git configuration and session files. "
         "Reading stays allowed except the lead's signing key: copying, linking, archiving or searching its directory is refused. It refuses git push, git remote changes, git -c or config of keys that run programs (alias.*), gh, ssh, scp, sftp and rsync to a host.",
         "A command is cut at every ; && || | and newline, inside quotes and heredocs too, and a substitution is a command: no refused verb, push or tag in text, "
-        "unless every command is echo, cat, tee, grep or git commit (then text is data, as is a heredoc body cat or tee gets, bar lines starting qargi). "
+        "unless every command is echo, cat, tee, grep or git commit (then text is data, as is a heredoc body cat or tee gets, bar lines starting crown). "
         "Commit with git commit -F FILE. Piped or here-string shell programs are read; curl | sh and bash < f are refused. A cd it cannot read refuses relative writes.",
         "The read-only class (review) writes only OUT and TMP: every change to the clone is refused, and a write through "
         "a name the guard cannot read. Nobody copies, extracts or links into the run directory.",
-        "Setting QARGI_NESTED, which skips a plan token check, or setting or unsetting QARGI_LEAD, is refused.",
+        "Setting CROWN_NESTED, which skips a plan token check, or setting or unsetting CROWN_LEAD, is refused.",
         "A refusal is a result: report it; do not work around it."]),
     "naming": ("How resources are named", [
         "Project and role are single lower-case tokens. An instance is <project>-<role>, for example acme-build. A session is "
@@ -1581,94 +1581,94 @@ TOPICS = {
         "Cloud resources follow <project>-<component>[-<role>]: the agent <project>-<role> (acme-build), the deployment "
         "<project>-deployment-<role>, the shared <project>-environment, and the stores <project>-memory and <project>-reference. "
         "The lead is <project>-lead, and so is its agent.",
-        "qargi instances normalize renames existing resources to match."]),
+        "crown instances normalize renames existing resources to match."]),
     "memory": ("The two memory stores", [
         "<project>-memory is where agents write verified how-to facts they learn, under their own role folder (shared/ is curated and reached by promotion). <project>-reference is read-only: rules, workflow and "
         "conventions you and the coordinator curate. Both have shared/ for every role and roles/<role>/ for one.",
         "An agent reads each store's README.md, then shared/INDEX.md and its role's index, then only the notes its task needs. "
-        "The canon (qargi canon) fixes the layout and the note format. Read one note with qargi memory get.",
-        "qargi memory split, merge and copy move notes between two stores (directories, .jsonl dumps or store ids). Nothing is deleted: "
+        "The canon (crown canon) fixes the layout and the note format. Read one note with crown memory get.",
+        "crown memory split, merge and copy move notes between two stores (directories, .jsonl dumps or store ids). Nothing is deleted: "
         "what leaves a store is archived under /_archive/<date>/, a collision goes to /_conflicts/<date>/, and the origin of every "
         "note written is added to its Sources: line."]),
     "push": ("Who may push", [
         "Only the lead ever pushes, never a member, and only as the project's lead.push grant says. The default is nothing.",
         "This Claude Code session as lead: lead.push.local lets it push agent/* branches and open pull requests without asking each time.",
         "A cloud lead, or one started in the console: lead.push.cloud = branches. It has a GitHub tool with a fixed allowlist and the merge "
-        "tool asked of you. Set it up with qargi lead grant. A merge or a release always needs your explicit approval.",
+        "tool asked of you. Set it up with crown lead grant. A merge or a release always needs your explicit approval.",
         "The GitHub tool cannot create releases; those stay with this session."]),
     "environment": ("Declaring a development environment", [
         "There is no file format of this tool for it. A project says how to set up a checkout in what it already has: a section of AGENTS.md (or README.md) headed "
         "Development environment, Environment or Setup; version pins in go.mod, .tool-versions, mise.toml, .python-version, .nvmrc or package.json; "
         ".gitmodules; and two targets of its task runner (Makefile, justfile, Taskfile.yml or mise.toml tasks): bootstrap, which installs "
         "everything idempotently, and doctor, which prints one line per item and exits non-zero on a missing one. setup and check are accepted names.",
-        "Anyone, with or without qargi, runs the dry run (make -n bootstrap), reads it, runs bootstrap, then doctor. qargi env show prints what it "
-        "found and the commands it would use; it runs nothing. qargi env check runs the doctor (the project's code, as trusted as test_command), "
+        "Anyone, with or without crown, runs the dry run (make -n bootstrap), reads it, runs bootstrap, then doctor. crown env show prints what it "
+        "found and the commands it would use; it runs nothing. crown env check runs the doctor (the project's code, as trusted as test_command), "
         "adds the project's links, members, packs and memory and ends with ENV OK or ENV INCOMPLETE: N missing (...). A doctor line that "
         "begins with missing, fail or error, or ends with missing or not found, is a missing item; one that begins with expected is not red. "
-        "qargi env plan runs the dry run (a dry run still runs project code: make -n expands $(shell ...)) "
-        "and shows it with a plan token; qargi env apply runs bootstrap once for that plan. Both are the lead's.",
+        "crown env plan runs the dry run (a dry run still runs project code: make -n expands $(shell ...)) "
+        "and shows it with a plan token; crown env apply runs bootstrap once for that plan. Both are the lead's.",
         "A tool a role needs that the bootstrap does not provide (a pinned linter from go install, a downloaded binary, a vendored test framework "
-        "that is a submodule) is declared once in the project's answers, roles.ROLE.tools (qargi help project set): env plan shows each with its state, "
+        "that is a submodule) is declared once in the project's answers, roles.ROLE.tools (crown help project set): env plan shows each with its state, "
         "env apply installs the go tools and binaries (the binary's sha256 must match), env check reports one that is missing or wrong, and "
-        "qargi local prepare checks the submodules out in every member clone from the lead's copy, offline. Plain apt packages stay in roles.ROLE.apt.",
+        "crown local prepare checks the submodules out in every member clone from the lead's copy, offline. Plain apt packages stay in roles.ROLE.apt.",
         "For the author of a doctor target: print one line per item, for example the tool and its version. Start a line with missing, fail or error "
         "when the item is absent or wrong (such a line is a missing item); start it with expected for a known failure that is accepted (shown, not red); "
         "any other line is information. Exit non-zero when anything is missing, and change nothing.",
-        "qargi project new writes an AGENTS.md section and stub bootstrap and doctor targets (the doctor fails until you fill it in); project attach "
-        "lists what a repository lacks; project adopt drafts the missing files on a branch to review. qargi provision plan prints the bootstrap command as "
+        "crown project new writes an AGENTS.md section and stub bootstrap and doctor targets (the doctor fails until you fill it in); project attach "
+        "lists what a repository lacks; project adopt drafts the missing files on a branch to review. crown provision plan prints the bootstrap command as "
         "setup-script text, and marshal handoff gives the last check and apply.",
         "The project's answers can replace a command and list accepted failures: env.doctor_command, env.bootstrap_command, env.dry_run_command "
-        "and env.known_failures (qargi project set acme env.known_failures '[\"line\"]'). They are overrides, never a second description."]),
+        "and env.known_failures (crown project set acme env.known_failures '[\"line\"]'). They are overrides, never a second description."]),
     "files": ("Where things are", [
-        "Configuration: ~/.qargi/config: projects/, instances.json, profiles/, packs/, credentials/, install.json.",
-        "State: ~/.qargi/state: sessions.json, local-runs.jsonl, audit.log, runs/, backups/, provision/.",
-        "Overrides: QARGI_HOME replaces ~/.qargi; QARGI_CONF and QARGI_STATE replace the two directories and win over it. XDG_CONFIG_HOME and XDG_STATE_HOME are not used. "
-        "QARGI_PROJECT names the project when you are not inside its repository. QARGI_ROLES replaces the list of roles. "
-        "QARGI_DRY_RUN prints a session request with secrets masked instead of sending it.",
+        "Configuration: ~/.crown/config: projects/, instances.json, profiles/, packs/, credentials/, install.json.",
+        "State: ~/.crown/state: sessions.json, local-runs.jsonl, audit.log, runs/, backups/, provision/.",
+        "Overrides: CROWN_HOME replaces ~/.crown; CROWN_CONF and CROWN_STATE replace the two directories and win over it. XDG_CONFIG_HOME and XDG_STATE_HOME are not used. "
+        "CROWN_PROJECT names the project when you are not inside its repository. CROWN_ROLES replaces the list of roles. "
+        "CROWN_DRY_RUN prints a session request with secrets masked instead of sending it.",
         "Nothing is stored in a repository."]),
     "dev": ("Running a branch checkout", [
-        "install.sh --user records the tool it installed in ~/.qargi/config/install.json. A checkout run from any other place (its own bin/qargi, "
-        "for example in a worktree) is then a dev run: it keeps its configuration and state in <checkout>/.qargi (ignored by version control), prints "
-        "'qargi: dev run from ...' on stderr once per command, and never touches your live data. Without install.json every checkout is the installed one.",
-        "QARGI_HOME, QARGI_CONF or QARGI_STATE, when set, win: QARGI_HOME=~/.qargi makes a dev run use live data on purpose.",
-        "help, version, completion, the guard and the run-event hooks print no banner. Members call qargi __guard from PATH, which is the installed "
+        "install.sh --user records the tool it installed in ~/.crown/config/install.json. A checkout run from any other place (its own bin/crown, "
+        "for example in a worktree) is then a dev run: it keeps its configuration and state in <checkout>/.crown (ignored by version control), prints "
+        "'crown: dev run from ...' on stderr once per command, and never touches your live data. Without install.json every checkout is the installed one.",
+        "CROWN_HOME, CROWN_CONF or CROWN_STATE, when set, win: CROWN_HOME=~/.crown makes a dev run use live data on purpose.",
+        "help, version, completion, the guard and the run-event hooks print no banner. Members call crown __guard from PATH, which is the installed "
         "copy; put <checkout>/bin first on PATH to test the guard or the hooks of a branch."]),
 }
 
 ENVIRONMENT = [
-    ("QARGI_HOME", "the directory that holds config/ and state/ (default ~/.qargi; a dev run: <checkout>/.qargi, see qargi help dev)"),
-    ("QARGI_CONF", "the configuration directory (default $QARGI_HOME/config); wins over QARGI_HOME"),
-    ("QARGI_STATE", "the state directory (default $QARGI_HOME/state); wins over QARGI_HOME"),
-    ("QARGI_RUNS_ROOT", "a directory to scan for local run directories (qargi.*) in qargi report, besides the registry"),
-    ("QARGI_PROJECT", "the project to use when the current directory is not inside its repository"),
-    ("QARGI_ROLES", "the list of work roles (default: build review write test)"),
-    ("QARGI_DRY_RUN", "print a session request, with secrets masked, instead of sending it; qargi env apply stops before it runs the bootstrap"),
-    ("QARGI_ENV_TIMEOUT", "seconds the dry run of qargi env plan and apply may take (default 120)"),
-    ("QARGI_HOOK_MARSHAL_SECS", "seconds the session-start hook gives the read of the open features (qargi marshal status --all --brief --no-fetch) before it leaves the block out "
+    ("CROWN_HOME", "the directory that holds config/ and state/ (default ~/.crown; a dev run: <checkout>/.crown, see crown help dev)"),
+    ("CROWN_CONF", "the configuration directory (default $CROWN_HOME/config); wins over CROWN_HOME"),
+    ("CROWN_STATE", "the state directory (default $CROWN_HOME/state); wins over CROWN_HOME"),
+    ("CROWN_RUNS_ROOT", "a directory to scan for local run directories (crown.*) in crown report, besides the registry"),
+    ("CROWN_PROJECT", "the project to use when the current directory is not inside its repository"),
+    ("CROWN_ROLES", "the list of work roles (default: build review write test)"),
+    ("CROWN_DRY_RUN", "print a session request, with secrets masked, instead of sending it; crown env apply stops before it runs the bootstrap"),
+    ("CROWN_ENV_TIMEOUT", "seconds the dry run of crown env plan and apply may take (default 120)"),
+    ("CROWN_HOOK_MARSHAL_SECS", "seconds the session-start hook gives the read of the open features (crown marshal status --all --brief --no-fetch) before it leaves the block out "
                                 "(default 5; a whole number from 1 to 9999, anything else is ignored); a test on a loaded machine raises it"),
-    ("QARGI_BUSCTL", "the program qargi doctor asks logind with (default busctl)"),
-    ("QARGI_DOCTOR_MIN_FREE", "the percent of free space under /dev/shm below which qargi doctor warns (default 10)"),
-    ("QARGI_LOGINCTL", "the program qargi doctor reads the user's linger with (default loginctl)"),
+    ("CROWN_BUSCTL", "the program crown doctor asks logind with (default busctl)"),
+    ("CROWN_DOCTOR_MIN_FREE", "the percent of free space under /dev/shm below which crown doctor warns (default 10)"),
+    ("CROWN_LOGINCTL", "the program crown doctor reads the user's linger with (default loginctl)"),
     ("NO_COLOR", "turn off bold in the terminal help"),
 ]
 
 FILES = [
-    ("~/.qargi/config/projects/NAME.json", "the answers about a project"),
-    ("~/.qargi/config/instances.json", "the registry of instances"),
-    ("~/.qargi/config/profiles/NAME.md", "a repository's gates and review rules, given to agents with a task"),
-    ("~/.qargi/config/packs/", "the library of skills and tools, and their links"),
-    ("~/.qargi/config/credentials/", "token files, mode 600"),
-    ("~/.qargi/config/install.json", "the tool root install.sh recorded; a checkout run from elsewhere is a dev run"),
-    ("~/.qargi/state/sessions.json", "the tracker of cloud sessions"),
-    ("~/.qargi/state/audit.log", "append-only record of every approved or cloud verb, with your words"),
-    ("~/.qargi/state/runs/", "collected outputs of runs"),
+    ("~/.crown/config/projects/NAME.json", "the answers about a project"),
+    ("~/.crown/config/instances.json", "the registry of instances"),
+    ("~/.crown/config/profiles/NAME.md", "a repository's gates and review rules, given to agents with a task"),
+    ("~/.crown/config/packs/", "the library of skills and tools, and their links"),
+    ("~/.crown/config/credentials/", "token files, mode 600"),
+    ("~/.crown/config/install.json", "the tool root install.sh recorded; a checkout run from elsewhere is a dev run"),
+    ("~/.crown/state/sessions.json", "the tracker of cloud sessions"),
+    ("~/.crown/state/audit.log", "append-only record of every approved or cloud verb, with your words"),
+    ("~/.crown/state/runs/", "collected outputs of runs"),
 ]
 
 WORKFLOW = [
-    ("Once per project", ["qargi project template acme > acme.json   # edit it", "qargi project init acme --answers acme.json",
-                          "qargi provision plan acme-build    # then apply it with --plan and --approved"]),
-    ("One task, cloud", ['qargi send acme-build "$BRIEF" --label rename-verb --asked "use the cloud builder"',
-                         "qargi watch SID    # in the background", "qargi collect SID ./out", "qargi review check ./out"]),
-    ("A team", ["qargi team brief acme code-docs --task \"rename the verb\" --done \"make test\" --base develop",
-                "qargi lead status acme", "qargi team check ./run"]),
+    ("Once per project", ["crown project template acme > acme.json   # edit it", "crown project init acme --answers acme.json",
+                          "crown provision plan acme-build    # then apply it with --plan and --approved"]),
+    ("One task, cloud", ['crown send acme-build "$BRIEF" --label rename-verb --asked "use the cloud builder"',
+                         "crown watch SID    # in the background", "crown collect SID ./out", "crown review check ./out"]),
+    ("A team", ["crown team brief acme code-docs --task \"rename the verb\" --done \"make test\" --base develop",
+                "crown lead status acme", "crown team check ./run"]),
 ]

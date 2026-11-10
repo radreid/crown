@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# qargi registry verbs: init, list, show, remove.
+# crown registry verbs: init, list, show, remove.
 # Usage: registry.sh init --location cloud --deployment ID [--name N] [--no-session] --asked "..."
 #        registry.sh init --location cloud --deployment ID [--budget CENTS] --model M --effort E --asked "..." [--approved "..."]
 #                         (changes the existing agent's model/effort; shows the change first)
@@ -73,7 +73,7 @@ init_cloud() {
     echo "PLAN: agent $aid v$aver: model $cur_m -> $new_m, effort $cur_e -> $new_e (creates a new agent version and re-points the deployment)"
     ptok=$(printf '%s' "$aid|$aver|$new_m|$new_e" | plan_token)
     [ -n "$APPROVED" ] || { echo "plan token: $ptok   (re-run with --plan $ptok --approved \"<the user's go-ahead>\" to apply; nothing changed)"; return 0; }
-    QARGI_NESTED='' need_plan "$ptok"; audit_log agent-update "$aid $cur_m->$new_m $cur_e->$new_e"
+    CROWN_NESTED='' need_plan "$ptok"; audit_log agent-update "$aid $cur_m->$new_m $cur_e->$new_e"
     ant beta:agents update --agent-id "$aid" --version "$aver" --model "{id: $new_m$([ "$new_e" = default ] || printf ', effort: %s' "$new_e")}" >/dev/null 2>&1 || die "agent update failed"
     ant beta:deployments update --deployment-id "$DEP" --agent "$aid" >/dev/null 2>&1 || die "deployment re-point failed (agent was updated)"
     d=$(ant beta:deployments retrieve --deployment-id "$DEP" 2>/dev/null) || die "cannot re-read deployment"
@@ -139,7 +139,7 @@ prompt_report() {
   at=$(jq -r --arg n "$n" '.[$n].prompt.at // "?"' "$REG")
   case $st in
     current) echo "PROMPT: current (matches the prompt rendered at $at)";;
-    stale*) echo "STALE: the prompt rendered now differs from the one pushed at $at (${st#stale }); qargi instances refresh-prompt $n --asked \"...\" shows what changes";;
+    stale*) echo "STALE: the prompt rendered now differs from the one pushed at $at (${st#stale }); crown instances refresh-prompt $n --asked \"...\" shows what changes";;
     unknown) echo "PROMPT: unknown (no hash recorded; the next refresh-prompt records one)";;
   esac
 }
@@ -215,7 +215,7 @@ normalize() {
   [ "$changes" = 1 ] || { echo "nothing to rename"; return 0; }
   local ntok; ntok=$(printf '%s|%s' "$n" "$plan_text" | plan_token)
   [ -n "$APPROVED" ] || { echo "plan token: $ntok   (re-run with --plan $ntok --approved \"<the user's go-ahead>\" to rename; nothing changed)"; return 0; }
-  QARGI_NESTED='' need_plan "$ntok"; audit_log normalize "$n"
+  CROWN_NESTED='' need_plan "$ntok"; audit_log normalize "$n"
   if [ "$(jq -r .name <<<"$ag")" != "$(res_name agent)" ]; then
     ant beta:agents update --agent-id "$aid" --version "$aver" --name "$(res_name agent)" >/dev/null 2>&1 || die "agent rename failed"
     ant beta:deployments update --deployment-id "$did" --agent "$aid" >/dev/null 2>&1 || die "deployment re-point failed (agent was renamed)"
@@ -240,10 +240,10 @@ budget_set() {
   ant beta:deployments update --deployment-id "$did" \
     --budget "{type: limit, max_list_cost: {amount: \"$cents\", currency: USD}}" >/dev/null 2>&1 || die "could not set the deployment budget"
   json_update "$REG" '.[$n].budget = $b' --arg n "$n" --arg b "$cents"
-  echo "$n: deployment budget is now $cents; sessions created from now on inherit it (a running session keeps its own: qargi budget NAME CENTS --session SID)"
+  echo "$n: deployment budget is now $cents; sessions created from now on inherit it (a running session keeps its own: crown budget NAME CENTS --session SID)"
   if [ -n "${SESSION_ARG:-}" ]; then
     ant beta:sessions update --session-id "$SESSION_ARG" --budget "{type: limit, max_list_cost: {amount: \"$cents\", currency: USD}}" >/dev/null 2>&1 \
-      && echo "session $SESSION_ARG raised/lowered to $cents" || echo "qargi: could not change session $SESSION_ARG (it must already have a budget)" >&2
+      && echo "session $SESSION_ARG raised/lowered to $cents" || echo "crown: could not change session $SESSION_ARG (it must already have a budget)" >&2
   fi
 }
 
@@ -294,7 +294,7 @@ refresh_prompt() {
   fi
   ptok=$(printf '%s|%s|%s' "$aver" "$new" "$newm" | plan_token)
   [ -n "$APPROVED" ] || { echo "plan token: $ptok   (re-run with --plan $ptok --approved \"<the user's go-ahead>\" to apply; nothing changed)"; return 0; }
-  QARGI_NESTED='' need_plan "$ptok"; audit_log refresh-prompt "$n $aid v$aver"
+  CROWN_NESTED='' need_plan "$ptok"; audit_log refresh-prompt "$n $aid v$aver"
   ant beta:agents update --agent-id "$aid" --version "$aver" --system "$new" ${mflag[@]+"${mflag[@]}"} </dev/null >/dev/null 2>&1 || die "agent update failed"
   ant beta:deployments update --deployment-id "$(jq -r .deployment_id <<<"$i")" --agent "$aid" </dev/null >/dev/null 2>&1 || die "agent updated but re-pointing the deployment failed"
   nv=$(ant beta:deployments retrieve --deployment-id "$(jq -r .deployment_id <<<"$i")" </dev/null 2>/dev/null | jq .agent.version)

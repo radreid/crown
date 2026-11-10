@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# The qargi-run.XXXXXX directories under the run temporary parent (/dev/shm, or QARGI_RUN_TMP) that no run of the lead's registry names: the one scan that
-# `qargi local clean --orphans` and `qargi doctor` both read. It only reads; nothing is removed here (clean removes, behind a plan token and the lead's words).
+# The crown-run.XXXXXX directories under the run temporary parent (/dev/shm, or CROWN_RUN_TMP) that no run of the lead's registry names: the one scan that
+# `crown local clean --orphans` and `crown doctor` both read. It only reads; nothing is removed here (clean removes, behind a plan token and the lead's words).
 #
 #   orphan_scan ROOT DAYS    ROOT is the parent, already checked to be a real directory and made absolute; DAYS a whole number, at least 1.
 #                            Prints one line per entry (kept ... or orphan ...) and sets ORPH_LIST (the orphans, each "PATH MTIME"), ORPH_KEPT and ORPH_TOTAL.
 #   orphans.sh ROOT DAYS     the same from the command line: the lines, then "total N orphan M kept K"; exit 2 when ROOT is no directory.
-# Run as a program (qargi doctor does) it only reads: lib.sh is loaded without its setup, so a host that never ran qargi gets no directory or file from it.
+# Run as a program (crown doctor does) it only reads: lib.sh is loaded without its setup, so a host that never ran crown gets no directory or file from it.
 type reg_load >/dev/null 2>&1 || DA_NOSETUP=1 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 orphan_scan() {
@@ -18,7 +18,7 @@ orphan_scan() {
     named[$(readlink -m -- "$t")]=$d
   done
   ORPH_LIST=(); ORPH_KEPT=0; ORPH_TOTAL=0
-  for e in "$oroot"/qargi-run.??????; do
+  for e in "$oroot"/crown-run.??????; do
     [ -e "$e" ] || [ -L "$e" ] || continue
     ORPH_TOTAL=$((ORPH_TOTAL + 1))
     if [ -L "$e" ] || [ ! -d "$e" ]; then echo "kept $e: not a directory prepare makes (a link or a file)"; ORPH_KEPT=$((ORPH_KEPT + 1)); continue; fi

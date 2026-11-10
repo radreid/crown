@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""qargi discover: search, recommend, show and install; offline (fake curl, a test catalog, scripted terminal answers)."""
+"""crown discover: search, recommend, show and install; offline (fake curl, a test catalog, scripted terminal answers)."""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, shutil, subprocess, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 
 FAKE_CURL = r'''#!/usr/bin/env python3
 import os, sys
@@ -48,7 +48,7 @@ class Env(unittest.TestCase):
             os.makedirs(d, exist_ok=True)
         self.w(os.path.join(self.t, "skill", "SKILL.md"), "---\nname: demo\ndescription: Use for demo documents when the user asks.\n---\n\n# demo\n\nSteps.\n")
         self.w(os.path.join(self.repo, "go.mod"), "module example\n")
-        tpl = subprocess.run([BIN, "project", "template", "alpha"], capture_output=True, text=True, env=dict(os.environ, QARGI_CONF=self.conf, QARGI_STATE=self.state)).stdout
+        tpl = subprocess.run([BIN, "project", "template", "alpha"], capture_output=True, text=True, env=dict(os.environ, CROWN_CONF=self.conf, CROWN_STATE=self.state)).stdout
         ans = json.loads(tpl)
         ans["repo"]["path"] = self.repo
         ans["repo"]["url"] = "https://github.com/example/alpha"
@@ -63,9 +63,9 @@ class Env(unittest.TestCase):
         self.w(self.agent, "---\nname: x\ntools: Bash, Read, Edit\n---\nbody\n")
         self.w(os.path.join(self.t, "bin", "curl"), FAKE_CURL)
         os.chmod(os.path.join(self.t, "bin", "curl"), 0o755)
-        self.env = dict(os.environ, QARGI_CONF=self.conf, QARGI_STATE=self.state, QARGI_CATALOG=self.catalog, QARGI_AGENT_FILE=self.agent, FAKE=self.fake,
+        self.env = dict(os.environ, CROWN_CONF=self.conf, CROWN_STATE=self.state, CROWN_CATALOG=self.catalog, CROWN_AGENT_FILE=self.agent, FAKE=self.fake,
                         PATH=os.path.join(self.t, "bin") + os.pathsep + os.environ["PATH"])
-        self.env.pop("QARGI_PROJECT", None)
+        self.env.pop("CROWN_PROJECT", None)
 
     def tearDown(self):
         shutil.rmtree(self.t, ignore_errors=True)
@@ -84,9 +84,9 @@ class Env(unittest.TestCase):
         if answers is not None:
             self.w(os.path.join(self.t, "in"), "".join(a + "\n" for a in answers))
             open(os.path.join(self.t, "out"), "w").close()
-            e["QARGI_TTY_IN"], e["QARGI_TTY_OUT"] = os.path.join(self.t, "in"), os.path.join(self.t, "out")
+            e["CROWN_TTY_IN"], e["CROWN_TTY_OUT"] = os.path.join(self.t, "in"), os.path.join(self.t, "out")
         else:
-            e["QARGI_TTY_IN"] = e["QARGI_TTY_OUT"] = "/nonexistent"
+            e["CROWN_TTY_IN"] = e["CROWN_TTY_OUT"] = "/nonexistent"
         return subprocess.run([BIN, "discover"] + args, capture_output=True, text=True, env=e, cwd=cwd or self.t, stdin=subprocess.DEVNULL)
 
 
@@ -288,7 +288,7 @@ class Install(Env):
         self.w(os.path.join(self.conf, "agents.json"), json.dumps({"schema": 2, "projects": {"alpha": {
             n: {"roles": a, "file": os.path.join(d, n + ".md"), "seq": k} for k, (n, a) in enumerate(members.items())}}}))
         env = dict(self.env)
-        env.pop("QARGI_AGENT_FILE")
+        env.pop("CROWN_AGENT_FILE")
         self.env = env
         r = self.q(["install", "agent-wait", "--role", "review"], answers=["y", "y"])
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -307,7 +307,7 @@ class Install(Env):
         self.w(os.path.join(self.conf, "agents.json"), json.dumps({"schema": 2, "projects": {
             p: {n: {"roles": a, "file": os.path.join(d, p, n + ".md"), "seq": k} for k, (n, a) in enumerate(ms.items())} for p, ms in members.items()}}))
         env = dict(self.env)
-        env.pop("QARGI_AGENT_FILE")
+        env.pop("CROWN_AGENT_FILE")
         self.env = env
         r = self.q(["install", "agent-wait", "--project", "alpha", "--role", "build"], answers=["y", "y"])
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -321,7 +321,7 @@ class Install(Env):
 
 
 class ShippedCatalog(unittest.TestCase):
-    """catalog/tools.json, the file qargi ships: every entry has the fields its kind needs and the ids are unique."""
+    """catalog/tools.json, the file crown ships: every entry has the fields its kind needs and the ids are unique."""
     NEED = {"skill": ("url", "path", "name"), "mcp": ("name", "url", "tools", "vault_ids"), "package": ("manager", "packages"), "agent-tool": ("target", "tool")}
     STACKS = {"go", "python", "node", "rust", "jekyll", "bats", "containers", "actions", "man", "shell"}   # what detect_stack can see
 

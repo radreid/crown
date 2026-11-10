@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The neutrality of the core: lib/ (apart from lib/providers/, where the runtimes are defined) and bin/ should not name the runtime qargi
+# The neutrality of the core: lib/ (apart from lib/providers/, where the runtimes are defined) and bin/ should not name the runtime crown
 # was first built for. Every line that matches claude|anthropic|\bant\b|skilloverrides|\.claude|subagent (case-insensitive) must be
 # allowed by an entry of tests/neutral-allowlist.txt, and every entry must still allow at least one line. So the list can only shrink:
 # a new hit fails (move it into a runtime's definition, or name it neutrally), and an entry whose hit has gone fails too (delete it).

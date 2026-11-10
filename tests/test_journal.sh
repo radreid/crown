@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# The ref-move journal ($QARGI_STATE/ref-journal.jsonl): every local branch creation, move and deletion made by qargi's
-# own verbs is recorded, so `qargi local verify` can accept what the lead did since a run's snapshot and still refuse
+# The ref-move journal ($CROWN_STATE/ref-journal.jsonl): every local branch creation, move and deletion made by crown's
+# own verbs is recorded, so `crown local verify` can accept what the lead did since a run's snapshot and still refuse
 # anything done by hand, any tag, and any push. Run: tests/test_journal.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_LEAD=lead HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T/shm QARGI_PROJECT=app
+export CROWN_LEAD=lead HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T/shm CROWN_PROJECT=app
 export GIT_AUTHOR_NAME=lead GIT_AUTHOR_EMAIL=lead@example.net GIT_COMMITTER_NAME=lead GIT_COMMITTER_EMAIL=lead@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/shm" "$T/scr" "$T/bin"
 J=$T/s/ref-journal.jsonl; Z=0000000000000000000000000000000000000000
@@ -151,13 +151,13 @@ jhas feature/fin "$fin" "$Z" && ok "and the deletion of the feature branch" || n
 jq -e --arg o "$rd0" --arg n "$d1" --arg u "$T/origin" 'select(.remote == "origin" and .url == $u and .ref == "refs/heads/develop" and .old == $o and .new == $n and .verb == "feature:finish")' "$J" >/dev/null \
   && ok "and its push of develop to origin (remote origin, the origin URL, what origin had and what it has now)" || no "finish left no push line: $(tail -n 4 "$J")"
 out=$($DA local verify "$RF" 2>&1); rc=$?
-{ [ $rc = 0 ] && grep -q "develop moved by qargi feature finish" <<<"$out" && grep -q "develop on origin moved by qargi feature finish" <<<"$out" \
-  && grep -q "feature/fin deleted by qargi feature finish" <<<"$out" && grep -q "origin/develop moved to what origin has" <<<"$out"; } \
+{ [ $rc = 0 ] && grep -q "develop moved by crown feature finish" <<<"$out" && grep -q "develop on origin moved by crown feature finish" <<<"$out" \
+  && grep -q "feature/fin deleted by crown feature finish" <<<"$out" && grep -q "origin/develop moved to what origin has" <<<"$out"; } \
   && ok "a run prepared before the finish verifies, and verify names develop's move and push, the deletion and the fetch" || no "verify after finish (strict): rc=$rc $out"
 out=$($DA local verify "$RF2" 2>&1); rc=$?
-[ $rc = 0 ] && grep -q "feature/fin deleted by qargi feature finish" <<<"$out" && ok "after a passing verify too: the journaled deletion of the feature branch is accepted (fast-forwards alone were before)" || no "verify after finish (lenient): rc=$rc $out"
+[ $rc = 0 ] && grep -q "feature/fin deleted by crown feature finish" <<<"$out" && ok "after a passing verify too: the journaled deletion of the feature branch is accepted (fast-forwards alone were before)" || no "verify after finish (lenient): rc=$rc $out"
 echo '{}' > "$RF3/out/manifest.json"; out=$($DA local clean "$RF3" 2>&1); rc=$?
-[ $rc = 0 ] && [ ! -e "$RF3" ] && grep -q "accepted, the lead's own move: develop moved by qargi feature finish" <<<"$out" && ok "clean accepts those moves and names them" || no "clean after finish: rc=$rc $out"
+[ $rc = 0 ] && [ ! -e "$RF3" ] && grep -q "accepted, the lead's own move: develop moved by crown feature finish" <<<"$out" && ok "clean accepts those moves and names them" || no "clean after finish: rc=$rc $out"
 
 # --- a release
 $REL verify 0.2.0 >/dev/null 2>&1; d0=$(sha develop)
@@ -176,9 +176,9 @@ tg=$(git -C "$A" rev-parse refs/tags/0.2.0)
   && jq -e 'select(.remote == "origin" and .ref == "refs/heads/release/0.2.0" and .new == "0000000000000000000000000000000000000000")' "$J" >/dev/null \
   && ok "and the tag (in the repository and on origin) and the deletion of the release branch on origin" || no "release finish tag lines: $(grep tags "$J")"
 out=$($DA local verify "$RR" 2>&1); rc=$?
-{ [ $rc = 0 ] && grep -q "master moved by qargi release finish" <<<"$out" && grep -q "master on origin moved by qargi release finish" <<<"$out" \
-  && grep -q "tag 0.2.0 created by qargi release finish" <<<"$out" && grep -q "tag 0.2.0 on origin created by qargi release finish" <<<"$out" \
-  && grep -q "release/0.2.0 deleted by qargi release finish" <<<"$out"; } \
+{ [ $rc = 0 ] && grep -q "master moved by crown release finish" <<<"$out" && grep -q "master on origin moved by crown release finish" <<<"$out" \
+  && grep -q "tag 0.2.0 created by crown release finish" <<<"$out" && grep -q "tag 0.2.0 on origin created by crown release finish" <<<"$out" \
+  && grep -q "release/0.2.0 deleted by crown release finish" <<<"$out"; } \
   && ok "a run prepared before the release verifies, and verify names every move, push and tag of the release" || no "verify after release: rc=$rc $out"
 
 # --- the parking branch (answers repo.parking_branch, default scratch) fast-forwarded to develop by hand is accepted; nothing else of the kind
@@ -198,7 +198,7 @@ out=$($DA local verify "$R" 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "zz2 (the parking branch)" <<<"$out" && ok "the parking branch is the one the answers name (repo.parking_branch)" || no "answers parking: rc=$rc $out"
 jq 'del(.repo.parking_branch)' "$T/c/projects/app.json" > "$T/app.json" && mv "$T/app.json" "$T/c/projects/app.json"
 
-# --- qargi ref record --rewrite: the lead rewrites an agent branch to a commit with the same tree, and verify accepts it as a rewrite
+# --- crown ref record --rewrite: the lead rewrites an agent branch to a commit with the same tree, and verify accepts it as a rewrite
 REF="$DA ref record --rewrite"
 task agent/rw rw.txt one; o=$(sha agent/rw)
 same() { git -C "$A" commit-tree -p "$1~1" -m "${2:-reworded}" "$1^{tree}"; }   # the same tree, another message
@@ -208,7 +208,7 @@ out=$($REF agent/rw "$o" "$nw" --why "reworded the message" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$(sha agent/rw)" = "$nw" ] && jq -e --arg o "$o" --arg n "$nw" 'select(.verb == "ref:rewrite" and .ref == "refs/heads/agent/rw" and .old == $o and .new == $n and .why == "reworded the message")' "$J" >/dev/null; } \
   && ok "ref record --rewrite moves the agent branch and journals the move with the reason" || no "rewrite: rc=$rc $out"
 out=$($DA local verify "$R" 2>&1); rc=$?
-[ $rc = 0 ] && grep -q "agent/rw moved by a rewrite (qargi ref record --rewrite: reworded the message)" <<<"$out" && ok "verify accepts the rewrite and names it as one" || no "verify after rewrite: rc=$rc $out"
+[ $rc = 0 ] && grep -q "agent/rw moved by a rewrite (crown ref record --rewrite: reworded the message)" <<<"$out" && ok "verify accepts the rewrite and names it as one" || no "verify after rewrite: rc=$rc $out"
 out=$($DA local verify "$RL" 2>&1); rc=$?
 [ $rc = 0 ] && grep -q "agent/rw moved by a rewrite" <<<"$out" && ok "after a passing verify too (it is not a fast-forward)" || no "verify after rewrite (lenient): rc=$rc $out"
 n=$(jn); cur=$(sha agent/rw)
@@ -242,11 +242,11 @@ RH=$(seriesrun rwh rwh.go feature/rwf); $DA review apply "$RH" >/dev/null 2>&1 |
 ht=$(sha agent/rwh); ht2=$(same "$ht" "names: change rwh, reworded by hand")
 git -C "$A" branch -f agent/rwh "$ht2"
 out=$($DA local clean "$RH" 2>&1); rc=$?
-if [ $rc = 1 ] && grep -q "not merged into any branch yet" <<<"$out" && grep -qF "qargi ref record --rewrite agent/rwh $ht $ht2 --why" <<<"$out" && grep -qF "git branch -f agent/rwh $ht" <<<"$out"; then
-  ok "clean of a run whose applied branch was rewritten by hand names qargi ref record --rewrite with the branch and both tips"
+if [ $rc = 1 ] && grep -q "not merged into any branch yet" <<<"$out" && grep -qF "crown ref record --rewrite agent/rwh $ht $ht2 --why" <<<"$out" && grep -qF "git branch -f agent/rwh $ht" <<<"$out"; then
+  ok "clean of a run whose applied branch was rewritten by hand names crown ref record --rewrite with the branch and both tips"
 else no "clean hint: rc=$rc $out"; fi
 out=$($DA local close "$RH" --applied-by-am 2>&1); rc=$?
-if [ $rc = 1 ] && grep -q "merge that branch" <<<"$out" && grep -qF "qargi ref record --rewrite agent/rwh $ht $ht2 --why" <<<"$out"; then
+if [ $rc = 1 ] && grep -q "merge that branch" <<<"$out" && grep -qF "crown ref record --rewrite agent/rwh $ht $ht2 --why" <<<"$out"; then
   ok "close --applied-by-am names the same fix"
 else no "close hint: rc=$rc $out"; fi
 # the sentence is the fix in full: do what it says, and clean follows the rewrite once the branch is merged
@@ -261,7 +261,7 @@ RQ=$(seriesrun rwq rwq.go feature/rwf); QB='agent/q$x;y'; $DA review apply "$RQ"
 qt=$(sha "$QB"); qt2=$(same "$qt" "names: change rwq, reworded by hand"); git -C "$A" branch -f "$QB" "$qt2"
 out=$($DA local clean "$RQ" 2>&1); rc=$?
 QQ=$(printf '%q' "$QB")
-if [ $rc = 1 ] && grep -qF "git branch -f $QQ $qt," <<<"$out" && grep -qF "qargi ref record --rewrite $QQ $qt $qt2 --why" <<<"$out" && [ "$QQ" != "$QB" ]; then
+if [ $rc = 1 ] && grep -qF "git branch -f $QQ $qt," <<<"$out" && grep -qF "crown ref record --rewrite $QQ $qt $qt2 --why" <<<"$out" && [ "$QQ" != "$QB" ]; then
   ok "the hint prints a branch name with a \$ and a ; quoted for the shell"
 else no "quoted hint: rc=$rc $out"; fi
 git -C "$A" branch -f "$QB" "$qt"
@@ -270,13 +270,13 @@ RV=$(seriesrun rwv rwv.go feature/rwf); $DA review apply "$RV" >/dev/null 2>&1 |
 vt=$(sha agent/rwv); vt2=$(same "$vt" "names: change rwv, reworded by hand"); git -C "$A" branch -f agent/rwv "$vt2"
 SVV=$T/s/runs/$(basename "$RV"); printf 'agent/rwv %s now\n' "$vt" > "$SVV/applied" && rm -rf "$RV" || no "(setup) vanish rwv"
 out=$($DA local clean "$RV" 2>&1); rc=$?
-[ $rc = 1 ] && [ ! -e "$RV" ] && grep -q "not merged into any branch yet" <<<"$out" && grep -qF "qargi ref record --rewrite agent/rwv $vt $vt2 --why" <<<"$out" \
+[ $rc = 1 ] && [ ! -e "$RV" ] && grep -q "not merged into any branch yet" <<<"$out" && grep -qF "crown ref record --rewrite agent/rwv $vt $vt2 --why" <<<"$out" \
   && ok "the refusal for a run whose directory is gone names the fix too" || no "gone hint: rc=$rc $out"
 git -C "$A" branch -f agent/rwv "$vt"
 # the other cases keep their text and name no rewrite: the tip is the journaled one
 RN=$(seriesrun rwn rwn.go feature/rwf); $DA review apply "$RN" >/dev/null 2>&1 || no "(setup) apply rwn"
 out=$($DA local clean "$RN" 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "not merged into any branch yet: qargi feature merge NAME agent/rwn" <<<"$out" && ! grep -q "rewrite" <<<"$out" && ok "an unmerged branch at its journaled tip: the refusal is as before, no rewrite is named" || no "plain refusal: rc=$rc $out"
+[ $rc = 1 ] && grep -q "not merged into any branch yet: crown feature merge NAME agent/rwn" <<<"$out" && ! grep -q "rewrite" <<<"$out" && ok "an unmerged branch at its journaled tip: the refusal is as before, no rewrite is named" || no "plain refusal: rc=$rc $out"
 out=$($DA local close "$RN" --applied-by-am 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "merge that branch" <<<"$out" && ! grep -q "rewrite" <<<"$out" && ok "close of an applied run at its journaled tip: as before" || no "plain close refusal: rc=$rc $out"
 

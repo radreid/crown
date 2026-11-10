@@ -6,6 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-09
+
+First release of Crown, the independently maintained line forked from qargi 0.2.8 (MIT).
+
+### Changed
+- The product is renamed Crown throughout, a clean break with no compatibility layer for the old name: the command is `crown` (the old command name is retired, with no alias kept), the environment variables are `CROWN_*`, and the per-user data directory is `~/.crown`. The break is made now, while this line has a single install. The MIT license and its copyright notice are unchanged, and the 0.2.x entries below are kept as written: they are the historical record of the releases this line forked from.
+
 ## [0.2.8] - 2026-11-09
 
 ### Added

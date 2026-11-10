@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The link engine: make a path inside a checkout load a resource that qargi keeps (rendered or stored) under its state directory.
+"""The link engine: make a path inside a checkout load a resource that crown keeps (rendered or stored) under its state directory.
 
 One engine serves every resource of a provider definition (skills, agents, ...). A caller describes ONE link with a Link object:
 
@@ -11,17 +11,17 @@ One engine serves every resource of a provider definition (skills, agents, ...).
   dest      the path of the link, relative to the checkout, parts separated by /
   source    the directory (or, for dir-symlink, a file) under the state directory that the link makes visible
   mode      dir-symlink    dest is a symbolic link to source
-            entry-symlinks dest stays a real directory and holds one symbolic link per entry of source; only links qargi made (they point
+            entry-symlinks dest stays a real directory and holds one symbolic link per entry of source; only links crown made (they point
                            into source) are ever touched, the user's own entries are left alone
             copy           dest stays a real directory and holds a copy of each entry of source, recorded in a manifest beside it, for
-                           runtimes that do not follow symbolic links; unlink removes only a copy that is still what qargi made
+                           runtimes that do not follow symbolic links; unlink removes only a copy that is still what crown made
   state     the state directory; source must lie below it and be reached through no symbolic link
   root      scope user: a link that lives outside every checkout (a runtime's memory directory in the home directory). root is the
             directory dest is relative to (the home directory), checkout is not used, and nothing is asked of git: no work tree, no
             tracked files, no exclude hint. Everything else holds, and the parents of dest between root and dest may be missing (they are
             made) but may not be symbolic links
   source_root  the directory source must lie below and be reached through no symbolic link, when it is not the state directory
-            (a project's memory in ~/.qargi/memory)
+            (a project's memory in ~/.crown/memory)
 
 Nothing in a Link names a provider or a runtime. The words a message needs (the plural of the resource, the command that undoes the
 link, ...) are the Link's `words`; a caller whose messages must stay as they are overrides the hooks below (inspect_real, show_real,
@@ -36,12 +36,12 @@ The verbs, each with a plan and an apply (the caller holds the project's lock an
   cmd_plan(verb, link, tokenfile)   print the plan and write the token (none when there is nothing to do)
   cmd_apply(verb, link, token)      re-plan, refuse if the plan changed, then change the file system
 
-A member's run (a directory `qargi local prepare` made, at or above the working directory) never applies: only the lead's session
+A member's run (a directory `crown local prepare` made, at or above the working directory) never applies: only the lead's session
 changes what a checkout loads.
 
 The only paths written are the directories above the destination inside the checkout (when missing), the destination (the link, or
-the entries in it), the backup of a real directory or file, beside the destination (<dest>.qargi-backup), and a temporary symbolic
-link beside what it replaces (.qargi-link.PID or .qargi-unlink.PID) that is renamed into place or removed. Nothing is ever deleted
+the entries in it), the backup of a real directory or file, beside the destination (<dest>.crown-backup), and a temporary symbolic
+link beside what it replaces (.crown-link.PID or .crown-unlink.PID) that is renamed into place or removed. Nothing is ever deleted
 except a symbolic link this tool made.
 
 Apply works through a file descriptor of the destination's parent directory (opened from the checkout one component at a time, never
@@ -64,9 +64,9 @@ entry against the plan before changing any, copies into a temporary name and ren
 removes aside (and deletes the aside only after the manifest is written), and writes the manifest first with the entries to come, so
 a stop leaves the manifest naming at least what it made.
 
-Tests inject faults with QARGI_TEST_FAULT=NAME[,NAME] (dir-symlink: after-tmp-link, after-backup, after-aside, after-restore;
+Tests inject faults with CROWN_TEST_FAULT=NAME[,NAME] (dir-symlink: after-tmp-link, after-backup, after-aside, after-restore;
 entry-symlinks and copy: after-entry-N, the stop after the Nth change; copy: after-copy, after a copy was made under its temporary
-name; all: rollback, which makes the undo fail) and stop between the plan and the act with QARGI_TEST_HOLD=PATH (the engine creates
+name; all: rollback, which makes the undo fail) and stop between the plan and the act with CROWN_TEST_HOLD=PATH (the engine creates
 PATH.reached and waits for PATH.go); nothing else reads them.
 """
 import ctypes
@@ -86,8 +86,8 @@ import marshal_refs  # noqa: E402  (in_member_run)
 
 NAME_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*')   # used with fullmatch: a `$` would let a trailing newline through
 KIND_RE = re.compile(r'[a-z][a-z0-9-]{0,39}')
-BACKUP_SUFFIX = ".qargi-backup"
-COPY_SUFFIX = ".qargi-copy.json"      # the manifest of copy mode, beside the destination
+BACKUP_SUFFIX = ".crown-backup"
+COPY_SUFFIX = ".crown-copy.json"      # the manifest of copy mode, beside the destination
 CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
 MODES = ("dir-symlink", "entry-symlinks", "copy")
 
@@ -108,7 +108,7 @@ def q(s):
 
 
 def die(msg):
-    print("qargi: " + clean(msg), file=sys.stderr)
+    print("crown: " + clean(msg), file=sys.stderr)
     sys.exit(1)
 
 
@@ -162,15 +162,15 @@ class Refused(Exception):
 
 
 def fault(name):
-    """Tests only: QARGI_TEST_FAULT=NAME[,NAME] makes the step called NAME fail."""
-    if name in os.environ.get("QARGI_TEST_FAULT", "").split(","):
+    """Tests only: CROWN_TEST_FAULT=NAME[,NAME] makes the step called NAME fail."""
+    if name in os.environ.get("CROWN_TEST_FAULT", "").split(","):
         raise OSError(errno.EIO, "injected fault " + name)
 
 
 def hold():
-    """Tests only: with QARGI_TEST_HOLD=PATH, say PATH.reached and wait (30 s at most) for PATH.go, so a test can change the checkout
+    """Tests only: with CROWN_TEST_HOLD=PATH, say PATH.reached and wait (30 s at most) for PATH.go, so a test can change the checkout
     between the plan and the act."""
-    path = os.environ.get("QARGI_TEST_HOLD")
+    path = os.environ.get("CROWN_TEST_HOLD")
     if not path:
         return
     open(path + ".reached", "w").close()
@@ -287,7 +287,7 @@ class Link:
         singular = kind[:-1] if kind.endswith("s") else kind
         self.words = {"plural": kind, "singular": singular, "dir": "%s directory" % kind, "source": "this project's %s source" % kind,
                       "source_word": "%s source" % kind, "loads": "the project's %s from the source" % kind, "cli": "packs",
-                      "unlink": "qargi packs unlink %s" % project, "place": "the checkout"}
+                      "unlink": "crown packs unlink %s" % project, "place": "the checkout"}
         self.words.update(words or {})
 
     # ---- hooks -----------------------------------------------------------------------------------------------------------------
@@ -334,7 +334,7 @@ class Link:
             return base, link, link + BACKUP_SUFFIX
         co = self.checkout or ""
         if not co:
-            die("project %s has no checkout (repo.path is empty): qargi project set %s repo.path DIR" % (self.project, self.project))
+            die("project %s has no checkout (repo.path is empty): crown project set %s repo.path DIR" % (self.project, self.project))
         if not os.path.isabs(co) or not os.path.isdir(co):
             die("the checkout %s of project %s is not a directory" % (co, self.project))
         base = os.path.realpath(co)
@@ -389,9 +389,9 @@ def classify_dir(verb, lk):
             die("%s is a symbolic link to %s, not to %s; refusing to replace it" % (link, os.readlink(link), w["source"]))
         if not lk.user and tracked(base, rel):
             die("files under %s are tracked by git in %s: the repository's owner decides how its %s are loaded; "
-                "qargi does not touch tracked files" % (rel, base, w["plural"]))
+                "crown does not touch tracked files" % (rel, base, w["plural"]))
         if os.path.lexists(backup):
-            die("%s already exists; %s (qargi never overwrites or deletes a backup)"
+            die("%s already exists; %s (crown never overwrites or deletes a backup)"
                 % (backup, "%s moves it back to %s" % (w["unlink"], link) if not present else "move it away first"))
         if not present:
             facts["state"] = "absent"
@@ -452,7 +452,7 @@ def apply_link(facts, lk, pfd):
     """Steps (1) to (3) of the docstring. On a failure: undo what can be undone, say the state, exit 1."""
     leaf = lk.parts[-1]
     bname = leaf + BACKUP_SUFFIX
-    tmp = ".qargi-link.%d" % os.getpid()
+    tmp = ".crown-link.%d" % os.getpid()
     link, backup, source = facts["link"], facts["backup"], facts["source"]
     w = lk.words
     real = facts["state"] in ("dir", "file")
@@ -464,7 +464,7 @@ def apply_link(facts, lk, pfd):
                 raise Refused("%s is no longer a real %s (it is %s)" % (link, "directory" if facts["state"] == "dir" else "file",
                                                                          "absent" if now == "absent" else "a " + now))
             if kind_of(pfd, bname) != "absent":
-                raise Refused("%s exists now; qargi never overwrites or deletes a backup" % backup)
+                raise Refused("%s exists now; crown never overwrites or deletes a backup" % backup)
             os.symlink(source, tmp, dir_fd=pfd)
             made = True
             fault("after-tmp-link")
@@ -512,7 +512,7 @@ def apply_unlink(facts, lk, pfd):
     """Steps (4) to (6) of the docstring, or the move of a backup whose link is already gone."""
     leaf = lk.parts[-1]
     bname = leaf + BACKUP_SUFFIX
-    aside = ".qargi-unlink.%d" % os.getpid()
+    aside = ".crown-unlink.%d" % os.getpid()
     link, backup, source = facts["link"], facts["backup"], facts["source"]
     w = lk.words
     where = os.path.join(os.path.dirname(link), aside)
@@ -650,12 +650,12 @@ def failed(verb, lk, facts, e, journal):
     if not left:
         die("cannot %s %s: %s. %d change%s made and put back; nothing was changed%s." % (verb, link, why, n, " was" if n == 1 else "s were", above))
     die("cannot %s %s: %s. %d of %d changes could not be put back: %s. Run the same command again to finish it, or %s undoes what is linked. "
-        "Only links qargi made were removed or replaced; nothing else was deleted."
+        "Only links crown made were removed or replaced; nothing else was deleted."
         % (verb, link, why, len(left), n, "; ".join(left), lk.words["unlink"]))
 
 
 def own_links(lk, link):
-    """{name: target} of the symbolic links in the directory link that point into the source: qargi's own entries."""
+    """{name: target} of the symbolic links in the directory link that point into the source: crown's own entries."""
     out = {}
     src, real = os.path.normpath(lk.source), os.path.realpath(lk.source)
     for n in sorted(os.listdir(link)):
@@ -692,7 +692,7 @@ def exclude_hint_many(base, rels):
 
 def classify_entries(verb, lk):
     """The facts of the plan for verb link|unlink in mode entry-symlinks: for every entry of the source (and every link of ours the
-    source has no entry for) what apply will do; refuses what is not qargi's to touch."""
+    source has no entry for) what apply will do; refuses what is not crown's to touch."""
     base, link, _ = lk.locate()
     rel = lk.dest
     w = lk.words
@@ -720,7 +720,7 @@ def classify_entries(verb, lk):
         elif os.path.islink(p):
             die("%s is a symbolic link to %s, not into %s; refusing to replace it" % (p, os.readlink(p), w["source"]))
         else:
-            die("%s exists and is a real %s that qargi did not make; refusing to replace it (move it away first)" % (p, "directory" if os.path.isdir(p) else "file"))
+            die("%s exists and is a real %s that crown did not make; refusing to replace it (move it away first)" % (p, "directory" if os.path.isdir(p) else "file"))
     for n in sorted(own):
         if n not in names:
             facts["entries"].append([n, "stale", own[n]])
@@ -728,7 +728,7 @@ def classify_entries(verb, lk):
     t = None if lk.user else tracked_any(base, [rel + "/" + n for n, a, _ in facts["entries"] if a != "same"])
     if t:
         die("files under %s are tracked by git in %s (%s): the repository's owner decides how its %s are loaded; "
-            "qargi does not touch tracked files" % (rel, base, t, w["plural"]))
+            "crown does not touch tracked files" % (rel, base, t, w["plural"]))
     facts["state"] = "absent" if not present else "dir"
     if all(a == "same" for _, a, _ in facts["entries"]) and (present or not facts["entries"]):
         facts["state"] = "linked"
@@ -754,13 +754,13 @@ def show_entries(facts, lk):
             say("    %-8s %s%s" % (how[a], q(n), why[a]))
         for n in facts["skipped"]:
             say("    skipped  %s  (unusual name or not a file or directory)" % q(n))
-        say("  entries that are not qargi's are left alone; nothing is moved or deleted except links qargi made.")
+        say("  entries that are not crown's are left alone; nothing is moved or deleted except links crown made.")
         say("  undo: %s" % clean(w["unlink"]))
     else:
         say("unlink plan for %s: remove the %d link%s in %s that point into %s" % (p, len(acts), "" if len(acts) == 1 else "s", link, source))
         for n, a, t in acts:
             say("    remove   %s" % q(n))
-        say("  entries that are not qargi's are left alone; the directory stays.")
+        say("  entries that are not crown's are left alone; the directory stays.")
 
 
 def hint_entries(facts):
@@ -785,12 +785,12 @@ def _verify_entries(dfd, facts, lk):
             except OSError:
                 now = None
             if now is None or not is_own(lk, link, now) or (a != "same" and now != target):
-                raise Refused("%s is not the link of qargi's that the plan saw" % p)
+                raise Refused("%s is not the link of crown's that the plan saw" % p)
 
 
 def _swap_link(dfd, name, target):
     """Make name a symbolic link to target, replacing the symbolic link that is there (a link of ours), atomically."""
-    tmp = ".qargi-link.%d" % os.getpid()
+    tmp = ".crown-link.%d" % os.getpid()
     os.symlink(target, tmp, dir_fd=dfd)
     try:
         os.rename(tmp, name, src_dir_fd=dfd, dst_dir_fd=dfd)
@@ -944,7 +944,7 @@ def copy_entry(sfd, sname, dfd, dname):
 
 
 def remove_entry(dfd, name):
-    """Remove the file or directory name of the directory dfd, and what is in it. Only ever called on a copy qargi made and checked."""
+    """Remove the file or directory name of the directory dfd, and what is in it. Only ever called on a copy crown made and checked."""
     st = os.lstat(name, dir_fd=dfd)
     if stat.S_ISDIR(st.st_mode):
         sub = os.open(name, DIRFLAGS, dir_fd=dfd)
@@ -959,7 +959,7 @@ def remove_entry(dfd, name):
 
 
 def read_manifest(lk, path):
-    """The manifest at path ({name: {type, hash}} of the copies qargi made), or {} when there is none. Dies on one that is not ours."""
+    """The manifest at path ({name: {type, hash}} of the copies crown made), or {} when there is none. Dies on one that is not ours."""
     if not os.path.lexists(path):
         return {}
     if os.path.islink(path) or not os.path.isfile(path):
@@ -973,7 +973,7 @@ def read_manifest(lk, path):
     except (OSError, ValueError, KeyError, TypeError):
         good = False
     if not good:
-        die("%s is not a manifest qargi wrote; refusing to use it" % path)
+        die("%s is not a manifest crown wrote; refusing to use it" % path)
     if m.get("kind") != lk.kind or m.get("source") != lk.source:
         die("%s belongs to another link (%s from %s); refusing to use it" % (path, m.get("kind"), m.get("source")))
     return ents
@@ -989,7 +989,7 @@ def write_manifest(pfd, name, data):
     if data is None:
         os.unlink(name, dir_fd=pfd)
         return
-    tmp = ".qargi-manifest.%d" % os.getpid()
+    tmp = ".crown-manifest.%d" % os.getpid()
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o666, dir_fd=pfd)
     try:
         os.write(fd, data)
@@ -1018,8 +1018,8 @@ def read_file_at(pfd, name):
 
 
 def classify_copy(verb, lk):
-    """The facts of the plan for verb link|unlink in mode copy: for every entry of the source, and every copy qargi recorded, what apply
-    will do, with the content hashes the decision was made on; refuses a copy that was modified and an entry that is not qargi's."""
+    """The facts of the plan for verb link|unlink in mode copy: for every entry of the source, and every copy crown recorded, what apply
+    will do, with the content hashes the decision was made on; refuses a copy that was modified and an entry that is not crown's."""
     base, link, _ = lk.locate()
     rel = lk.dest
     w = lk.words
@@ -1035,7 +1035,7 @@ def classify_copy(verb, lk):
             return hash_at(dfd, n) if dfd is not None and os.path.lexists(os.path.join(link, n)) else None
 
         def modified(n, cur):
-            die("%s was changed since qargi copied it (it is not what %s recorded); refusing to touch it: move it away, or copy your change into the source"
+            die("%s was changed since crown copied it (it is not what %s recorded); refusing to touch it: move it away, or copy your change into the source"
                 % (os.path.join(link, n), mpath))
 
         if verb == "unlink":
@@ -1068,7 +1068,7 @@ def classify_copy(verb, lk):
                         modified(n, cur)
                     facts["entries"].append([n, "same" if cur == hs else "update", hs, cur])
                 else:
-                    die("%s exists and qargi did not make it; refusing to replace it (move it away first)" % os.path.join(link, n))
+                    die("%s exists and crown did not make it; refusing to replace it (move it away first)" % os.path.join(link, n))
         finally:
             os.close(sfd)
         for n in sorted(recorded):
@@ -1088,7 +1088,7 @@ def classify_copy(verb, lk):
     t = None if lk.user else tracked_any(base, [rel + "/" + n for n, a, _, _ in facts["entries"] if a not in ("same", "forget")] + [rel + COPY_SUFFIX])
     if t:
         die("files under %s are tracked by git in %s (%s): the repository's owner decides how its %s are loaded; "
-            "qargi does not touch tracked files" % (rel, base, t, w["plural"]))
+            "crown does not touch tracked files" % (rel, base, t, w["plural"]))
     facts["state"] = "absent" if not present else "dir"
     if all(a == "same" for _, a, _, _ in facts["entries"]) and (present or not facts["entries"]):
         facts["state"] = "linked"
@@ -1103,11 +1103,11 @@ def show_copy(facts, lk):
         say("link plan for %s: %s %s loads %s, as copies (this runtime does not follow links)" % (p, clean(w["place"]), clean(facts["checkout"]), w["loads"]))
         say("  directory: %s" % link)
         say("  source:    %s" % source)
-        say("  manifest:  %s (what qargi copied, with its content hash)" % clean(facts["manifest"]))
+        say("  manifest:  %s (what crown copied, with its content hash)" % clean(facts["manifest"]))
         if facts["state"] == "absent":
             say("  %s does not exist: create it (with %s if missing) and the copies" % (rel, os.path.dirname(link)))
         else:
-            say("  %s is a real directory and stays one; only copies qargi made and that are unmodified are ever replaced or removed" % rel)
+            say("  %s is a real directory and stays one; only copies crown made and that are unmodified are ever replaced or removed" % rel)
         how = {"new": "create", "same": "keep", "update": "update", "stale": "remove", "forget": "forget"}
         why = {"new": "", "same": "  (already copied)", "update": "  (the source changed; the copy is unmodified)",
                "stale": "  (a copy of ours, unmodified; the source has no entry of that name)", "forget": "  (recorded, but gone from the directory)"}
@@ -1115,14 +1115,14 @@ def show_copy(facts, lk):
             say("    %-8s %s%s" % (how[a], q(n), why[a]))
         for n in facts["skipped"]:
             say("    skipped  %s  (unusual name or not a file or directory)" % q(n))
-        say("  entries that are not qargi's are left alone. A copy is replaced or removed only while it is what the manifest recorded.")
+        say("  entries that are not crown's are left alone. A copy is replaced or removed only while it is what the manifest recorded.")
         say("  undo: %s" % clean(w["unlink"]))
     else:
-        say("unlink plan for %s: remove the %d cop%s qargi made in %s (all unmodified), and the manifest" % (p, len([a for a in acts if a[1] == "remove"]),
+        say("unlink plan for %s: remove the %d cop%s crown made in %s (all unmodified), and the manifest" % (p, len([a for a in acts if a[1] == "remove"]),
                                                                                                            "y" if len([a for a in acts if a[1] == "remove"]) == 1 else "ies", link))
         for n, a, _, _ in acts:
             say("    %-8s %s%s" % ("remove" if a == "remove" else "forget", q(n), "" if a == "remove" else "  (recorded, but gone from the directory)"))
-        say("  entries that are not qargi's are left alone; the directory stays.")
+        say("  entries that are not crown's are left alone; the directory stays.")
 
 
 def hint_copy(facts):
@@ -1172,13 +1172,13 @@ def apply_copy(verb, facts, lk, pfd):
         todo = sorted((e for e in facts["entries"] if e[1] in order), key=lambda e: (order[e[1]], e[0]))
         for i, (n, a, hs, old) in enumerate(todo, 1):
             if a in ("stale", "remove", "update"):
-                aside = ".qargi-old.%d.%d" % (os.getpid(), i)
+                aside = ".crown-old.%d.%d" % (os.getpid(), i)
                 rename_new(dfd, n, aside)
                 asides.append(aside)
                 journal.add("moved the copy %s to %s" % (q(n), q(os.path.join(link, aside))),
                             lambda n=n, aside=aside: rename_new(dfd, aside, n))
             if a in ("update", "new"):
-                tmp = ".qargi-copy.%d.%d" % (os.getpid(), i)
+                tmp = ".crown-copy.%d.%d" % (os.getpid(), i)
                 try:
                     copy_entry(sfd, n, dfd, tmp)
                     fault("after-copy")
@@ -1225,7 +1225,7 @@ def apply_copy(verb, facts, lk, pfd):
     else:
         say("unlinked: %d cop%s removed from %s" % (len(done), "y" if len(done) == 1 else "ies", link))
     if leftovers:
-        say("note: %s could not be removed; they are qargi's old copies and can be deleted" % ", ".join(q(os.path.join(link, a)) for a in leftovers))
+        say("note: %s could not be removed; they are crown's old copies and can be deleted" % ", ".join(q(os.path.join(link, a)) for a in leftovers))
 
 
 # ---- the verbs ---------------------------------------------------------------------------------------------------------------
@@ -1292,7 +1292,7 @@ def cmd_apply(verb, lk, token):
 
 def apply_planned(verb, lk, facts):
     """Act on facts, a plan that was just made and approved (the caller has checked its token). A caller that applies several links under
-    one token (qargi project link) plans them all, checks the one token, then calls this for each."""
+    one token (crown project link) plans them all, checks the one token, then calls this for each."""
     hold()
     try:
         pfd = open_parent(facts["checkout"], lk.parts[:-1], create=verb == "link" and facts["state"] == "absent")

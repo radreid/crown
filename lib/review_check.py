@@ -9,7 +9,7 @@ from email.utils import parsedate_to_datetime
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 unknown = [a for a in sys.argv[1:] if a.startswith("--") and a != "--allow-empty"]
 if unknown or len(args) > 1:
-    print("qargi: %s\nusage: review_check.py OUT [--allow-empty]" % ("unknown option " + unknown[0] if unknown else "one OUT directory, not %d" % len(args)), file=sys.stderr)
+    print("crown: %s\nusage: review_check.py OUT [--allow-empty]" % ("unknown option " + unknown[0] if unknown else "one OUT directory, not %d" % len(args)), file=sys.stderr)
     sys.exit(2)
 allow_empty = "--allow-empty" in sys.argv   # a team member may return no commits (blocked, or nothing to change)
 run = args[0] if args else "."

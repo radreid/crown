@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# `qargi review check OUT` checks a collected series; `qargi review apply` is the step between it and `qargi feature merge NAME BRANCH`: put a collected,
+# `crown review check OUT` checks a collected series; `crown review apply` is the step between it and `crown feature merge NAME BRANCH`: put a collected,
 # verified series on a task branch of the real repository.
 #
 #   review.sh check OUT [--allow-empty]                       checks a member's output (RUN_DIR/out, or the run directory) with review_check.py; the
 #       lead's lease on the feature the run is based on is renewed first
 #   review.sh apply RUN_DIR [--branch BRANCH] [--project P]   agent/<slug> at the run's base with the patches applied
 #   review.sh apply --from-saved ID [--branch BRANCH] [--project P]
-#       the same from the copy `local verify` saved of the run when it passed ($QARGI_STATE/runs/ID: its OUT, its snapshots, its record),
+#       the same from the copy `local verify` saved of the run when it passed ($CROWN_STATE/runs/ID: its OUT, its snapshots, its record),
 #       for a run whose directory is gone (a reboot that emptied a tmpfs); the same checks: review check of the saved OUT, local verify
 #       --saved ID (the refs against the saved snapshot), the lead's registry for the repository, slug and base. Refused while the run
 #       directory still exists (apply that), and once applied (the saved copy records it, as RUN/applied does).
@@ -34,7 +34,7 @@ scrub_first_lines() {
 # scrub_run RUN OUT [FILES] -> prints the one verdict line and returns 0 (ok) or 1 (FAIL). The series (OUT/patches, applied with git am on the commit the run's base
 # branch had at prepare, as review apply applies it) is made in a throw-away shared clone of the run's repository (the registry's, never the run directory's):
 # no worktree entry, branch or tag is made in the repository itself, so no temporary ref is left behind. The policy is checked on the applied commits first;
-# then the command runs in the clone, checked out at the tip, with QARGI_SCRUB_BASE and QARGI_SCRUB_TIP set to the range. FILES is where the run's refs.before and
+# then the command runs in the clone, checked out at the tip, with CROWN_SCRUB_BASE and CROWN_SCRUB_TIP set to the range. FILES is where the run's refs.before and
 # bare.git are (default RUN; the saved copy for a run applied with --from-saved, whose directory is gone).
 scrub_run() {
   local tmp rc=0
@@ -57,7 +57,7 @@ scrub_in() {
   fi
   for p in "${patches[@]}"; do
     # the lead's hooks and signing do not run on a throw-away commit; the committer is a fixed one (the author is the patch's)
-    if ! git -C "$tmp/t" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=qargi-scrub -c user.email=scrub@localhost am -q --3way "$p" >/dev/null 2>&1; then
+    if ! git -C "$tmp/t" -c core.hooksPath=/dev/null -c commit.gpgsign=false -c user.name=crown-scrub -c user.email=scrub@localhost am -q --3way "$p" >/dev/null 2>&1; then
       echo "scrub: FAIL $(basename "$p") does not apply on ${sha:0:12}"; return 1
     fi
   done
@@ -71,7 +71,7 @@ scrub_in() {
   if [ -n "$SCRUB_CMD" ]; then
     if [ "$(jq -r 'type' <<<"$SCRUB_CMD")" = array ]; then mapfile -d '' -t cmd < <(jq -j '.[], "\u0000"' <<<"$SCRUB_CMD")
     else cmd=(bash -c "$(jq -r '.' <<<"$SCRUB_CMD")"); fi
-    text=$(run_clean "$tmp/t" env QARGI_SCRUB_BASE="$sha" QARGI_SCRUB_TIP="$tip" "${cmd[@]}" </dev/null 2>&1) || rc=$?
+    text=$(run_clean "$tmp/t" env CROWN_SCRUB_BASE="$sha" CROWN_SCRUB_TIP="$tip" "${cmd[@]}" </dev/null 2>&1) || rc=$?
     if [ "$rc" != 0 ]; then text=$(scrub_first_lines "$text"); echo "scrub: FAIL ${text:-exit $rc, no output}"; return 1; fi
   fi
   echo "scrub: ok"
@@ -97,7 +97,7 @@ scrub_ok_has() { # RUN OUT -> 0 when the record names this series
 
 verb=${1:-}; shift || true
 if [ "$verb" = check ]; then
-  # qargi review check OUT [--allow-empty]: review_check.py reads one output directory; the lead's registry knows the run it belongs to, so the
+  # crown review check OUT [--allow-empty]: review_check.py reads one output directory; the lead's registry knows the run it belongs to, so the
   # lead's lease on the feature that run is based on is renewed first (no project is needed, none is loaded)
   . "$(dirname "$0")/marshal.sh"
   # the argument is a run's OUT (the run is its parent directory) or the run directory itself, which review_check.py also takes (RUN/out)
@@ -115,8 +115,8 @@ if [ "$verb" = check ]; then
   # The project's declared take-in scrub (answers review.scrub and review.trailer_policy; neither set: nothing more is checked or printed) runs on a series
   # that has patches, after the check above; a failing scrub fails the check
   if [ "$rc" != 2 ] && [ -n "$SRUN" ] && compgen -G "$SOUT/patches/*.patch" >/dev/null && scrub_declared "$SRUN"; then
-    # a member's check (the mark `qargi local run` sets in a member's environment) never runs the lead's command or makes the checkout: the lead's check runs it
-    if [ -n "${QARGI_MEMBER_RUN:-}" ]; then echo "scrub: not run (a member's check; the lead's check runs it)"
+    # a member's check (the mark `crown local run` sets in a member's environment) never runs the lead's command or makes the checkout: the lead's check runs it
+    if [ -n "${CROWN_MEMBER_RUN:-}" ]; then echo "scrub: not run (a member's check; the lead's check runs it)"
     elif [ "$rc" != 0 ]; then echo "scrub: not run (the series check failed)"
     elif scrub_run "$SRUN" "$SOUT"; then scrub_ok_set "$SRUN" "$SOUT"   # review apply skips the scrub it has just seen pass for this series
     else rc=1; fi
@@ -134,14 +134,14 @@ pick_author() {
   # the answers are the run's own, taken into the lead's registry at prepare (run_record: RUN_ANS); a run of an older record reads the stored file
   if [ -n "${RUN_ANS:-}" ]; then aj=$RUN_ANS; else aj=$(cat -- "$af" 2>/dev/null) || aj='{}'; fi
   keep=$(jq -r '(.review // {}) | .keep_author // false | if type == "boolean" then tostring else "bad" end' <<<"$aj" 2>/dev/null) || keep=bad
-  [ "$keep" != bad ] || die "review.keep_author in the answers of $PROJ is not true or false (qargi project set $PROJ review.keep_author true); nothing was applied"
+  [ "$keep" != bad ] || die "review.keep_author in the answers of $PROJ is not true or false (crown project set $PROJ review.keep_author true); nothing was applied"
   a=$(jq -r '(.git // {}) | .author // "" | if type == "string" then . else error("not a string") end' <<<"$aj" 2>/dev/null) \
-    || die "git.author in the answers of $PROJ is not a string like 'Example Author <author@example.com>' (qargi project set $PROJ git.author ...); nothing was applied"
+    || die "git.author in the answers of $PROJ is not a string like 'Example Author <author@example.com>' (crown project set $PROJ git.author ...); nothing was applied"
   AUTH='' AUTH_MODE=keep AUTH_SRC=''
   if [ "$keep" = true ]; then AUTH_SRC='answer review.keep_author'; return 0; fi
   if [ -n "$a" ]; then
     { [[ $a =~ $AUTH_RE ]] && [[ $a != *[[:cntrl:]]* ]]; } \
-      || die "git.author in the answers of $PROJ is not 'Name <email>' ($a): qargi project set $PROJ git.author 'Example Author <author@example.com>'; nothing was applied"
+      || die "git.author in the answers of $PROJ is not 'Name <email>' ($a): crown project set $PROJ git.author 'Example Author <author@example.com>'; nothing was applied"
     AUTH=$a AUTH_MODE=reset AUTH_SRC='answer git.author'; return 0
   fi
   n=$(g config user.name 2>/dev/null || true); e=$(g config user.email 2>/dev/null || true)
@@ -149,7 +149,7 @@ pick_author() {
     # read from the repository's configuration, which a member can also write when it can write the repository: checked as git.author is
     a="$n <$e>"
     { [[ $a =~ $AUTH_RE ]] && [[ $a != *[[:cntrl:]]* ]]; } \
-      || die "the repository's user.name and user.email ($a) are not a plain 'Name <email>' (no < > or control characters in the name, no spaces or extra @ in the address): fix them in $REPO, or give git.author (qargi project set $PROJ git.author 'Example Author <author@example.com>'); nothing was applied"
+      || die "the repository's user.name and user.email ($a) are not a plain 'Name <email>' (no < > or control characters in the name, no spaces or extra @ in the address): fix them in $REPO, or give git.author (crown project set $PROJ git.author 'Example Author <author@example.com>'); nothing was applied"
     AUTH=$a AUTH_MODE=reset AUTH_SRC="the repository's user.name and user.email; no answer git.author"; return 0
   fi
   AUTH_SRC='no answer git.author and no user.name and user.email in the repository'
@@ -191,23 +191,23 @@ case $verb in
     if [ -n "$SAVED" ]; then
       # SRC is the lead's saved copy of the run: what the run directory would hold for apply (out, refs.before, class, ability, applied)
       [ -z "$RUN_ARG" ] || usage_die "give RUN_DIR or --from-saved ID, not both"
-      case $SAVED in qargi.??????) ;; *) usage_die "--from-saved takes the id of a run: the name of its directory, qargi.XXXXXX";; esac
+      case $SAVED in crown.??????) ;; *) usage_die "--from-saved takes the id of a run: the name of its directory, crown.XXXXXX";; esac
       SRC=$DA_STATE/runs/$SAVED
       [ -d "$SRC" ] && [ ! -L "$SRC" ] && [ -d "$SRC/out" ] && [ -f "$SRC/refs.before" ] || die "no saved copy of $SAVED in $DA_STATE/runs (local verify saves one when a run passes)"
       reg_load; RUN=$(reg_id "$SAVED") || die "the lead's registry names no run $SAVED (or more than one): nothing was applied"
-      [ ! -e "$RUN" ] || die "the run directory $RUN still exists: apply it (qargi review apply $RUN); nothing was applied"
+      [ ! -e "$RUN" ] || die "the run directory $RUN still exists: apply it (crown review apply $RUN); nothing was applied"
     else
-      [ -n "${RUN_ARG%/}" ] || usage_die "usage: qargi review apply RUN_DIR|--from-saved ID [--branch BRANCH] [--project P]"
+      [ -n "${RUN_ARG%/}" ] || usage_die "usage: crown review apply RUN_DIR|--from-saved ID [--branch BRANCH] [--project P]"
       RUN=$(readlink -f -- "$RUN_ARG") || die "no such run directory: $RUN_ARG"   # the registry names real paths, and git -C WT am is given paths of the run
       SRC=$RUN
     fi
-    [ -f "$SRC/refs.before" ] && [ -d "$SRC/out" ] || usage_die "apply needs a RUN dir made by qargi local prepare"
+    [ -f "$SRC/refs.before" ] && [ -d "$SRC/out" ] || usage_die "apply needs a RUN dir made by crown local prepare"
     marshal_touch_run "$RUN"   # the lead's apply keeps its lease on the feature the run is based on
     [ "$(run_class "$RUN" "$SRC")" != read-only ] \
       || die "$RUN is a read-only run ($(cat "$SRC/ability" 2>/dev/null || echo review)): its product is a report, never patches. Read $SRC/out/report.md; nothing was applied"
     [ ! -L "$SRC/applied" ] && { [ ! -e "$SRC/applied" ] || [ -f "$SRC/applied" ]; } || die "$SRC/applied is a link or not a plain file: a member put it there (look at the run; nothing was applied)"
-    [ ! -f "$SRC/applied" ] || die "this run was applied already ($(cut -d' ' -f1 "$SRC/applied")): qargi feature merge, then qargi local clean $RUN"
-    reg_load; [ -z "$(reg_get "$RUN" closed)" ] || die "this run was closed ($(reg_get "$RUN" closed_by)): its patches were applied by hand. qargi local clean $RUN removes it; nothing was applied"
+    [ ! -f "$SRC/applied" ] || die "this run was applied already ($(cut -d' ' -f1 "$SRC/applied")): crown feature merge, then crown local clean $RUN"
+    reg_load; [ -z "$(reg_get "$RUN" closed)" ] || die "this run was closed ($(reg_get "$RUN" closed_by)): its patches were applied by hand. crown local clean $RUN removes it; nothing was applied"
     python3 -I "$lib/review_check.py" "$SRC/out" || die "review check refuses $SRC/out: nothing was applied"
     if [ -n "$SAVED" ]; then "$lib/local.sh" verify --saved "$SAVED" || die "local verify refuses the saved copy $SAVED: nothing was applied"
     else "$lib/local.sh" verify "$RUN" || die "local verify refuses $RUN: nothing was applied"; fi
@@ -242,7 +242,7 @@ case $verb in
     # The declared take-in scrub (review.scrub, review.trailer_policy) is the lead's: it runs here, before anything is made, unless a passing `review check` recorded
     # the same series (the record is over the patches and the declared scrub; a change to either runs it again). A member's apply never runs it, as its check does not.
     if scrub_declared "$RUN"; then
-      if [ -n "${QARGI_MEMBER_RUN:-}" ]; then echo "scrub: not run (a member's apply; the lead's apply runs it)"
+      if [ -n "${CROWN_MEMBER_RUN:-}" ]; then echo "scrub: not run (a member's apply; the lead's apply runs it)"
       elif scrub_ok_has "$RUN" "$AP"; then echo "scrub: skipped (review check passed it for this series)"
       else
         text=$(scrub_run "$RUN" "$AP" "$SRC") || { echo "$text"; die "the declared scrub refuses the series: nothing was applied"; }
@@ -291,7 +291,7 @@ case $verb in
     # a run applied from its directory: the saved copy records it too, so it is never applied twice
     if [ -z "$SAVED" ] && [ -d "$DA_STATE/runs/${RUN##*/}" ] && [ ! -L "$DA_STATE/runs/${RUN##*/}" ]; then cp -- "$SRC/applied" "$DA_STATE/runs/${RUN##*/}/applied" 2>/dev/null || true; fi
     echo "next:"
-    echo "  qargi feature merge NAME $BRANCH    (NAME: the feature this task belongs to)"
-    echo "  qargi local clean $RUN${SAVED:+   (its directory is gone: once the work is merged, clean drops its record and the saved copy)}";;
-  *) usage_die "usage: qargi review check OUT [--allow-empty] | qargi review apply RUN_DIR|--from-saved ID [--branch BRANCH] [--project P]";;
+    echo "  crown feature merge NAME $BRANCH    (NAME: the feature this task belongs to)"
+    echo "  crown local clean $RUN${SAVED:+   (its directory is gone: once the work is merged, clean drops its record and the saved copy)}";;
+  *) usage_die "usage: crown review check OUT [--allow-empty] | crown review apply RUN_DIR|--from-saved ID [--branch BRANCH] [--project P]";;
 esac

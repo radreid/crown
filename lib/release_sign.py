@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The signing answers of a release and the record of its signature (the part of `qargi release sign|publish|status` that is not shell).
+"""The signing answers of a release and the record of its signature (the part of `crown release sign|publish|status` that is not shell).
 
 Answers, under `release` in the project's answers file:
   release.sign.key             path of an ssh private key (not a .pub file: that would make ssh-keygen ask an agent)
@@ -11,7 +11,7 @@ Answers, under `release` in the project's answers file:
   release.assets_command       the command the release assets verb runs in a clean worktree of the tag to build the release files: a command line
                                (run by bash -c) or a list of words ({version} replaced, no shell)
   release.after_steps          a list of the project's steps after a release, {version} replaced, that the release finish verb prints as "after the release:" lines
-                               and records as pending for the release status verb; qargi never runs them. A step is a one-line string (its name is
+                               and records as pending for the release status verb; crown never runs them. A step is a one-line string (its name is
                                its text, who is the lead, no evidence is required) or an object {name, command, who, evidence}: who is lead or owner,
                                evidence says what shows the step was done (when it is set, the release step verb wants --evidence)
   release.notes_file           a file with the release notes, relative to the repository; {version} is replaced (release push warns of the changelog items it does not mention)
@@ -23,7 +23,7 @@ result of the signing and of verify_command. Nothing the person types (the passp
 
   release_sign.py problems AF                    print the problems of the `release` answers; exit 1 if there are any
   release_sign.py config AF [--need-sign]        the same, quiet on success; --need-sign also wants release.sign
-  release_sign.py lead-only [assets]             exit 2 in a member run or when QARGI_NESTED is set
+  release_sign.py lead-only [assets]             exit 2 in a member run or when CROWN_NESTED is set
   release_sign.py assets --af AF --version V --base DIR [--root DIR]... [--asset F]... [--asset-dir D]...
                                                  print "sha256<TAB>absolute path<TAB>path in its root" per file to attach: the release.assets of AF
                                                  (globs expanded), every --asset and every regular file of every --asset-dir. A relative name is taken
@@ -270,7 +270,7 @@ def args_of(argv, names, flags=()):
             out[a] = argv[i + 1]
             i += 2
         else:
-            raise SystemExit("qargi: release_sign.py: unexpected argument %s" % a)
+            raise SystemExit("crown: release_sign.py: unexpected argument %s" % a)
     return out
 
 
@@ -354,7 +354,7 @@ def main(argv):
         rel = load_release(rest[0])
         found = problems(rel)
         if "--need-sign" in rest and not (isinstance(rel, dict) and "sign" in rel):
-            found.append("release.sign is not set: qargi project set PROJECT release.sign '{\"key\": ..., \"namespace\": ..., \"files\": [...]}'")
+            found.append("release.sign is not set: crown project set PROJECT release.sign '{\"key\": ..., \"namespace\": ..., \"files\": [...]}'")
         if found:
             print("\n".join(found), file=sys.stderr if cmd == "config" else sys.stdout)
             return 1
@@ -362,11 +362,11 @@ def main(argv):
     if cmd == "lead-only":
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import marshal_refs
-        if os.environ.get("QARGI_NESTED") or marshal_refs.in_member_run():
+        if os.environ.get("CROWN_NESTED") or marshal_refs.in_member_run():
             if rest == ["assets"]:
-                print("qargi: release assets is not available in a member run or a nested call: it runs the project's release.assets_command", file=sys.stderr)
+                print("crown: release assets is not available in a member run or a nested call: it runs the project's release.assets_command", file=sys.stderr)
             else:
-                print("qargi: release sign is not available in a member run or a nested call: the passphrase is typed by the person at their own terminal", file=sys.stderr)
+                print("crown: release sign is not available in a member run or a nested call: the passphrase is typed by the person at their own terminal", file=sys.stderr)
             return 2
         return 0
     if cmd == "after-steps":
@@ -395,7 +395,7 @@ def main(argv):
                 a.setdefault(rest[i], []).append(rest[i + 1])
                 i += 2
             else:
-                print("qargi: release_sign.py: unexpected argument %s" % rest[i], file=sys.stderr)
+                print("crown: release_sign.py: unexpected argument %s" % rest[i], file=sys.stderr)
                 return 2
         if not all(k in a for k in ("--af", "--version", "--base")):
             return 2
@@ -403,7 +403,7 @@ def main(argv):
             for full, rel in asset_files(a, a["--af"][0], a["--version"][0]):
                 print("%s\t%s\t%s" % (sha256(full), full, rel))
         except ValueError as e:
-            print("qargi: %s" % e, file=sys.stderr)
+            print("crown: %s" % e, file=sys.stderr)
             return 1
         return 0
     if cmd == "resolve":
@@ -414,16 +414,16 @@ def main(argv):
                 full, rel = resolve(rest[0], name)
                 print("%s\t%s\t%s" % (sha256(full), full, rel))
         except ValueError as e:
-            print("qargi: %s" % e, file=sys.stderr)
+            print("crown: %s" % e, file=sys.stderr)
             return 1
         return 0
     if cmd in ("record", "check"):
         try:
             return (cmd_record if cmd == "record" else cmd_check)(rest)
         except ValueError as e:
-            print("qargi: %s" % e, file=sys.stderr)
+            print("crown: %s" % e, file=sys.stderr)
             return 1
-    print("qargi: release_sign.py: unknown command %s" % cmd, file=sys.stderr)
+    print("crown: release_sign.py: unknown command %s" % cmd, file=sys.stderr)
     return 2
 
 

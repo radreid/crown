@@ -92,8 +92,8 @@ conf >/dev/null 2>&1; [ $? = 2 ] && ok "no provider is a usage error (exit 2)" |
 
 # hermetic: the caller's environment does not reach it, and it leaves nothing behind
 mkdir "$T/tmp"
-TMPDIR=$T/tmp QARGI_CONF=/nonexistent QARGI_STATE=/nonexistent QARGI_TRANSPORT=/bin/false ANTHROPIC_API_KEY=x conf claude-platform >/dev/null 2>&1 \
-  && TMPDIR=$T/tmp QARGI_CONF=/nonexistent QARGI_STATE=/nonexistent QARGI_TRANSPORT=/bin/false ANTHROPIC_API_KEY=x conf claude-code >/dev/null 2>&1 && ok "a polluted caller environment does not change the result" || no "pollution changed the result"
+TMPDIR=$T/tmp CROWN_CONF=/nonexistent CROWN_STATE=/nonexistent CROWN_TRANSPORT=/bin/false ANTHROPIC_API_KEY=x conf claude-platform >/dev/null 2>&1 \
+  && TMPDIR=$T/tmp CROWN_CONF=/nonexistent CROWN_STATE=/nonexistent CROWN_TRANSPORT=/bin/false ANTHROPIC_API_KEY=x conf claude-code >/dev/null 2>&1 && ok "a polluted caller environment does not change the result" || no "pollution changed the result"
 [ -z "$(ls -A "$T/tmp")" ] && ok "the harness removes its temporary files" || no "temporary files left behind: $(ls "$T/tmp")"
 cd "$ROOT" || exit 1
 tree_after=$(git status --porcelain --untracked-files=no tests lib 2>/dev/null; git diff tests lib 2>/dev/null | cksum)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# qargi cloud session verbs: track, start, send, status, stop, mark, close.
+# crown cloud session verbs: track, start, send, status, stop, mark, close.
 # Every verb that creates or drives a session needs --asked "<user's request>".
 #   session.sh start NAME [--label L] --asked "..."
 #   session.sh send NAME "<task text>" [--label L] [--session SID] [--new] --asked "..."
@@ -45,7 +45,7 @@ check_budget() {
   if [ -n "$b" ]; then
     json_update "$TRK" '.[$s].budget = $b' --arg s "$sid" --arg b "$b"
   else
-    echo "qargi: warning: session $sid has NO budget; set one on the deployment (registry.sh init ... --budget CENTS) before the next session" >&2
+    echo "crown: warning: session $sid has NO budget; set one on the deployment (registry.sh init ... --budget CENTS) before the next session" >&2
     json_update "$TRK" '.[$s].budget = "none"' --arg s "$sid"
   fi
 }
@@ -54,7 +54,7 @@ check_budget() {
 set_title() { # sid instance label
   [ -n "$3" ] || return 0
   ant beta:sessions update --session-id "$1" --title "$2-$3" >/dev/null 2>&1 \
-    || echo "qargi: warning: could not set the title of $1" >&2
+    || echo "crown: warning: could not set the title of $1" >&2
 }
 
 TRACK_EXTRA='{}'   # fields a caller adds to the tracker row (a base session: role, profile, model, effort, prompt_sha)
@@ -86,14 +86,14 @@ start_with_repo() { # name [credential-file] -> session id (the lead always star
       initial_events: $d.initial_events, metadata: {deployment_id: $d.id}}
       + (if $d.budget then {budget: $d.budget} else {} end)')
   audit_log session-with-repo "$1 credential file $(basename "${2:-none}")"
-  if [ -n "${QARGI_DRY_RUN:-}" ]; then jq '.resources |= map(if .authorization_token then .authorization_token="***" else . end)' <<<"$body"; return 0; fi
+  if [ -n "${CROWN_DRY_RUN:-}" ]; then jq '.resources |= map(if .authorization_token then .authorization_token="***" else . end)' <<<"$body"; return 0; fi
   printf '%s' "$body" | ant beta:sessions create 2>/dev/null | jq -r '.id // empty'
 }
 
 # ---- the bases: <project>-worker and <project>-reviewer run any role of their class, chosen per session --------------------
 # A session of a base is created with agent_with_overrides: the model (id and effort) of the profile and the system prompt
 # of the role replace the agent's own, everything else is the deployment's. The body is built by the provider's adapter
-# (start-session, a pure builder); the system comes from qargi's own files, never from the task text.
+# (start-session, a pure builder); the system comes from crown's own files, never from the task text.
 is_base_inst() { local r=${1#*-}; [ "$r" != "$1" ] && is_base "$r"; }
 
 # A base started without --role is the role-neutral standby session of the base; --role makes it a session for a role.
@@ -133,7 +133,7 @@ base_idle_session() {
       | sort_by(.value.created) | last | .key // empty' "$TRK"
 }
 
-start_base() { # name: creates the session (or prints the request, with QARGI_DRY_RUN) and tracks it
+start_base() { # name: creates the session (or prints the request, with CROWN_DRY_RUN) and tracks it
   local name=$1 proj=${1%%-*} i dep cf prov system sha req body out rc=0 sid padapter
   i=$(cloud_inst "$name") || exit 1
   base_resolve "$name"
@@ -143,7 +143,7 @@ start_base() { # name: creates the session (or prints the request, with QARGI_DR
   sha=$(printf '%s' "$system" | sha256sum | cut -c1-16)
   prov=$(project_provider "$proj" cloud) || exit $?   # no default provider: a project with none for the cloud surface is refused (exit 2)
   # the adapter is found by lib/provider.py, whatever the runtime is (shipped, or a library pack: that one only as a sealed private copy)
-  padapter=$QARGI_TOOL/lib/provider.py
+  padapter=$CROWN_TOOL/lib/provider.py
   python3 -I "$padapter" adapter-run "$prov" cloud start-session --check || die "the provider '$prov' has no adapter that can build a session request"
   dep=$(ant beta:deployments retrieve --deployment-id "$(jq -r .deployment_id <<<"$i")" </dev/null 2>/dev/null) || die "cannot read the deployment"
   cf=$(cred_file "$proj")
@@ -159,14 +159,14 @@ start_base() { # name: creates the session (or prints the request, with QARGI_DR
         + (if $d.budget then {budget: $d.budget} else {} end)') || die "could not build the session request"
   out=$(printf '%s' "$req" | python3 -I "$padapter" adapter-run "$prov" cloud start-session) || rc=$?
   if [ "$rc" != 0 ]; then
-    echo "qargi: the $prov adapter did not build the session (exit $rc): $(jq -r '.error // empty' <<<"$out" 2>/dev/null)" >&2
+    echo "crown: the $prov adapter did not build the session (exit $rc): $(jq -r '.error // empty' <<<"$out" 2>/dev/null)" >&2
     exit "$rc"
   fi
   body=$out
   audit_log session-base "$name role $BROLE profile $BR_PROFILE credential file $(basename "${cf:-none}")"
-  if [ -n "${QARGI_DRY_RUN:-}" ]; then jq '.resources |= map(if .authorization_token then .authorization_token="***" else . end)' <<<"$body"; exit 0; fi
+  if [ -n "${CROWN_DRY_RUN:-}" ]; then jq '.resources |= map(if .authorization_token then .authorization_token="***" else . end)' <<<"$body"; exit 0; fi
   sid=$(printf '%s' "$body" | ant beta:sessions create 2>/dev/null | jq -r '.id // empty')
-  [ -n "$sid" ] || die "could not create the session (check: qargi credential check $proj)"
+  [ -n "$sid" ] || die "could not create the session (check: crown credential check $proj)"
   TRACK_EXTRA=$(jq -nc --arg r "$BROLE" --arg p "$BR_PROFILE" --arg m "$BR_MODEL" --arg e "$BR_EFFORT" --arg h "$sha" \
     '{role: $r, profile: $p, model: $m, effort: $e, prompt_sha: $h}')
   track "$name" "$sid"
@@ -185,8 +185,8 @@ start() {
   cf=$(cred_file "$PROJECT")
   if [ -n "$cf" ] || [ "$ROLE" = lead ]; then
     sid=$(start_with_repo "$name" "$cf") || exit 1
-    [ -n "${QARGI_DRY_RUN:-}" ] && exit 0
-    [ -n "$sid" ] || die "could not create the session with the repository mounted (check: qargi credential check $PROJECT)"
+    [ -n "${CROWN_DRY_RUN:-}" ] && exit 0
+    [ -n "$sid" ] || die "could not create the session with the repository mounted (check: crown credential check $PROJECT)"
     track "$name" "$sid"; return 0
   fi
   run=$(ant beta:deployments run --deployment-id "$(jq -r .deployment_id <<<"$i")" 2>/dev/null) || die "deployments run failed"
@@ -203,7 +203,7 @@ send() {
   [ -n "$task" ] || usage_die "send needs the task text"
   local base=''; if is_base_inst "$name" && [ -n "$BROLE" ]; then base=1; else no_base_opts "$name"; fi
   if [ -n "$NEW" ]; then
-    if [ -n "${QARGI_DRY_RUN:-}" ]; then start "$name"; else start "$name" >/dev/null; fi
+    if [ -n "${CROWN_DRY_RUN:-}" ]; then start "$name"; else start "$name" >/dev/null; fi
     sid=$LAST_SID
   elif [ -n "$base" ]; then
     # a session of a base is reused only for the role, profile, model and effort it was started for
@@ -226,7 +226,7 @@ send() {
   fi
   trk_refresh "$sid" || die "cannot read session $sid"
   check_budget "$sid" 2>/dev/null
-  [ "$(jq -r --arg s "$sid" '.[$s].budget' "$TRK")" != none ] || die "session $sid has no spend budget; set one on the deployment (qargi instances budget $name CENTS --asked ...) and start a new session"
+  [ "$(jq -r --arg s "$sid" '.[$s].budget' "$TRK")" != none ] || die "session $sid has no spend budget; set one on the deployment (crown instances budget $name CENTS --asked ...) and start a new session"
   [ "$(jq -r --arg s "$sid" '.[$s].status' "$TRK")" = idle ] || die "session $sid is not idle (see: status)"
   json_update "$TRK" '.[$s].label = $l' --arg s "$sid" --arg l "$LABEL"
   set_title "$sid" "$name" "$LABEL"

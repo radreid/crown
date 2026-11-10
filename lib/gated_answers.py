@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The one place that stores the two answers no `qargi project` verb stores: models.extensions (what a project adds to its runtime) and
+"""The one place that stores the two answers no `crown project` verb stores: models.extensions (what a project adds to its runtime) and
 models.accept_no_barrier.SURFACE (the owner's acceptance of a provider surface with no read-only barrier). Both change what an agent may run
-on, so each has its own verb with a plan token and an approval (`qargi provider enable|disable`, `qargi provider accept`), and those verbs
-store through here, after their gate, and nowhere else: `qargi project set` and `qargi project init` refuse the keys always, and nothing a
+on, so each has its own verb with a plan token and an approval (`crown provider enable|disable`, `crown provider accept`), and those verbs
+store through here, after their gate, and nowhere else: `crown project set` and `crown project init` refuse the keys always, and nothing a
 caller can set (no environment variable, no option) opens them there.
 
   gated_answers.py store PROJECT PATH JSON [--conf DIR]     PATH is models.extensions or models.accept_no_barrier.local|cloud
@@ -73,7 +73,7 @@ def store(project, path, value, conf=None):
             f.write("\n")
         os.chmod(tmp, 0o600)
         r = subprocess.run([os.path.join(HERE, "project.sh"), "validate", tmp], capture_output=True, text=True, stdin=subprocess.DEVNULL,
-                           env=dict(os.environ, QARGI_CONF=conf))
+                           env=dict(os.environ, CROWN_CONF=conf))
         if r.returncode != 0:
             raise Refused("that would make the project invalid: %s" % (r.stdout or r.stderr).strip())
         os.replace(tmp, target)
@@ -93,7 +93,7 @@ def main(argv):
         conf = argv[k + 1] if k + 1 < len(argv) else None
         argv = argv[:k] + argv[k + 2:]
         if conf is None:
-            print("qargi: --conf needs a directory", file=sys.stderr)
+            print("crown: --conf needs a directory", file=sys.stderr)
             return 2
     if len(argv) != 4 or argv[0] != "store":
         print("usage: gated_answers.py store PROJECT PATH JSON [--conf DIR]", file=sys.stderr)
@@ -101,12 +101,12 @@ def main(argv):
     try:
         value = json.loads(argv[3])
     except ValueError:
-        print("qargi: the value is not JSON", file=sys.stderr)
+        print("crown: the value is not JSON", file=sys.stderr)
         return 2
     try:
         store(argv[1], argv[2], value, conf)
     except Refused as e:
-        print("qargi: %s; nothing changed" % e, file=sys.stderr)
+        print("crown: %s; nothing changed" % e, file=sys.stderr)
         return 1
     return 0
 

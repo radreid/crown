@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The documentation site of a release (the part of `qargi release site`, `release status` and `release finish` that is not shell).
+"""The documentation site of a release (the part of `crown release site`, `release status` and `release finish` that is not shell).
 
 Answers, under `site` in the project's answers file (all optional; nothing happens while site.enabled is not true):
   site.enabled   true: the project regenerates its site when a release ships (release finish ends with the next step, release status
@@ -11,7 +11,7 @@ Answers, under `site` in the project's answers file (all optional; nothing happe
 
   release_site.py problems AF                print the problems of the `site` answers; exit 1 if there are any
   release_site.py config AF                  print "enabled<TAB>branch<TAB>config<TAB>pages"; exit 1 with the problems
-  release_site.py lead-only                  exit 2 in a member run or when QARGI_NESTED is set
+  release_site.py lead-only                  exit 2 in a member run or when CROWN_NESTED is set
   release_site.py set-release FILE VERSION   set "release" in the site.json FILE to VERSION (rewritten only when it differs)
   release_site.py next AF METHODOLOGY VER    print "next: ..." for each after_release step of the methodology whose answer is true
 """
@@ -59,7 +59,7 @@ def problems(c):
         if k not in SITE_KEYS:
             out.append("site.%s: unknown key (%s)" % (k, ", ".join(SITE_KEYS)))
     if "enabled" in site and not isinstance(site["enabled"], bool):
-        out.append("site.enabled: true or false (true: the site is regenerated when a release ships, with qargi release site VERSION)")
+        out.append("site.enabled: true or false (true: the site is regenerated when a release ships, with crown release site VERSION)")
     det = (c.get("repo") or {}).get("detached") or []
     det = det if isinstance(det, list) else []
     enabled, branch, config, _ = resolved(c)
@@ -124,22 +124,22 @@ def main(argv):
         c = load(rest[0])
         bad = problems(c)
         if bad:
-            print("qargi: the site answers are not valid: " + "; ".join(bad), file=sys.stderr)
+            print("crown: the site answers are not valid: " + "; ".join(bad), file=sys.stderr)
             return 1
         enabled, branch, config, pages = resolved(c)
         print("\t".join([("true" if enabled else "false"), branch or "", config, pages]))
         return 0
     if cmd == "lead-only" and not rest:
         import marshal_refs
-        if os.environ.get("QARGI_NESTED") or marshal_refs.in_member_run():
-            print("qargi: release site is not available in a member run or a nested call: it writes a commit on the lead's site branch", file=sys.stderr)
+        if os.environ.get("CROWN_NESTED") or marshal_refs.in_member_run():
+            print("crown: release site is not available in a member run or a nested call: it writes a commit on the lead's site branch", file=sys.stderr)
             return 2
         return 0
     if cmd == "set-release" and len(rest) == 2:
         try:
             set_release(rest[0], rest[1])
         except (OSError, ValueError) as e:
-            print("qargi: the site configuration %s cannot take the release: %s" % (rest[0], e), file=sys.stderr)
+            print("crown: the site configuration %s cannot take the release: %s" % (rest[0], e), file=sys.stderr)
             return 1
         return 0
     if cmd == "next" and len(rest) == 3:
@@ -151,7 +151,7 @@ def main(argv):
         for line in next_steps(load(rest[0]), steps, rest[2]):
             print(line)
         return 0
-    print("qargi: usage: release_site.py problems AF | config AF | lead-only | set-release FILE VERSION | next AF METHODOLOGY VERSION", file=sys.stderr)
+    print("crown: usage: release_site.py problems AF | config AF | lead-only | set-release FILE VERSION | next AF METHODOLOGY VERSION", file=sys.stderr)
     return 2
 
 

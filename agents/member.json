@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "kind": "member",
-  "description": "A qargi member for one task at a time (roles: {abilities}). Works in its own clone and returns patches or a report. Dispatched only by /qargi-task or /qargi-team; never pushes.",
+  "description": "A crown member for one task at a time (roles: {abilities}). Works in its own clone and returns patches or a report. Dispatched only by /crown-task or /crown-team; never pushes.",
   "body": "member.body.md",
   "tools": {
     "required": ["shell", "read", "edit", "write"],

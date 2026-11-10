@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""qargi render: turns a neutral agent definition into the files a runtime reads. Stdlib only (Python 3.11 or later: tomllib).
+"""crown render: turns a neutral agent definition into the files a runtime reads. Stdlib only (Python 3.11 or later: tomllib).
 
-Emitters (qargi's own, deterministic: UTF-8, LF, exactly one trailing newline, the key order of the map you give):
+Emitters (crown's own, deterministic: UTF-8, LF, exactly one trailing newline, the key order of the map you give):
   emit(fmt, data, body=None)        fmt is one of FORMATS; data is a map; body is the text of a markdown file or of a text file
   emit_json / emit_yaml / emit_toml(data)   emit_markdown(meta, body)   emit_text(text)
 Readers, used to verify every render by parsing it back:
@@ -17,7 +17,7 @@ The `map` renderer, from data (see render_map):
                                     mapped values, or RenderError. definition is the neutral agent definition (name, description,
                                     abilities, class write|read-only, tier, effort, tools, body, ...), spec the renderer's data.
 The `command` renderer, the escape hatch (render_command): an executable text file, run with the definition and the spec as
-JSON on stdin, no shell, a timeout, a fixed small environment, a temporary directory as cwd; its stdout is the file. qargi does
+JSON on stdin, no shell, a timeout, a fixed small environment, a temporary directory as cwd; its stdout is the file. crown does
 not decide whether to trust the executable (the caller approves it and checks its hash); this module refuses a path outside the
 root it is given, anything that is not a regular, executable UTF-8 text file, and output that is not UTF-8 text.
   render(definition, spec, root=None, resolver=None, extra=None, timeout=None)     either engine, by spec["engine"]
@@ -1249,7 +1249,7 @@ def render_command(definition, spec, root=None, resolver=None, extra=None, timeo
     data = canonical_json({"definition": definition, "spec": spec, "resolved": resolved}).encode("utf-8")
     if len(data) > MAX_STDIN:
         _fail("command: the input is larger than %d MiB" % (MAX_STDIN // (1024 * 1024)))
-    cwd = tempfile.mkdtemp(prefix="qargi-render.")
+    cwd = tempfile.mkdtemp(prefix="crown-render.")
     try:
         env = {"PATH": CHILD_PATH, "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "HOME": cwd, "TMPDIR": cwd, "TZ": "UTC"}
         status, out, err = _run([real] + spec["command"][1:], data, cwd, env, limit)

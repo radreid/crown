@@ -10,7 +10,7 @@ answers), project, shared and system (user directories under paths.root()/memory
 directory tiers: memory.tiers = {repo: {path}, project: {path}, shared: {path}, system: {path}}; every key is optional.
 The reference store is not a tier. A note (canon.is_note) may exist in exactly one tier; the structural files (markers,
 READMEs, indexes, tools, archives) repeat in every tier and are exempt. This module is the only one that knows the order.
-Importing it creates nothing. QARGI_CANON_FIXTURE_DIR replaces the cloud with <dir>/<store id>.jsonl, as for canon.sh."""
+Importing it creates nothing. CROWN_CANON_FIXTURE_DIR replaces the cloud with <dir>/<store id>.jsonl, as for canon.sh."""
 import json, os, re, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ import canon, membackend, paths
 ORDER = ("repo", "cloud", "project", "shared", "system")
 DIRS = ("repo", "project", "shared", "system")
 STRUCTURAL = re.compile(r"^/(CANON|README|_template)\.md$|/INDEX\.md$|^/roles/[^/]+/tools/|^/_(archive|conflicts)/")
-REPO_DEFAULT = "qargi/memory"
+REPO_DEFAULT = "crown/memory"
 NO_ANT = "ant not installed or not logged in"
 
 
@@ -83,7 +83,7 @@ def resolve(answers, project):
 
 
 def _fixture(tier):
-    fd = os.environ.get("QARGI_CANON_FIXTURE_DIR")
+    fd = os.environ.get("CROWN_CANON_FIXTURE_DIR")
     return os.path.join(fd, tier["store_id"] + ".jsonl") if fd and tier.get("store_id") else None
 
 
@@ -152,7 +152,7 @@ def check_args(tier, project, roles, marker=None):
 def _project(argv_project):
     if argv_project:
         return argv_project
-    p = os.environ.get("QARGI_PROJECT")
+    p = os.environ.get("CROWN_PROJECT")
     if p:
         return p
     try:
@@ -171,7 +171,7 @@ def _answers(project):
         with open(f) as h:
             a = json.load(h)
     except OSError:
-        return None, "no stored answers for %s: run /qargi-project first" % project
+        return None, "no stored answers for %s: run /crown-project first" % project
     except ValueError:
         return None, "the stored answers of %s are not valid JSON" % project
     if not isinstance(a, dict):
@@ -223,7 +223,7 @@ def cmd_tiers(project, a, as_json, ant):
 def _canon_check(name, t, lst, project, roles):
     """Run canon.py check on a dump of the listing -> (output lines, fails, warns)."""
     pa, rcsv = check_args(t, project, roles, (lst.get("/CANON.md") or {}).get("content"))
-    fd, dump = tempfile.mkstemp(prefix="qargi-tier-", suffix=".jsonl")
+    fd, dump = tempfile.mkstemp(prefix="crown-tier-", suffix=".jsonl")
     try:
         with os.fdopen(fd, "w") as f:
             for p in sorted(lst):
@@ -257,11 +257,11 @@ def cmd_check(project, a, ant):
             state, _ = canon.detect("memory", lst)
             if state == "unknown" and canon.detect("memory", lst, check_args(t, project, roles or ["build"])[1].split(","))[0] == "empty":
                 # the first files of a set-up that stopped before it wrote the marker: init finishes it from the seed, so the way out is init, not a path
-                infos.append("INFO tier %s: a set-up that was interrupted before it wrote the marker (qargi memory init %s finishes it)" % (name, name))
+                infos.append("INFO tier %s: a set-up that was interrupted before it wrote the marker (crown memory init %s finishes it)" % (name, name))
                 continue
             if state == "unknown":
-                how = ("qargi project set %s memory.memory_store ID" % project) if t["kind"] == "cloud" else \
-                      ("qargi project set %s memory.tiers.%s.path DIR" % (project, name))
+                how = ("crown project set %s memory.memory_store ID" % project) if t["kind"] == "cloud" else \
+                      ("crown project set %s memory.tiers.%s.path DIR" % (project, name))
                 print("FAIL tier %s: no canon marker and no known layout; if the directory is wrong, correct it with: %s" % (name, how))
                 fails += 1
                 continue
@@ -270,15 +270,15 @@ def cmd_check(project, a, ant):
             fails += f
             warns += w
         elif st == "missing":
-            infos.append("INFO tier %s: missing (qargi memory init %s)" % (name, name) if t["kind"] == "dir"
+            infos.append("INFO tier %s: missing (crown memory init %s)" % (name, name) if t["kind"] == "dir"
                          else "INFO tier %s: missing (%s)" % (name, why))
         elif st == "empty":
-            infos.append("INFO tier %s: empty (qargi memory init %s)" % (name, name))
+            infos.append("INFO tier %s: empty (crown memory init %s)" % (name, name))
         else:
             infos.append("INFO tier %s: unreachable, collisions computed without it (%s)" % (name, why))
     print("== tiers")
     for p, ts in collisions(lists):
-        print("FAIL %s: in tiers %s (a note lives in one tier; qargi memory move PATH --from T --to T)" % (p, ", ".join(ts)))
+        print("FAIL %s: in tiers %s (a note lives in one tier; crown memory move PATH --from T --to T)" % (p, ", ".join(ts)))
         fails += 1
     for i in infos:
         print(i)
@@ -307,13 +307,13 @@ def main(argv):
         project = _project(project)
         a, err = _answers(project)
         if err:
-            print("qargi: " + err, file=sys.stderr)
+            print("crown: " + err, file=sys.stderr)
             return 1
         return cmd_tiers(project, a, as_json, ant) if verb == "tiers" else cmd_check(project, a, ant)
     except BrokenPipeError:
         return 0
     except Exception as e:
-        print("qargi: memory %s failed: %s" % (verb, e), file=sys.stderr)
+        print("crown: memory %s failed: %s" % (verb, e), file=sys.stderr)
         return 1
 
 

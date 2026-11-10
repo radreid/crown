@@ -4,7 +4,7 @@ claude-lock.json
 .env
 __pycache__/
 *.pyc
-.qargi/
+.crown/
 
 # Claude Code
 .claude/worktrees/

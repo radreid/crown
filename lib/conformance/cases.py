@@ -1,10 +1,10 @@
-"""The hermetic cases of `qargi provider check`: what can be shown about a provider definition without a live runtime, and which
+"""The hermetic cases of `crown provider check`: what can be shown about a provider definition without a live runtime, and which
 capabilities that backs. A library for lib/conformance/library.py; it does nothing when run.
 
   CAP_CASES      capability -> the cases that back it: a capability is verified when it is CLAIMED (yes or partial), at least one of its
                  cases applies to the definition and passed, and none failed or could not run. A capability that no case backs (the
                  vendor's own behaviour: a model id, an OS sandbox, a spend ceiling the vendor enforces) stays unverified until the owner
-                 attests it (qargi provider attest).
+                 attests it (crown provider attest).
   run(...)       {case: {status: pass|fail|skip|na, notes: [..]}}   na: the definition has nothing of that kind; skip: it could not run
   verdicts(...)  {capability: (verified, why)} for every capability the definition claims
 
@@ -14,7 +14,7 @@ The cases:
                                        copy of the sealed pack, after its hash was checked
   link-skills      skills              the link engine plans, applies and undoes the skills link in a temporary git repository
   barrier-hook     read_only_barrier   the barrier corpus (lib/conformance/barrier-corpus.jsonl), turned into the hook's own payloads with the
-                                       pointers and tool names of the definition, goes through `qargi __guard --provider NAME`: every deny
+                                       pointers and tool names of the definition, goes through `crown __guard --provider NAME`: every deny
                                        is a deny in the hook's way, every allow an allow
   barrier-adapter  read_only_barrier   the conformance harness (lib/conformance/run.sh) on the adapter of the pack, case 8
   adapter-cost     session_budget_ceiling   the harness, case 7 (cost is in cents or null), for a pack with an adapter and a conformance/ stub
@@ -60,11 +60,11 @@ def verdicts(doc, results):
             continue
         ids = CAP_CASES.get(cap)
         if not ids:
-            out[cap] = (False, "no hermetic case backs it (a fact about the vendor's runtime); qargi provider attest records a check you ran")
+            out[cap] = (False, "no hermetic case backs it (a fact about the vendor's runtime); crown provider attest records a check you ran")
             continue
         rs = [(i, results[i]) for i in ids if i in results and results[i]["status"] != "na"]
         if not rs:
-            out[cap] = (False, "no case applies to this definition; qargi provider attest records a check you ran")
+            out[cap] = (False, "no case applies to this definition; crown provider attest records a check you ran")
         elif any(r["status"] == "fail" for _, r in rs):
             out[cap] = (False, "failed: " + ", ".join(i for i, r in rs if r["status"] == "fail"))
         elif any(r["status"] == "skip" for _, r in rs):
@@ -106,7 +106,7 @@ def run_extension(comp, ext, directory, opts=None):
         except Exception as e:                                       # a case that breaks is a failure of the pack, not a crash of the verb
             res[ids[0]] = result("fail", "%s: %s" % (type(e).__name__, e))
     for i in sorted(needed & {"barrier-hook", "barrier-adapter", "adapter-cost"}):
-        res[i] = result("skip", "the guard and the adapter harness read a runtime by its name, not a composition; qargi provider attest records a check you ran")
+        res[i] = result("skip", "the guard and the adapter harness read a runtime by its name, not a composition; crown provider attest records a check you ran")
     return res
 
 
@@ -115,10 +115,10 @@ def run_extension(comp, ext, directory, opts=None):
 SAMPLES = (
     {"name": "conformance-member", "description": "a sample member: it renders and does nothing else", "abilities": ["build"], "class": "write", "tier": "balanced",
      "model": "balanced", "effort": "high", "tools": {"required": ["read"], "optional": ["shell", "edit", "write", "search_text", "search_files"]},
-     "body": "You are a sample member.\nDo the task and report.\n", "guard_command": "qargi __guard", "barrier": {"class": "write", "guard_command": "qargi __guard"}},
+     "body": "You are a sample member.\nDo the task and report.\n", "guard_command": "crown __guard", "barrier": {"class": "write", "guard_command": "crown __guard"}},
     {"name": "conformance-reviewer", "description": "a sample reviewer: it reads and reports", "abilities": ["review"], "class": "read-only", "tier": "deep",
      "model": "deep", "effort": "high", "tools": {"required": ["read"], "optional": ["search_text", "search_files"]},
-     "body": "You review and write nothing.\n", "guard_command": "qargi __guard --class read-only", "barrier": {"class": "read-only", "guard_command": "qargi __guard --class read-only"}},
+     "body": "You review and write nothing.\n", "guard_command": "crown __guard --class read-only", "barrier": {"class": "read-only", "guard_command": "crown __guard --class read-only"}},
 )
 
 
@@ -148,7 +148,7 @@ def render_agent(doc, directory, name, sealed, usable):
                 return {"render-agent": result("skip", "a command renderer runs only from a sealed library pack")}
             cmd = spec.get("command")
             rel = cmd[0] if isinstance(cmd, list) and cmd else None
-            tmp, _ = P.exec_copy(name, rel)       # tmp is the pack inside qargi-exec.XXXX/: discard_exec_copy removes the whole of it
+            tmp, _ = P.exec_copy(name, rel)       # tmp is the pack inside crown-exec.XXXX/: discard_exec_copy removes the whole of it
             root = tmp
         resolver = resolver_of(doc)
         seen = []
@@ -175,7 +175,7 @@ def link_skills(doc, directory, name, sealed, usable):
     if not isinstance(sk, dict) or not sk.get("project_dir") or mode in (None, "none"):
         return {"link-skills": result("na")}
     import linker as LK
-    tmp = tempfile.mkdtemp(prefix="qargi-link.")
+    tmp = tempfile.mkdtemp(prefix="crown-link.")
     here = os.getcwd()
     try:
         os.chmod(tmp, 0o700)
@@ -255,7 +255,7 @@ def fill(v, run, clone, out):
 def hook_problem(hook):
     """What is wrong with hook protocol data according to the guard itself (lib/guard.py hook_problem), or None."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("qargi_guard_hook_data", os.path.join(LIB, "guard.py"))
+    spec = importlib.util.spec_from_file_location("crown_guard_hook_data", os.path.join(LIB, "guard.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod.hook_problem(hook)
@@ -273,7 +273,7 @@ def barrier_hook(doc, directory, name, sealed, usable):
     why = hook_problem(hook)
     if why:                                               # data the guard would not use, or one whose refusal reads as an allow: no corpus call can tell
         return {"barrier-hook": result("fail", "the guard cannot use the hook data: " + why)}
-    tmp = tempfile.mkdtemp(prefix="qargi-barrier.")
+    tmp = tempfile.mkdtemp(prefix="crown-barrier.")
     try:
         os.chmod(tmp, 0o700)
         run_dir = os.path.join(tmp, "run")
@@ -285,7 +285,7 @@ def barrier_hook(doc, directory, name, sealed, usable):
                 f.write(text)
         home = os.path.join(tmp, "home")
         os.makedirs(home)
-        env = {k: v for k, v in os.environ.items() if k in ("PATH", "LANG", "QARGI_CONF", "QARGI_STATE", "QARGI_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME")}
+        env = {k: v for k, v in os.environ.items() if k in ("PATH", "LANG", "CROWN_CONF", "CROWN_STATE", "CROWN_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME")}
         env["HOME"] = home
         guard = os.path.join(LIB, "guard.py")
         names = hook.get("tool_names") if isinstance(hook.get("tool_names"), dict) else {}
@@ -353,7 +353,7 @@ def adapter_harness(doc, directory, name, sealed, usable):
     if not os.path.isfile(os.path.join(stub_dir, "stub")):
         return {i: result("skip", "the pack has no conformance/stub (the stand-in for the vendor) to run the adapter against") for i in ids}
     ranges = {}
-    tmp = tempfile.mkdtemp(prefix="qargi-adapter.")
+    tmp = tempfile.mkdtemp(prefix="crown-adapter.")
     copy = None
     try:
         os.chmod(tmp, 0o700)

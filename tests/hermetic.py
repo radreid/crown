@@ -1,6 +1,6 @@
 """Imported first by every Python test (the tests directory is on sys.path when a test runs as a script).
 It makes the test independent of the caller, with the environment of tests/hermetic.sh (read its header for the reasons): no ANTHROPIC_*
-or QARGI_* variable gets through, HOME, TMPDIR and qargi's config and state are fresh directories under one temporary directory (ROOT,
+or CROWN_* variable gets through, HOME, TMPDIR and crown's config and state are fresh directories under one temporary directory (ROOT,
 removed at exit; what tempfile makes goes into ROOT/tmp), and the first `ant` and `claude` on PATH are stubs that fail, so a test that
 did not bring its own fake cannot reach the real tools. The locale, time zone and umask are fixed, git reads no configuration of the
 host or the user and has a default branch name (no identity: a test that commits sets its own), and python writes no bytecode. A test can still build its own
@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 
-for _k in [k for k in os.environ if k.startswith(("ANTHROPIC_", "QARGI_"))]:
+for _k in [k for k in os.environ if k.startswith(("ANTHROPIC_", "CROWN_"))]:
     del os.environ[_k]
 # A TMPDIR that is gone (removed under the test) is not replaced by another directory: tempfile would quietly fall back to /tmp,
 # outside the temporary root the caller gave the test. The test does not run (the same rule as tests/hermetic.sh).
@@ -28,7 +28,7 @@ for _t in ("ant", "claude"):
     with open(_p, "w") as _f:
         _f.write('#!/bin/sh\necho "hermetic test: the real %s is not available; put a fake first on PATH" >&2\nexit 127\n' % _t)
     os.chmod(_p, 0o755)
-os.environ.update(HOME=os.path.join(ROOT, "home"), QARGI_CONF=os.path.join(ROOT, "conf"), QARGI_STATE=os.path.join(ROOT, "state"),
+os.environ.update(HOME=os.path.join(ROOT, "home"), CROWN_CONF=os.path.join(ROOT, "conf"), CROWN_STATE=os.path.join(ROOT, "state"),
                   XDG_CONFIG_HOME=os.path.join(ROOT, "home", ".config"), XDG_STATE_HOME=os.path.join(ROOT, "home", ".local", "state"),
                   PATH=os.path.join(ROOT, "bin") + os.pathsep + os.environ.get("PATH", ""))
 # the temporary files of the test and of what it runs go into ROOT: tempfile has cached the caller's directory by now

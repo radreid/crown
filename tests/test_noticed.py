@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""qargi noticed and mark --why: notes from a manifest, dispositions, the report lines. Offline; temporary state.
+"""crown noticed and mark --why: notes from a manifest, dispositions, the report lines. Offline; temporary state.
 Run: python3 tests/test_noticed.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, subprocess, sys, tempfile, unittest
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import noticed as N  # noqa: E402
 
@@ -16,7 +16,7 @@ class Base(unittest.TestCase):
         self.t = tempfile.mkdtemp()
         self.state, self.conf = os.path.join(self.t, "s"), os.path.join(self.t, "c")
         os.makedirs(self.state), os.makedirs(self.conf)
-        self.env = dict(os.environ, HOME=self.t, QARGI_STATE=self.state, QARGI_CONF=self.conf)
+        self.env = dict(os.environ, HOME=self.t, CROWN_STATE=self.state, CROWN_CONF=self.conf)
 
     def q(self, *a):
         return subprocess.run([BIN, *a], capture_output=True, text=True, env=self.env)

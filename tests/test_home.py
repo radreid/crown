@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Where qargi keeps its data: the resolver (lib/paths.py and lib/lib.sh), installed and dev runs, and
+"""Where crown keeps its data: the resolver (lib/paths.py and lib/lib.sh), installed and dev runs, and
 the install record install.sh writes. Every run uses a temporary HOME; nothing here touches the real directories."""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, shutil, stat, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CLEAN = ("QARGI_CONF", "QARGI_STATE", "QARGI_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "QARGI_PROJECT", "QARGI_NESTED")
-BANNER = "qargi: dev run from %s; data in %s/.qargi (QARGI_HOME=~/.qargi uses live data)"
+CLEAN = ("CROWN_CONF", "CROWN_STATE", "CROWN_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "CROWN_PROJECT", "CROWN_NESTED")
+BANNER = "crown: dev run from %s; data in %s/.crown (CROWN_HOME=~/.crown uses live data)"
 
 
 def slurp(path):
@@ -21,7 +21,7 @@ class Base(unittest.TestCase):
         os.makedirs(self.home)
         self.env = {k: v for k, v in os.environ.items() if k not in CLEAN}
         self.env["HOME"] = self.home
-        self.live = os.path.join(self.home, ".qargi")
+        self.live = os.path.join(self.home, ".crown")
 
     def tearDown(self):
         shutil.rmtree(self.t, ignore_errors=True)
@@ -41,7 +41,7 @@ class Base(unittest.TestCase):
         return subprocess.run(argv, capture_output=True, text=True, env=e, input=input, stdin=None if input is not None else subprocess.DEVNULL)
 
     def q(self, tool, *a, **env):
-        return self.run_([os.path.join(tool, "bin", "qargi"), *a], **env)
+        return self.run_([os.path.join(tool, "bin", "crown"), *a], **env)
 
     def where(self, tool, **env):
         """(python, shell) answers to 'where are config and state', from the tool's own copy of each resolver."""
@@ -69,14 +69,14 @@ class Resolver(Base):
     def test_default_is_under_the_home(self):
         self.assertEqual(self.where(ROOT), (self.live + "/config", self.live + "/state", False))
 
-    def test_precedence_conf_state_then_qargi_home_then_default(self):
+    def test_precedence_conf_state_then_crown_home_then_default(self):
         qh = os.path.join(self.t, "qh")
-        self.assertEqual(self.where(ROOT, QARGI_HOME=qh), (qh + "/config", qh + "/state", False))
+        self.assertEqual(self.where(ROOT, CROWN_HOME=qh), (qh + "/config", qh + "/state", False))
         c, s = os.path.join(self.t, "c"), os.path.join(self.t, "s")
-        self.assertEqual(self.where(ROOT, QARGI_HOME=qh, QARGI_CONF=c), (c, qh + "/state", False))
-        self.assertEqual(self.where(ROOT, QARGI_HOME=qh, QARGI_STATE=s), (qh + "/config", s, False))
-        self.assertEqual(self.where(ROOT, QARGI_HOME=qh, QARGI_CONF=c, QARGI_STATE=s), (c, s, False))
-        self.assertEqual(self.where(ROOT, QARGI_CONF=c, QARGI_STATE=s), (c, s, False))
+        self.assertEqual(self.where(ROOT, CROWN_HOME=qh, CROWN_CONF=c), (c, qh + "/state", False))
+        self.assertEqual(self.where(ROOT, CROWN_HOME=qh, CROWN_STATE=s), (qh + "/config", s, False))
+        self.assertEqual(self.where(ROOT, CROWN_HOME=qh, CROWN_CONF=c, CROWN_STATE=s), (c, s, False))
+        self.assertEqual(self.where(ROOT, CROWN_CONF=c, CROWN_STATE=s), (c, s, False))
 
     def test_xdg_variables_do_not_move_the_data(self):
         r = self.where(ROOT, XDG_CONFIG_HOME=os.path.join(self.t, "x1"), XDG_STATE_HOME=os.path.join(self.t, "x2"))
@@ -92,8 +92,8 @@ class Resolver(Base):
         self.assertFalse(os.path.exists(os.path.join(self.home, ".config")), "the XDG location was used")
 
     def test_xdg_directories_that_exist_are_not_data(self):
-        os.makedirs(os.path.join(self.home, ".config", "qargi"))
-        os.makedirs(os.path.join(self.home, ".local", "state", "qargi"))
+        os.makedirs(os.path.join(self.home, ".config", "crown"))
+        os.makedirs(os.path.join(self.home, ".local", "state", "crown"))
         r = self.q(ROOT, "project", "list")
         self.assertEqual((r.returncode, r.stderr), (0, ""))
         self.assertTrue(os.path.isdir(self.live + "/config"), "the new root was not created beside them")
@@ -107,8 +107,8 @@ class DevRun(Base):
 
     def test_detection_compares_real_paths(self):
         self.assertEqual(self.where(self.inst), (self.live + "/config", self.live + "/state", False))
-        self.assertEqual(self.where(self.dev), (self.dev + "/.qargi/config", self.dev + "/.qargi/state", True))
-        self.assertEqual(self.where(self.inst, QARGI_HOME=self.live), (self.live + "/config", self.live + "/state", False))
+        self.assertEqual(self.where(self.dev), (self.dev + "/.crown/config", self.dev + "/.crown/state", True))
+        self.assertEqual(self.where(self.inst, CROWN_HOME=self.live), (self.live + "/config", self.live + "/state", False))
         # a record that names the tool through a link is still the same tool
         link = os.path.join(self.t, "link-to-installed")
         os.symlink(self.inst, link)
@@ -116,12 +116,12 @@ class DevRun(Base):
         self.assertEqual(self.where(self.inst)[2], False)
         self.assertEqual(self.where(self.dev)[2], True)
         # and so is an invocation through a link
-        bin_link = os.path.join(self.t, "qargi-link")
-        os.symlink(os.path.join(self.inst, "bin", "qargi"), bin_link)
+        bin_link = os.path.join(self.t, "crown-link")
+        os.symlink(os.path.join(self.inst, "bin", "crown"), bin_link)
         r = self.run_([bin_link, "project", "list"])
         self.assertEqual((r.returncode, r.stderr), (0, ""))
-        bin_link2 = os.path.join(self.t, "qargi-link2")
-        os.symlink(os.path.join(self.dev, "bin", "qargi"), bin_link2)
+        bin_link2 = os.path.join(self.t, "crown-link2")
+        os.symlink(os.path.join(self.dev, "bin", "crown"), bin_link2)
         r = self.run_([bin_link2, "project", "list"])
         self.assertEqual(r.stderr.strip(), BANNER % (self.dev, self.dev))
 
@@ -130,11 +130,11 @@ class DevRun(Base):
         r = self.q(self.dev, "project", "list")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stderr.strip().splitlines(), [BANNER % (self.dev, self.dev)])
-        self.assertTrue(os.path.isfile(self.dev + "/.qargi/config/instances.json"))
-        self.assertTrue(os.path.isdir(self.dev + "/.qargi/state"))
-        self.assertEqual(self.snapshot(self.dev), sorted([".qargi", ".qargi/config", ".qargi/config/agents.json", ".qargi/config/instances.json",
-                                                         ".qargi/state", ".qargi/state/sessions.json", "bin", "bin/qargi", "lib", "VERSION"] +
-                                                        [os.path.relpath(os.path.join(d, n), self.dev) for d, ds, fs in os.walk(os.path.join(self.dev, "lib")) if "__pycache__" not in d for n in ds + fs if n != "__pycache__"]), "a dev run wrote outside .qargi")
+        self.assertTrue(os.path.isfile(self.dev + "/.crown/config/instances.json"))
+        self.assertTrue(os.path.isdir(self.dev + "/.crown/state"))
+        self.assertEqual(self.snapshot(self.dev), sorted([".crown", ".crown/config", ".crown/config/agents.json", ".crown/config/instances.json",
+                                                         ".crown/state", ".crown/state/sessions.json", "bin", "bin/crown", "lib", "VERSION"] +
+                                                        [os.path.relpath(os.path.join(d, n), self.dev) for d, ds, fs in os.walk(os.path.join(self.dev, "lib")) if "__pycache__" not in d for n in ds + fs if n != "__pycache__"]), "a dev run wrote outside .crown")
         self.assertEqual([p for p in self.snapshot(self.live) if p not in before], [], "a dev run touched live data")
         self.assertEqual(r.stdout, self.q(self.inst, "project", "list").stdout)
 
@@ -142,49 +142,49 @@ class DevRun(Base):
         r = self.q(self.inst, "project", "list")
         self.assertEqual((r.returncode, r.stderr), (0, ""))
         self.assertTrue(os.path.isfile(self.live + "/config/instances.json"))
-        self.assertFalse(os.path.exists(self.inst + "/.qargi"), "an installed run wrote into the tool directory")
+        self.assertFalse(os.path.exists(self.inst + "/.crown"), "an installed run wrote into the tool directory")
 
     def test_no_install_record_means_the_checkout_behaves_as_installed(self):
         os.remove(self.live + "/config/install.json")
         self.assertEqual(self.where(self.dev), (self.live + "/config", self.live + "/state", False))
         r = self.q(self.dev, "project", "list")
         self.assertEqual((r.returncode, r.stderr), (0, ""))
-        self.assertFalse(os.path.exists(self.dev + "/.qargi"))
+        self.assertFalse(os.path.exists(self.dev + "/.crown"))
         with open(self.live + "/config/install.json", "w") as f:       # a record that cannot be read is no record
             f.write("not json")
         self.assertEqual(self.where(self.dev)[2], False)
 
     def test_an_explicit_location_overrides_the_sandbox_even_live_data(self):
-        for env, want in ((dict(QARGI_HOME=self.live), self.live + "/config"), (dict(QARGI_HOME=os.path.join(self.t, "qh")), os.path.join(self.t, "qh/config")),
-                          (dict(QARGI_CONF=os.path.join(self.t, "c")), os.path.join(self.t, "c"))):
+        for env, want in ((dict(CROWN_HOME=self.live), self.live + "/config"), (dict(CROWN_HOME=os.path.join(self.t, "qh")), os.path.join(self.t, "qh/config")),
+                          (dict(CROWN_CONF=os.path.join(self.t, "c")), os.path.join(self.t, "c"))):
             self.assertEqual(self.where(self.dev, **env)[0], want, env)
             r = self.q(self.dev, "project", "list", **env)
             self.assertEqual((r.returncode, r.stderr), (0, ""), env)
-        self.assertFalse(os.path.exists(self.dev + "/.qargi"))
-        r = self.q(self.dev, "project", "list", QARGI_STATE=os.path.join(self.t, "s"))
+        self.assertFalse(os.path.exists(self.dev + "/.crown"))
+        r = self.q(self.dev, "project", "list", CROWN_STATE=os.path.join(self.t, "s"))
         self.assertEqual((r.returncode, r.stderr), (0, ""))
 
     def test_no_banner_for_help_version_completion_guard_and_hooks(self):
         for argv in (("help",), ("help", "dev"), ("version",), ("__complete", "project"), ("project", "--help"), ("hook", "tool-use")):
-            r = self.run_([os.path.join(self.dev, "bin", "qargi"), *argv], input="{}")
+            r = self.run_([os.path.join(self.dev, "bin", "crown"), *argv], input="{}")
             self.assertEqual(r.returncode, 0, argv)
             # the banner is a line of its own on stderr; the text of `help dev` quotes it inside a sentence, wrapped to the width of the terminal
-            self.assertNotIn("qargi: dev run from", r.stderr, argv)
-            self.assertEqual([l for l in r.stdout.splitlines() if l.startswith("qargi: dev run from")], [], argv)
-        r = self.run_([os.path.join(self.dev, "bin", "qargi"), "__guard"], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}}))
+            self.assertNotIn("crown: dev run from", r.stderr, argv)
+            self.assertEqual([l for l in r.stdout.splitlines() if l.startswith("crown: dev run from")], [], argv)
+        r = self.run_([os.path.join(self.dev, "bin", "crown"), "__guard"], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}}))
         self.assertEqual((r.returncode, r.stderr, r.stdout), (0, "", ""))
-        self.assertFalse(os.path.exists(self.dev + "/.qargi/config"), "help, the guard or a hook created the sandbox config")
+        self.assertFalse(os.path.exists(self.dev + "/.crown/config"), "help, the guard or a hook created the sandbox config")
 
     def test_the_guard_of_a_dev_run_protects_the_live_library_and_its_own(self):
-        for lib in (self.live + "/config/packs", self.dev + "/.qargi/config/packs"):
+        for lib in (self.live + "/config/packs", self.dev + "/.crown/config/packs"):
             os.makedirs(lib)
-            r = self.run_([os.path.join(self.dev, "bin", "qargi"), "__guard"], input=json.dumps(
+            r = self.run_([os.path.join(self.dev, "bin", "crown"), "__guard"], input=json.dumps(
                 {"tool_name": "Write", "tool_input": {"file_path": lib + "/links.json"}, "cwd": self.t}))
             self.assertEqual(r.returncode, 2, (lib, r.stderr))
 
     def test_the_sandbox_is_ignored_by_version_control(self):
         with open(os.path.join(ROOT, ".gitignore")) as f:
-            self.assertIn(".qargi/", f.read().split())
+            self.assertIn(".crown/", f.read().split())
 
 
 class Install(Base):
@@ -212,9 +212,9 @@ class Install(Base):
     def test_copy_install_records_the_copied_tool(self):
         r = self.install("--user", "--copy")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(self.record()["tool_root"], os.path.join(self.home, ".local", "share", "qargi"))
+        self.assertEqual(self.record()["tool_root"], os.path.join(self.home, ".local", "share", "crown"))
         r = self.install("--user", "--copy", "--force", XDG_DATA_HOME=os.path.join(self.t, "data"))
-        self.assertEqual(self.record()["tool_root"], os.path.join(self.t, "data", "qargi"))
+        self.assertEqual(self.record()["tool_root"], os.path.join(self.t, "data", "crown"))
         self.assertTrue(self.where_installed(), "the checkout is a dev run once the copy is the installed tool")
 
     def test_a_second_install_replaces_the_record_and_uninstall_removes_it(self):
@@ -245,15 +245,15 @@ class Install(Base):
 
     def test_the_record_goes_to_the_live_location_that_is_named(self):
         qh = os.path.join(self.t, "qh")
-        self.assertEqual(self.install("--user", QARGI_HOME=qh).returncode, 0)
+        self.assertEqual(self.install("--user", CROWN_HOME=qh).returncode, 0)
         self.assertEqual(self.record(qh)["tool_root"], ROOT)
         self.assertFalse(os.path.lexists(self.live))
         c = os.path.join(self.t, "c")
-        self.assertEqual(self.install("--user", QARGI_CONF=c).returncode, 0)
+        self.assertEqual(self.install("--user", CROWN_CONF=c).returncode, 0)
         self.assertTrue(os.path.isfile(c + "/install.json"))
 
     def test_the_earlier_xdg_directories_do_not_hold_the_record_back(self):
-        os.makedirs(os.path.join(self.home, ".config", "qargi"))
+        os.makedirs(os.path.join(self.home, ".config", "crown"))
         r = self.install("--user")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.record()["tool_root"], ROOT)

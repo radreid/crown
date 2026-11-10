@@ -72,7 +72,7 @@ class Converter(unittest.TestCase):
     def test_supported_constructs(self):
         d = self.conv("## A *b* `c`\n\nSome **bold `code`** and _it_ snake_case x * y [l](/x/#h) \\* \\_\n\n"
                       "- one\n  more\n- two\n\n  para\n\n1. a\n2. b\n   - sub\n\n> q\n> r\n\n"
-                      "| a | `x\\|y` |\n|:--|--:|\n| 1 | 2 |\n\n```bash\nqargi x <a>\n```\n\n---\n")
+                      "| a | `x\\|y` |\n|:--|--:|\n| 1 | 2 |\n\n```bash\ncrown x <a>\n```\n\n---\n")
         h = d.html
         self.assertIn('<h2 id="a-b-c">A <em>b</em> <code>c</code> ', h)
         self.assertIn("<strong>bold <code>code</code></strong>", h)
@@ -82,11 +82,11 @@ class Converter(unittest.TestCase):
         self.assertIn("<ol><li>a</li><li>b<ul><li>sub</li></ul></li></ol>", h)
         self.assertIn("<blockquote><p>q\nr</p></blockquote>", h)
         self.assertIn('<th scope="col" style="text-align:right"><code>x|y</code></th>', h)
-        self.assertIn('<code class="language-bash">qargi x &lt;a&gt;</code>', h)
+        self.assertIn('<code class="language-bash">crown x &lt;a&gt;</code>', h)
         self.assertIn("<hr>", h)
         self.assertEqual([x[:3] for x in d.headings], [(2, "a-b-c", "A b c")])
         self.assertEqual(d.links, [(3, "/x/#h")])
-        self.assertIn((22, "fence:bash", "qargi x <a>"), d.code)
+        self.assertIn((22, "fence:bash", "crown x <a>"), d.code)
 
     def test_all_text_is_escaped(self):
         d = self.conv('## T&C "q"\n\nA < b and "x" & \'y\' `<script>` [a&b](https://e.org/?a=1&b=2)\n\n```text\n<img src=x onerror=alert(1)>\n```\n')
@@ -145,7 +145,7 @@ class Converter(unittest.TestCase):
 
     def test_a_line_that_starts_with_a_tag_is_found_outside_fences(self):
         text = "\n".join([
-            "a wrapped `qargi x",             # 1
+            "a wrapped `crown x",             # 1
             "<name>` call",                   # 2 found
             "> a quote `y",                   # 3
             "> <other>` and",                 # 4 found
@@ -242,32 +242,32 @@ class CommandChecks(unittest.TestCase):
     def words(self, line):
         out = []
         for seg in S.tokens_of(line):
-            if seg and seg[0] == "qargi":
+            if seg and seg[0] == "crown":
                 out.append(S.check_words(self.cmds, seg[1:]))
         return out
 
     def test_valid_forms(self):
-        for line in ["qargi project init acme --answers acme.json", "qargi help approvals", "qargi help project init", "qargi project", "qargi --help",
-                     "qargi agent add forge --roles build,test --model=sonnet", "qargi COMMAND [VERB]", "qargi <cmd> run", "qargi project init NAME --force",
-                     "qargi review check ./run && qargi review apply ./run", "qargi send acme-build \"$BRIEF\" --label x --asked \"use it\"",
-                     "qargi feature start|finish", "qargi project template acme > acme.json", "qargi project init --help"]:
+        for line in ["crown project init acme --answers acme.json", "crown help approvals", "crown help project init", "crown project", "crown --help",
+                     "crown agent add forge --roles build,test --model=sonnet", "crown COMMAND [VERB]", "crown <cmd> run", "crown project init NAME --force",
+                     "crown review check ./run && crown review apply ./run", "crown send acme-build \"$BRIEF\" --label x --asked \"use it\"",
+                     "crown feature start|finish", "crown project template acme > acme.json", "crown project init --help"]:
             self.assertEqual(self.words(line), [None] * len(self.words(line)), line)
 
     def test_invalid_forms(self):
-        for line, frag in [("qargi nonesuch", "no command 'nonesuch'"), ("qargi project frobnicate", "no verb 'frobnicate'"),
-                           ("qargi project init --nope", "no option --nope"), ("qargi agent add forge --roles build --bogus", "--bogus"),
-                           ("qargi help nonesuch", "no command or topic"), ("qargi help project nonesuch", "no verb"),
-                           ("qargi project --force init", "put the verb right after"), ("qargi projct init", "did you mean 'project'")]:
+        for line, frag in [("crown nonesuch", "no command 'nonesuch'"), ("crown project frobnicate", "no verb 'frobnicate'"),
+                           ("crown project init --nope", "no option --nope"), ("crown agent add forge --roles build --bogus", "--bogus"),
+                           ("crown help nonesuch", "no command or topic"), ("crown help project nonesuch", "no verb"),
+                           ("crown project --force init", "put the verb right after"), ("crown projct init", "did you mean 'project'")]:
             msgs = [m for m in self.words(line) if m]
             self.assertTrue(msgs and frag in msgs[0], "%s -> %s" % (line, msgs))
 
     def test_spans_and_blocks(self):
         self.assertEqual(list(S.check_code(self.cmds, "span", "--asked REQUEST", 3)), [])
-        self.assertEqual(list(S.check_code(self.cmds, "span", "--nope", 3)), [])          # options are checked on qargi command lines only
+        self.assertEqual(list(S.check_code(self.cmds, "span", "--nope", 3)), [])          # options are checked on crown command lines only
         self.assertEqual(list(S.check_code(self.cmds, "span", "install.sh --user", 3)), [])
-        self.assertEqual(len(list(S.check_code(self.cmds, "span", "qargi project init --nope", 3))), 1)
-        self.assertEqual(list(S.check_code(self.cmds, "fence:text", "qargi nonesuch", 1)), [])      # output blocks are not checked
-        got = list(S.check_code(self.cmds, "fence:bash", "# qargi nonesuch\nqargi project \\\n  frob\nFOO=1 qargi nope", 10))
+        self.assertEqual(len(list(S.check_code(self.cmds, "span", "crown project init --nope", 3))), 1)
+        self.assertEqual(list(S.check_code(self.cmds, "fence:text", "crown nonesuch", 1)), [])      # output blocks are not checked
+        got = list(S.check_code(self.cmds, "fence:bash", "# crown nonesuch\ncrown project \\\n  frob\nFOO=1 crown nope", 10))
         self.assertEqual([g[0] for g in got], [12, 14])
 
 
@@ -291,50 +291,50 @@ class ShellChecks(unittest.TestCase):
             self.assertEqual(got[0][0], line, text)
 
     def test_text_that_is_not_a_command_is_not_checked(self):
-        self.ok("cat <<EOF\nqargi nonesuch\nEOF\nqargi project init acme")
-        self.ok("cat <<'EOF' > f\nqargi nonesuch\n  EOF\nEOF\n")
-        self.ok("cat <<-EOF\n\tqargi nonesuch\n\tEOF\nqargi --version")
-        self.ok("qargi send x \"line one\nline two\" --label y")
-        self.ok("$ qargi --version\nqargi 0.2.0\n$ qargi project init acme\nreview: ok", kind="fence:console")
-        self.ok("$ qargi --version\nqargi 0.2.0", kind="fence:shell-session")
-        self.ok("qargi project init acme -- --literal")
-        self.ok("qargi project init acme \\")
-        self.ok("sudo ./install.sh --user\n./install.sh --user && qargi --version\ncurl -fsSL https://example.org/i.sh | sh -s -- --user")
+        self.ok("cat <<EOF\ncrown nonesuch\nEOF\ncrown project init acme")
+        self.ok("cat <<'EOF' > f\ncrown nonesuch\n  EOF\nEOF\n")
+        self.ok("cat <<-EOF\n\tcrown nonesuch\n\tEOF\ncrown --version")
+        self.ok("crown send x \"line one\nline two\" --label y")
+        self.ok("$ crown --version\ncrown 0.2.0\n$ crown project init acme\nreview: ok", kind="fence:console")
+        self.ok("$ crown --version\ncrown 0.2.0", kind="fence:shell-session")
+        self.ok("crown project init acme -- --literal")
+        self.ok("crown project init acme \\")
+        self.ok("sudo ./install.sh --user\n./install.sh --user && crown --version\ncurl -fsSL https://example.org/i.sh | sh -s -- --user")
 
     def test_the_continuation_of_a_command_is_one_command(self):
-        self.bad("qargi project init acme \\\n  --nope", "--nope", line=1)
-        self.bad("echo hi\nqargi project \\\n  frobnicate", "frobnicate", line=2)
-        self.bad("$ qargi project init acme \\\n  --nope", "--nope", kind="fence:console")
+        self.bad("crown project init acme \\\n  --nope", "--nope", line=1)
+        self.bad("echo hi\ncrown project \\\n  frobnicate", "frobnicate", line=2)
+        self.bad("$ crown project init acme \\\n  --nope", "--nope", kind="fence:console")
 
     def test_wrappers_paths_and_substitutions_are_followed(self):
-        for line in ["sudo qargi nonesuch", "sudo -u build qargi nonesuch", "env A=1 qargi nonesuch", "env -i A=1 qargi nonesuch", "if qargi nonesuch; then echo y; fi",
-                     "for x in a b; do qargi nonesuch; done", "echo `qargi nonesuch`", "echo $(qargi nonesuch)", "./bin/qargi nonesuch", "/usr/local/bin/qargi nonesuch",
-                     "A=1 time qargi nonesuch", "nohup qargi nonesuch &", "! qargi nonesuch", "(qargi nonesuch)"]:
+        for line in ["sudo crown nonesuch", "sudo -u build crown nonesuch", "env A=1 crown nonesuch", "env -i A=1 crown nonesuch", "if crown nonesuch; then echo y; fi",
+                     "for x in a b; do crown nonesuch; done", "echo `crown nonesuch`", "echo $(crown nonesuch)", "./bin/crown nonesuch", "/usr/local/bin/crown nonesuch",
+                     "A=1 time crown nonesuch", "nohup crown nonesuch &", "! crown nonesuch", "(crown nonesuch)"]:
             self.bad(line, "no command 'nonesuch'")
 
     def test_words_after_a_redirection_still_belong_to_the_command(self):
-        self.bad("qargi project init acme > log --nope", "--nope")
-        self.bad("qargi project init acme 2>&1 --nope", "--nope")
-        self.bad("qargi project init acme &> log --nope", "--nope")
-        self.ok("qargi project init acme > log 2>&1")
-        self.ok("qargi project template acme >> out.json && qargi project init acme")
+        self.bad("crown project init acme > log --nope", "--nope")
+        self.bad("crown project init acme 2>&1 --nope", "--nope")
+        self.bad("crown project init acme &> log --nope", "--nope")
+        self.ok("crown project init acme > log 2>&1")
+        self.ok("crown project template acme >> out.json && crown project init acme")
 
     def test_an_option_value_that_is_missing_is_found(self):
-        self.bad("qargi project init acme --answers --force", "--answers needs a value")
-        self.ok("qargi project init acme --answers")                    # a span or a line may name an option without its value
-        self.ok("qargi project init acme --answers a.json --force")
-        self.ok("qargi project init acme --answers=a.json")
-        self.ok("qargi project init acme --answers FILE")
+        self.bad("crown project init acme --answers --force", "--answers needs a value")
+        self.ok("crown project init acme --answers")                    # a span or a line may name an option without its value
+        self.ok("crown project init acme --answers a.json --force")
+        self.ok("crown project init acme --answers=a.json")
+        self.ok("crown project init acme --answers FILE")
 
     def test_an_unreadable_command_line_is_reported(self):
-        self.bad("qargi send x 'never closed\nsecond", "cannot read", line=1)
+        self.bad("crown send x 'never closed\nsecond", "cannot read", line=1)
 
-    def test_check_options_only_on_qargi_lines_in_a_page(self):
+    def test_check_options_only_on_crown_lines_in_a_page(self):
         t = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, t, True)
         pages = os.path.join(t, "pages")
         shutil.copytree(PAGES, pages)
-        spit(os.path.join(pages, "first-project.md"), "\n## Install\n\nRun `install.sh --user` and then:\n\n```bash\n./install.sh --user\nqargi --version\n```\n\nThe `--user` option belongs to the installer.\n", "a")
+        spit(os.path.join(pages, "first-project.md"), "\n## Install\n\nRun `install.sh --user` and then:\n\n```bash\n./install.sh --user\ncrown --version\n```\n\nThe `--user` option belongs to the installer.\n", "a")
         rc, out, err = run("check", "--release", RELEASE, "--source", ROOT, *pg(pages))
         self.assertEqual((rc, err), (0, ""), out)
 
@@ -354,9 +354,9 @@ class Check(unittest.TestCase):
         self.assertEqual(rc, 1, out + err)
         want = ["unsupported.md:7: this line starts with \"<div\": a Kramdown (Jekyll) page reads it as the start of a raw HTML block",
                 "broken.md:20: contains the forbidden word 'hunter2'",
-                "broken.md:11: qargi project has no verb 'frobnicate'",
-                "broken.md:12: qargi agent add has no option --no-such-option",
-                "broken.md:15: `qargi nonesuch run`: qargi has no command 'nonesuch'",
+                "broken.md:11: crown project has no verb 'frobnicate'",
+                "broken.md:12: crown agent add has no option --no-such-option",
+                "broken.md:15: `crown nonesuch run`: crown has no command 'nonesuch'",
                 "broken.md:19: link /no-such-page/: no such page",
                 "broken.md:19: link /reference/set-up/#no-such-heading: page /reference/set-up/ has no heading with id 'no-such-heading'",
                 "broken.md:19: link #nowhere: no heading with that id on this page"]
@@ -374,7 +374,7 @@ class Check(unittest.TestCase):
         return pages
 
     def test_a_line_that_starts_with_a_tag_is_refused_with_its_file_line_and_fix(self):
-        body = "## One\n\nA wrapped `qargi project\n<name>` call.\n\n> quote `x\n> <y>`\n\n- item `z\n  <w>`\n\n```bash\n<ok>\n```\n"
+        body = "## One\n\nA wrapped `crown project\n<name>` call.\n\n> quote `x\n> <y>`\n\n- item `z\n  <w>`\n\n```bash\n<ok>\n```\n"
         rc, out, _ = run("check", "--release", RELEASE, "--source", ROOT, *pg(self.pages_with(body)), "--url", "https://docs.example.org/")
         self.assertEqual(rc, 1, out)
         for ln in (8, 11, 14):
@@ -385,7 +385,7 @@ class Check(unittest.TestCase):
     def test_a_line_that_starts_with_a_tag_in_the_changelog_is_refused(self):
         t = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, t, True)
-        src = source_copy(os.path.join(t, "src"), changelog=lambda x: x.replace("### Added\n", "### Added\n- A wrapped `qargi x\n  <name>` call.\n", 1))
+        src = source_copy(os.path.join(t, "src"), changelog=lambda x: x.replace("### Added\n", "### Added\n- A wrapped `crown x\n  <name>` call.\n", 1))
         rc, out, _ = run("check", "--release", RELEASE, "--source", src, *pg(PAGES), "--allow-unreleased")
         self.assertEqual(rc, 1, out)
         self.assertRegex(out, r"error: CHANGELOG\.md:\d+: this line starts with \"<name\"")
@@ -594,18 +594,18 @@ class Build(unittest.TestCase):
                         self.assertRegex(tag, r'^<script (?:type="application/ld\+json"|src="(?:\.\./)*assets/search\.js" defer)>$', f)       # no inline code
                     self.assertNotRegex(t, r"\son[a-z]+=", f)
                     for m in re.finditer(r'(?:src|href)="(https?://[^"]+)"', t):
-                        if m.group(1).startswith(("https://docs.example.org/qargi/", "https://github.com/example/qargi")):
+                        if m.group(1).startswith(("https://docs.example.org/crown/", "https://github.com/example/crown")):
                             continue
                         self.assertRegex(m.group(1), r"^https?://", f)          # an external link is a link, never a resource
                     self.assertNotRegex(t, r'<(?:link|img|script|iframe)[^>]+(?:src|href)="https?://(?!docs\.example\.org)', f)
 
     def test_head_tags(self):
         t = self.page("first-project/index.html")
-        self.assertIn("<title>Your first project · qargi</title>", t)
-        self.assertIn('<link rel="canonical" href="https://docs.example.org/qargi/first-project/">', t)
+        self.assertIn("<title>Your first project · crown</title>", t)
+        self.assertIn('<link rel="canonical" href="https://docs.example.org/crown/first-project/">', t)
         self.assertIn('<meta name="description" content="Set up a project called acme', t)
         self.assertIn('<meta property="og:type" content="article">', t)
-        self.assertIn('<meta property="og:url" content="https://docs.example.org/qargi/first-project/">', t)
+        self.assertIn('<meta property="og:url" content="https://docs.example.org/crown/first-project/">', t)
         self.assertIn('<meta name="twitter:card" content="summary">', t)
         self.assertIn('<html lang="en">', t)
         self.assertIn('<meta name="viewport"', t)
@@ -613,9 +613,9 @@ class Build(unittest.TestCase):
         self.assertIn('<a class="skip" href="#main">', t)
         self.assertEqual(t.count("<h1>"), 1)
         home = self.page("index.html")
-        self.assertIn("<title>qargi documentation</title>", home)
+        self.assertIn("<title>crown documentation</title>", home)
         self.assertIn('<meta property="og:type" content="website">', home)
-        self.assertIn('rel="canonical" href="https://docs.example.org/qargi/"', home)
+        self.assertIn('rel="canonical" href="https://docs.example.org/crown/"', home)
 
     def ld(self, rel):
         t = self.page(rel)
@@ -626,7 +626,7 @@ class Build(unittest.TestCase):
         home = self.ld("index.html")
         types = {n["@type"]: n for n in home["@graph"]}
         app, site = types["SoftwareApplication"], types["WebSite"]
-        self.assertEqual((site["name"], site["url"]), ("qargi", "https://docs.example.org/qargi/"))
+        self.assertEqual((site["name"], site["url"]), ("crown", "https://docs.example.org/crown/"))
         self.assertEqual(app["softwareVersion"], RELEASE)
         self.assertEqual(app["license"], "https://opensource.org/licenses/MIT")
         for k in ("offers", "operatingSystem", "author", "aggregateRating"):      # nothing the page does not show
@@ -637,8 +637,8 @@ class Build(unittest.TestCase):
         self.assertNotIn("author", art)                   # no author unless site.json names one that the footer shows
         crumbs = [n for n in g if n["@type"] == "BreadcrumbList"][0]["itemListElement"]
         self.assertEqual([c["position"] for c in crumbs], [1, 2, 3])
-        self.assertEqual(crumbs[0]["item"], "https://docs.example.org/qargi/")
-        self.assertEqual(crumbs[1]["item"], "https://docs.example.org/qargi/reference/")
+        self.assertEqual(crumbs[0]["item"], "https://docs.example.org/crown/")
+        self.assertEqual(crumbs[1]["item"], "https://docs.example.org/crown/reference/")
         self.assertEqual(self.ld("first-project/index.html")["@graph"][1]["itemListElement"][1]["name"], "Your first project")
 
     def test_the_description_is_shown_and_no_date_is_marked_up_that_is_not_shown(self):
@@ -746,22 +746,22 @@ class Build(unittest.TestCase):
         root = ET.parse(os.path.join(self.out, "sitemap.xml")).getroot()
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         urls = {u.find(ns + "loc").text: u for u in root}
-        self.assertIn("https://docs.example.org/qargi/", urls)
-        self.assertIn("https://docs.example.org/qargi/reference/set-up/", urls)
-        self.assertNotIn("https://docs.example.org/qargi/404.html", urls)
+        self.assertIn("https://docs.example.org/crown/", urls)
+        self.assertIn("https://docs.example.org/crown/reference/set-up/", urls)
+        self.assertNotIn("https://docs.example.org/crown/404.html", urls)
         self.assertEqual(len(urls), 14)
         # the generated pages carry the release date; a hand page with no commit date (these are copies outside git) has no lastmod, never a guess
         for loc, u in urls.items():
-            hand = loc in ("https://docs.example.org/qargi/", "https://docs.example.org/qargi/first-project/")
+            hand = loc in ("https://docs.example.org/crown/", "https://docs.example.org/crown/first-project/")
             lm = u.find(ns + "lastmod")
             self.assertEqual(None if hand else RELEASE_DATE, None if lm is None else lm.text, loc)
             self.assertIsNone(u.find(ns + "priority"))
             self.assertIsNone(u.find(ns + "changefreq"))
-        self.assertEqual(self.page("robots.txt"), "User-agent: *\nAllow: /\n\nSitemap: https://docs.example.org/qargi/sitemap.xml\n")
+        self.assertEqual(self.page("robots.txt"), "User-agent: *\nAllow: /\n\nSitemap: https://docs.example.org/crown/sitemap.xml\n")
         n = self.page("404.html")
         self.assertIn('<meta name="robots" content="noindex">', n)
         self.assertNotIn('rel="canonical"', n)
-        self.assertIn('href="https://docs.example.org/qargi/assets/site.css"', n)
+        self.assertIn('href="https://docs.example.org/crown/assets/site.css"', n)
 
     def test_links_are_relative(self):
         t = self.page("reference/set-up/index.html")
@@ -804,12 +804,12 @@ class Build(unittest.TestCase):
         shutil.copytree(PAGES, pages)
         p = os.path.join(pages, "first-project.md")
         spit(p, "\n## Main\n\nSee [it](#main) and [the same](#main-2).\n", "a")
-        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/qargi/")
+        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/crown/")
         self.assertEqual(rc, 1, out)                       # #main is the page's main element, not the heading
         self.assertIn("link #main: no heading with that id", out)
         text = slurp(p).replace("See [it](#main) and ", "See ")
         spit(p, text)
-        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/qargi/")
+        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/crown/")
         self.assertEqual(rc, 0, out + err)
         page = slurp(os.path.join(t, "o", "first-project", "index.html"))
         self.assertIn('<h2 id="main-2">Main', page)
@@ -827,7 +827,7 @@ class Build(unittest.TestCase):
         self.assertIn('<h2 id="v0-1-0">', t)
         self.assertNotIn('id="vunreleased"', t)
         self.assertNotIn(">Unreleased ", t)
-        self.assertIn('href="https://github.com/example/qargi/releases/tag/0.1.0"', t)
+        self.assertIn('href="https://github.com/example/crown/releases/tag/0.1.0"', t)
         self.assertRegex(t, r'<h3 id="v0-1-0-added">Added')
 
     def test_generated_descriptions_are_the_right_length(self):
@@ -850,8 +850,8 @@ class Build(unittest.TestCase):
         self.assertEqual(rc, 1)
         rc, out, err = run("build", "--release", "9.9.9", "--source", ROOT, *pg(pages), "--out", o, "--allow-unreleased")
         self.assertEqual(rc, 0, out + err)
-        self.assertIn("qargi (unreleased)", slurp(os.path.join(o, "index.html")))
-        self.assertIn("Checked against qargi (unreleased).", slurp(os.path.join(o, "index.html")))
+        self.assertIn("crown (unreleased)", slurp(os.path.join(o, "index.html")))
+        self.assertIn("Checked against crown (unreleased).", slurp(os.path.join(o, "index.html")))
         root = ET.parse(os.path.join(o, "sitemap.xml")).getroot()
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         for u in root:                    # no release date to give, so no lastmod at all
@@ -866,11 +866,11 @@ class Build(unittest.TestCase):
         spit(os.path.join(pages, "index.md"), 
             '---\ntitle: "</title><script>alert(1)</script>"\ndescription: "A \\"quoted\\" description that is long enough to read well in a search result and says what the page is about, ok."\n---\n'
             '## Heading "x"\n\nText with `</script>` and a [link](https://example.org/?a=1&b="2").\n')
-        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/qargi/")
+        rc, out, err = build(os.path.join(t, "o"), pages, "--url", "https://docs.example.org/crown/")
         self.assertEqual(rc, 1, out)                       # the quote in the link target is refused
         text = slurp(os.path.join(pages, "index.md")).replace('"2"', "2")
         spit(os.path.join(pages, "index.md"), text)
-        rc, out, err = build(os.path.join(t, "o2"), pages, "--url", "https://docs.example.org/qargi/")
+        rc, out, err = build(os.path.join(t, "o2"), pages, "--url", "https://docs.example.org/crown/")
         self.assertEqual(rc, 0, out + err)
         html_ = slurp(os.path.join(t, "o2", "index.html"))
         self.assertEqual(html_.count("<script"), 2)         # the JSON-LD and the search script, which has no inline code
@@ -879,7 +879,7 @@ class Build(unittest.TestCase):
         self.assertIn("&lt;/title&gt;&lt;script&gt;", html_)
         m = re.search(r'<script type="application/ld\+json">(.*?)</script>', html_, re.S)
         self.assertNotIn("</", m.group(1))
-        self.assertEqual(json.loads(m.group(1))["@graph"][0]["name"], "qargi")
+        self.assertEqual(json.loads(m.group(1))["@graph"][0]["name"], "crown")
         rc, out, _ = run("check-output", os.path.join(t, "o2"))
         self.assertEqual(rc, 0, out)
 
@@ -892,7 +892,7 @@ class SidebarAndSearch(unittest.TestCase):
         cls.tmp = tempfile.mkdtemp()
         shutil.copytree(FIX, os.path.join(cls.tmp, "fix"))
         cls.pages = os.path.join(cls.tmp, "fix", "pages")
-        cls.out = os.path.join(cls.tmp, "sub")                  # served under a path: https://docs.example.org/qargi/
+        cls.out = os.path.join(cls.tmp, "sub")                  # served under a path: https://docs.example.org/crown/
         cls.rc, cls.stdout, cls.stderr = build(cls.out, cls.pages)
         cls.root = os.path.join(cls.tmp, "root")                # served at the root of a host
         cls.rc2, cls.stdout2, cls.stderr2 = build(cls.root, cls.pages, "--url", "https://docs.example.org/")
@@ -1007,13 +1007,13 @@ class SidebarAndSearch(unittest.TestCase):
         self.assertIn("no such file gone/index.html", out)
 
     def test_the_sidebar_is_absent_from_the_404_page(self):
-        for out, base in ((self.out, "https://docs.example.org/qargi/"), (self.root, "https://docs.example.org/")):
+        for out, base in ((self.out, "https://docs.example.org/crown/"), (self.root, "https://docs.example.org/")):
             t = self.page("404.html", out)
             self.assertNotIn("sidebar", t)
             self.assertNotIn("menu-toggle", t)
             self.assertNotIn("<script", t)
             self.assertIn('<a href="%s">The documentation home page</a>' % base, t)          # its absolute links stay
-            self.assertIn('<a class="brand" href="%s">qargi</a>' % base, t)
+            self.assertIn('<a class="brand" href="%s">crown</a>' % base, t)
             self.assertIn('<nav aria-label="Site">', t)
             self.assertIn('href="%sreference/"' % base, t)
 
@@ -1062,7 +1062,7 @@ class SidebarAndSearch(unittest.TestCase):
                 self.assertIn("g", e)
             self.assertNotRegex(e["x"], r'&(?:lt|gt|amp|quot|#\d+);|<a |<code|class="')       # plain text: no markup, no entities
         titles = {(e["t"], e["p"]) for e in data["entries"]}
-        self.assertIn(("qargi release verify", "reference/run-a-task/#release-verify"), titles)      # a command section is searchable
+        self.assertIn(("crown release verify", "reference/run-a-task/#release-verify"), titles)      # a command section is searchable
         self.assertIn(("Your first project", "first-project/"), titles)
 
     def test_the_index_is_bounded_and_follows_the_pages_on_forbidden_words(self):
@@ -1165,9 +1165,9 @@ class LastMod(unittest.TestCase):
         root = ET.parse(os.path.join(out, "sitemap.xml")).getroot()
         ns = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
         lm = {u.find(ns + "loc").text: getattr(u.find(ns + "lastmod"), "text", None) for u in root}
-        self.assertEqual(lm["https://docs.example.org/qargi/first-project/"], "2026-03-02")
-        self.assertIsNone(lm["https://docs.example.org/qargi/"])                      # modified: no date to give, none invented
-        self.assertEqual(lm["https://docs.example.org/qargi/releases/"], RELEASE_DATE)
+        self.assertEqual(lm["https://docs.example.org/crown/first-project/"], "2026-03-02")
+        self.assertIsNone(lm["https://docs.example.org/crown/"])                      # modified: no date to give, none invented
+        self.assertEqual(lm["https://docs.example.org/crown/releases/"], RELEASE_DATE)
         self.assertIn("note: index.md: no commit date", so)
         ld = re.search(r'<script type="application/ld\+json">(.*?)</script>', slurp(os.path.join(out, "first-project", "index.html")), re.S).group(1)
         art = json.loads(ld)["@graph"][0]
@@ -1312,7 +1312,7 @@ class ConfigTrust(unittest.TestCase):
         rc, out, err = self.raw()
         self.assertEqual(rc, 2, out)                      # the parent's site.json (and its url) are not used
         self.assertIn("site address", err)
-        rc, out, err = self.raw("--url", "https://docs.example.org/qargi/")
+        rc, out, err = self.raw("--url", "https://docs.example.org/crown/")
         self.assertEqual(rc, 0, out + err)
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "o", "verify-acme.html")))     # nor its static/ folder
         self.assertNotIn("github.com", slurp(os.path.join(self.tmp, "o", "index.html")))
@@ -1325,7 +1325,7 @@ class ConfigTrust(unittest.TestCase):
         shutil.copy(self.cfg, self.pages)
         rc, out, err = self.raw()
         self.assertEqual(rc, 0, out + err)
-        self.assertIn("github.com/example/qargi", slurp(os.path.join(self.tmp, "o", "index.html")))
+        self.assertIn("github.com/example/crown", slurp(os.path.join(self.tmp, "o", "index.html")))
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "o", "verify-acme.html")))     # static/ is beside the config, here pages/static
 
     def test_a_symlinked_config_is_refused(self):
@@ -1543,7 +1543,7 @@ class CheckOutput(unittest.TestCase):
             ("img", self.sub("first-project/index.html", "<article>", '<article><img src="../assets/site.css">'), "<img> without alt text"),
             ("h1", self.sub("first-project/index.html", "<h1>Your first project</h1>", "<h1>Your first project</h1><h1>Two</h1>"), "exactly one h1"),
             ("skip", self.h4, "heading level jumps from h2 to h4"),
-            ("canon", self.sub("first-project/index.html", 'rel="canonical" href="https://docs.example.org/qargi/first-project/"', 'rel="canonical" href="https://docs.example.org/qargi/other/"'), "canonical is"),
+            ("canon", self.sub("first-project/index.html", 'rel="canonical" href="https://docs.example.org/crown/first-project/"', 'rel="canonical" href="https://docs.example.org/crown/other/"'), "canonical is"),
             ("lang", self.sub("first-project/index.html", '<html lang="en">', "<html>"), 'needs lang="en"'),
             ("desc", self.sub("first-project/index.html", '<meta name="description" content="Set up', '<meta name="x" content="Set up'), "no meta description"),
             ("ld", self.sub("first-project/index.html", '"headline":"Your first project"', '"headline":"Something else"'), "headline"),
@@ -1560,7 +1560,7 @@ class CheckOutput(unittest.TestCase):
             ("graphstr", self.sub("first-project/index.html", '"@graph":[', '"@graph":"x","y":['), "@graph"),
             ("website", self.sub("index.html", '"@type":"WebSite"', '"@type":"Thing"'), "and WebSite JSON-LD"),
             ("shown", self.sub("reference/set-up/index.html", '<time datetime="%s">' % RELEASE_DATE, '<time datetime="2000-01-01">'), "is not shown on the page"),
-            ("sitemap", self.sub("sitemap.xml", "<loc>https://docs.example.org/qargi/first-project/</loc>", "<loc>https://docs.example.org/qargi/gone/</loc>"), "is not listed"),
+            ("sitemap", self.sub("sitemap.xml", "<loc>https://docs.example.org/crown/first-project/</loc>", "<loc>https://docs.example.org/crown/gone/</loc>"), "is not listed"),
             ("lastmod", self.sub("sitemap.xml", "<lastmod>%s</lastmod>" % RELEASE_DATE, "<lastmod>tomorrow</lastmod>"), "not YYYY-MM-DD"),
             ("robots", self.sub("robots.txt", "Sitemap:", "Nothing:"), "no Sitemap line"),
             ("noindex404", self.sub("404.html", '<meta name="robots" content="noindex">', ""), "must be noindex"),
@@ -1764,13 +1764,13 @@ class Diff(unittest.TestCase):
         spit(p, text)
         rc, out, err = run("diff", "0.2.0", "0.3.0", "--source-old", ROOT, "--source-new", new)
         self.assertEqual((rc, err), (0, ""), out)
-        self.assertIn("removed: qargi project template", out)
-        self.assertIn("added: qargi project scaffold", out)
-        self.assertIn("option removed: qargi project init --force", out)
-        self.assertIn("option added: qargi project init --overwrite", out)
+        self.assertIn("removed: crown project template", out)
+        self.assertIn("added: crown project scaffold", out)
+        self.assertIn("option removed: crown project init --force", out)
+        self.assertIn("option added: crown project init --overwrite", out)
         rc, out, err = run("diff", "0.2.0", "0.3.0", "--source-old", ROOT, "--source-new", new, "--pages", PAGES)
         self.assertEqual(rc, 1, out)
-        self.assertIn("blocking: first-project.md:14: qargi project has no verb 'template'", out)
+        self.assertIn("blocking: first-project.md:14: crown project has no verb 'template'", out)
         rc, out, err = run("diff", "0.2.0", "0.2.0", "--source-old", ROOT, "--source-new", ROOT, "--pages", PAGES)
         self.assertEqual(rc, 0, out)
         self.assertIn("  none", out)

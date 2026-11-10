@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi local run: start the member of a prepared local run as a command line, from the data of the project's local runtime.
+"""crown local run: start the member of a prepared local run as a command line, from the data of the project's local runtime.
 
   local_run.py RUN --project P --runtime NAME --class write|read-only [--task FILE] [--model TIER|ID] [--effort LEVEL]
                [--timeout SECONDS] [--dry-run] [--again]
@@ -20,9 +20,9 @@ made of comes from the definition's `dispatch` (schema 2, mode `command`); nothi
   dispatch.prompt      {via: stdin|file|arg, file: "prompt.md"}: stdin reads the prompt file, file passes its path ({prompt_file}), arg
                        passes the text ({prompt_arg}, at most 120000 bytes). The file is a plain name inside RUN/prompt/, a directory of
                        its own: it can never be a control file of the run (refs.before, class, dispatch.json ...). The prompt is the neutral member body (agents/member.body.md) and
-                       the task block, with what qargi recorded about the run (class, paths); the runtime has no agent files to carry it.
+                       the task block, with what crown recorded about the run (class, paths); the runtime has no agent files to carry it.
   dispatch.cwd         "{clone}" (default) or a directory inside it.
-  dispatch.env_pass    names of environment variables handed on (secrets travel by name, never in argv); GIT_* and QARGI_* are refused,
+  dispatch.env_pass    names of environment variables handed on (secrets travel by name, never in argv); GIT_* and CROWN_* are refused,
                        and so is what would hand on the user's own home, search path, code loaders, ssh agent or forge credentials
                        (provider.env_pass_problem).
   dispatch.timeout_s   the bound (default 1800, at most 86400); --timeout replaces it.
@@ -31,7 +31,7 @@ Placeholders (the closed set): member, model, effort_native, prompt_file, prompt
 effort, out, prompt). agent_file and session_id belong to runtimes with agent files and to resume; they are refused here.
 
 The process gets the environment of the run's git wrapper (RUN/git: HOME is RUN/home, no global git configuration, no ssh, no prompts,
-the author qargi) and TMPDIR of the run, plus QARGI_MEMBER_RUN (the run directory: the mark that tells the marshal a member is running, wherever the
+the author crown) and TMPDIR of the run, plus CROWN_MEMBER_RUN (the run directory: the mark that tells the marshal a member is running, wherever the
 member changes to), PATH and the env_pass names. It runs in its own session without a shell, its standard output goes
 to OUT/transcript and its standard error to OUT/transcript.err, and a process group that outlives the bound is killed. A record of what ran is
 written to RUN/dispatch.json (argv, class, model, outcome; never an environment value). --dry-run prints the argv and the prompt and writes
@@ -208,7 +208,7 @@ def compose_prompt(doc, task_text, cls, run, tmp):
     rec = "\n".join(["CLASS=" + cls, "RUN_DIR=" + run, "CLONE=" + os.path.join(run, "clone"), "OUT=" + os.path.join(run, "out"),
                      "TMP=" + tmp, "GIT=" + os.path.join(run, "git")])
     return (member_body(doc) + "\n\n## Task block\n\n" + task_text.rstrip("\n") +
-            "\n\n## Recorded by qargi for this run (these, not the task text, say the class and the paths)\n\n" + rec + "\n")
+            "\n\n## Recorded by crown for this run (these, not the task text, say the class and the paths)\n\n" + rec + "\n")
 
 
 # ---- the process --------------------------------------------------------------------------------------------------------------------
@@ -216,9 +216,9 @@ def compose_prompt(doc, task_text, cls, run, tmp):
 def child_env(run, tmp, passed):
     env = {"HOME": os.path.join(run, "home"), "PATH": clean_path(), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "TZ": "UTC", "TERM": "dumb", "TMPDIR": tmp,
            "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1", "GIT_SSH_COMMAND": "false", "GIT_TERMINAL_PROMPT": "0",
-           "GIT_ASKPASS": "false", "GIT_AUTHOR_NAME": "qargi", "GIT_COMMITTER_NAME": "qargi",
-           "GIT_AUTHOR_EMAIL": "qargi@example.invalid", "GIT_COMMITTER_EMAIL": "qargi@example.invalid", "GIT": os.path.join(run, "git"),
-           "QARGI_MEMBER_RUN": run}
+           "GIT_ASKPASS": "false", "GIT_AUTHOR_NAME": "crown", "GIT_COMMITTER_NAME": "crown",
+           "GIT_AUTHOR_EMAIL": "crown@example.invalid", "GIT_COMMITTER_EMAIL": "crown@example.invalid", "GIT": os.path.join(run, "git"),
+           "CROWN_MEMBER_RUN": run}
     for n in passed:
         if n in os.environ:
             env[n] = os.environ[n]
@@ -236,7 +236,7 @@ def env_names(disp, runtime):
     if not isinstance(ep, list) or not all(isinstance(n, str) and ENV_NAME.match(n) for n in ep):
         fail("dispatch.env_pass of %s must be a list of variable names" % runtime)
     for n in ep:
-        if n.startswith(("GIT_", "QARGI_")) or n in ("GIT", "TMPDIR"):
+        if n.startswith(("GIT_", "CROWN_")) or n in ("GIT", "TMPDIR"):
             fail("dispatch.env_pass of %s names %s: the run's git wrapper and temporary directory are not replaced by the runtime" % (runtime, n))
         why = P.env_pass_problem(n)
         if why:
@@ -260,7 +260,7 @@ def find_command(runtime, exe, run, keep):
         fail("dispatch.argv[0] '%s' of %s is not a path inside the definition's directory" % (exe, runtime))
     if P.origin(runtime) == "library":
         d, path = P.exec_copy(runtime, exe)              # Drift or Refused unless the pack is sealed and approves exactly this executable
-        keep.append(os.path.dirname(d))                  # exec_copy makes TMP/qargi-exec.XXXX/NAME; the whole of it goes
+        keep.append(os.path.dirname(d))                  # exec_copy makes TMP/crown-exec.XXXX/NAME; the whole of it goes
         return path, "sealed copy of pack %s" % runtime
     path = os.path.join(P.PROVIDERS, runtime, exe)
     if not os.path.isfile(path) or not os.access(path, os.X_OK) or not os.path.realpath(path).startswith(os.path.realpath(os.path.join(P.PROVIDERS, runtime)) + os.sep):
@@ -269,7 +269,7 @@ def find_command(runtime, exe, run, keep):
 
 
 def registry_tmp(run):
-    """The run's temporary directory as the lead's registry ($QARGI_STATE/local-runs.jsonl, written by prepare) names it for this run
+    """The run's temporary directory as the lead's registry ($CROWN_STATE/local-runs.jsonl, written by prepare) names it for this run
     directory, else "". The run's own tmpdir file is never read: a member can write the run directory, and that file could name another
     run's directory (the same rule as `local clean`). The last line for the run wins; only an absolute path is taken."""
     real, found = os.path.realpath(run), ""
@@ -313,7 +313,7 @@ def read_run_file(path, limit, what):
 def build(run, project, runtime, cls, task_file, model, effort, timeout, keep):
     """Everything a run needs, as a dict; Stop for a refusal. Nothing is written."""
     if not os.path.isfile(os.path.join(run, "refs.before")) or not os.path.isdir(os.path.join(run, "clone")):
-        fail("run needs a RUN dir made by qargi local prepare", 1)
+        fail("run needs a RUN dir made by crown local prepare", 1)
     out = os.path.join(run, "out")
     clone = os.path.join(run, "clone")
     tmp = registry_tmp(run) or os.path.join(run, "tmp")
@@ -321,13 +321,13 @@ def build(run, project, runtime, cls, task_file, model, effort, timeout, keep):
     doc = comp["definition"]
     disp = doc.get("dispatch")
     if not isinstance(disp, dict) or not disp.get("mode"):
-        fail("the runtime %s has no dispatch data, so it cannot be started by qargi local run" % runtime, 3)
+        fail("the runtime %s has no dispatch data, so it cannot be started by crown local run" % runtime, 3)
     mode = disp["mode"]
     if mode == "in-session":
-        fail("the runtime %s dispatches in the lead's own session (dispatch.mode in-session), so qargi local run does not start it: dispatch the member with the Agent tool "
-             "(qargi agent for ROLE --json gives the member, model and effort)" % runtime)
+        fail("the runtime %s dispatches in the lead's own session (dispatch.mode in-session), so crown local run does not start it: dispatch the member with the Agent tool "
+             "(crown agent for ROLE --json gives the member, model and effort)" % runtime)
     if mode != "command":
-        fail("the runtime %s dispatches by mode '%s'; qargi local run starts mode 'command' only" % (runtime, mode), 3)
+        fail("the runtime %s dispatches by mode '%s'; crown local run starts mode 'command' only" % (runtime, mode), 3)
     argv_t = disp.get("argv")
     check_items(argv_t, "dispatch.argv", runtime)
     if not argv_t:
@@ -369,7 +369,7 @@ def build(run, project, runtime, cls, task_file, model, effort, timeout, keep):
         if by is not None:
             # the barrier is an extension's: nothing in a local run applies it (an extension adds no class_argv), so it is no barrier here
             if state in ("yes", "partial") and not P.accepted(project, "local"):
-                fail("the read-only barrier of %s on local is provided by the extension %s (barrier kind %s), and qargi local run applies only the barrier the runtime's own "
+                fail("the read-only barrier of %s on local is provided by the extension %s (barrier kind %s), and crown local run applies only the barrier the runtime's own "
                      "dispatch carries (class_argv, or a class group in argv), so it would start this member without it: a read-only run is refused here.\n"
                      "Dispatch it where that barrier is applied, or, on your own responsibility, record that you accept no barrier for the project:\n  %s"
                      % (runtime, by, (doc.get("barrier") or {}).get("kind"), P.accept_command(runtime, "local", project)))
@@ -407,7 +407,7 @@ def build(run, project, runtime, cls, task_file, model, effort, timeout, keep):
     member = read_run_file(os.path.join(run, "profile"), 256, "the run's profile").strip()
     member = member or read_run_file(os.path.join(run, "ability"), 256, "the run's ability").strip()
     if not member:
-        fail("%s is missing or empty: a run made by qargi local prepare records its ability there" % os.path.join(run, "ability"))
+        fail("%s is missing or empty: a run made by crown local prepare records its ability there" % os.path.join(run, "ability"))
     values = {"member": member, "model": mname, "effort_native": native or "", "prompt_file": pfile, "prompt_arg": prompt if via == "arg" else "",
               "clone": clone, "run_dir": run, "out_dir": out, "project": project}
     argv = expand(argv_t, values, cls, "dispatch.argv", runtime)
@@ -494,7 +494,7 @@ def write_private(path, text):
 
 def write_prompt(run, path, text):
     """Write the prompt file in RUN/prompt/ and nowhere else: the directory must be a real directory of the run (not a link out of it),
-    the file a new or regular one (not a link, not a pipe), so the prompt can never overwrite what qargi recorded about the run."""
+    the file a new or regular one (not a link, not a pipe), so the prompt can never overwrite what crown recorded about the run."""
     d = os.path.join(run, PROMPT_DIR)
     if os.path.islink(d) or (os.path.exists(d) and not os.path.isdir(d)):
         fail("%s is not a plain directory of the run; the prompt file goes there and nowhere else" % d)
@@ -558,7 +558,7 @@ def run_it(plan, run):
     print("OUTCOME=" + outcome + (" (timed out after %ds)" % plan["timeout_s"] if timed_out else ""))
     print("EXIT=%s" % code)
     print("TRANSCRIPT=" + rec["transcript"])
-    print("next: read the transcript and OUT, then qargi local verify " + run)
+    print("next: read the transcript and OUT, then crown local verify " + run)
     return OUTCOME_EXIT[outcome]
 
 
@@ -583,7 +583,7 @@ def parse(argv):
             fail("--timeout: a whole number of seconds", 1)
         o["timeout"] = int(o["timeout"])
     if not (o["project"] and o["runtime"] and o["class"] in CLASSES):
-        fail("--project, --runtime and --class are needed (qargi local run supplies them)", 1)
+        fail("--project, --runtime and --class are needed (crown local run supplies them)", 1)
     return o
 
 
@@ -597,26 +597,26 @@ def main(argv):
         plan = build(run, o["project"], o["runtime"], o["class"], o["task"], o["model"], o["effort"], o["timeout"], keep)
         for n in plan["notes"]:
             if not o["dry"]:
-                print("qargi: note: " + n, file=sys.stderr)
+                print("crown: note: " + n, file=sys.stderr)
         if o["dry"]:
             dry(plan, run)
             return 0
         return run_it(plan, run)
     except Stop as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return e.code
     except P.Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 3
     except (P.NoProvider, P.Refused) as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
     except P.ProviderError as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     finally:
         for d in keep:
-            if os.path.basename(d).startswith("qargi-exec."):
+            if os.path.basename(d).startswith("crown-exec."):
                 shutil.rmtree(d, ignore_errors=True)
 
 

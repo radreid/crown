@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "qargi-provider-definition-2",
-  "title": "A qargi provider definition or model catalog, schema 2",
-  "description": "A definition describes ONE runtime on ONE surface (local: a command-line runtime; cloud: a hosted one). A catalog describes the models of a family, shared by every runtime of that family. An extension (a library pack only) adds capabilities and what backs them to ONE runtime on ONE surface: it never overrides anything the runtime or another enabled extension has, and what it provides counts only after `qargi provider check` of the extension (hash-bound to the extension and its runtime). Shipped ones live in lib/providers/NAME.json and lib/providers/catalogs/FAMILY.json; the user's live in the pack library, QARGI_CONF/packs/providers/NAME/definition.json. lib/provider.py validates a document against the node of $defs named by its kind (provider, catalog or extension) with a stdlib subset of JSON Schema (type, enum, const, pattern, required, properties, additionalProperties false, items, minItems, uniqueItems, $ref and the format date) and then checks what a schema cannot say: the name equals the file or directory name, a catalog reference names a catalog, every model matches the pattern, every tier resolves, the paths of the resources stay inside the checkout or the home. Sections whose consumers are built later (renderers, dispatch, barrier) are checked for their discriminator only; their other keys are not yet constrained.",
+  "$id": "crown-provider-definition-2",
+  "title": "A crown provider definition or model catalog, schema 2",
+  "description": "A definition describes ONE runtime on ONE surface (local: a command-line runtime; cloud: a hosted one). A catalog describes the models of a family, shared by every runtime of that family. An extension (a library pack only) adds capabilities and what backs them to ONE runtime on ONE surface: it never overrides anything the runtime or another enabled extension has, and what it provides counts only after `crown provider check` of the extension (hash-bound to the extension and its runtime). Shipped ones live in lib/providers/NAME.json and lib/providers/catalogs/FAMILY.json; the user's live in the pack library, CROWN_CONF/packs/providers/NAME/definition.json. lib/provider.py validates a document against the node of $defs named by its kind (provider, catalog or extension) with a stdlib subset of JSON Schema (type, enum, const, pattern, required, properties, additionalProperties false, items, minItems, uniqueItems, $ref and the format date) and then checks what a schema cannot say: the name equals the file or directory name, a catalog reference names a catalog, every model matches the pattern, every tier resolves, the paths of the resources stay inside the checkout or the home. Sections whose consumers are built later (renderers, dispatch, barrier) are checked for their discriminator only; their other keys are not yet constrained.",
   "kinds": {"provider": "#/$defs/provider", "catalog": "#/$defs/catalog", "extension": "#/$defs/extension"},
   "$defs": {
     "name": {"type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}$"},
@@ -41,7 +41,7 @@
           }
         },
         "resources": {
-          "description": "Where the runtime keeps what qargi links or reads. A resource that is absent or null is unsupported: the verb that needs it refuses with exit 3.",
+          "description": "Where the runtime keeps what crown links or reads. A resource that is absent or null is unsupported: the verb that needs it refuses with exit 3.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "properties": {
@@ -61,7 +61,7 @@
           }
         },
         "agents": {
-          "description": "Agent concepts of the runtime, or null when it has none (members are then composed into the run prompt). qargi's own reserved names (roles, lead, bases) are added by the core.",
+          "description": "Agent concepts of the runtime, or null when it has none (members are then composed into the run prompt). crown's own reserved names (roles, lead, bases) are added by the core.",
           "type": ["object", "null"],
           "additionalProperties": false,
           "properties": {
@@ -118,7 +118,7 @@
           "properties": {
             "capabilities": {"type": "array", "items": {"type": "string"}, "description": "capabilities the runtime must have verified (yes or partial) without this extension"},
             "resources": {"type": "array", "items": {"enum": ["skills", "agents", "instructions", "mcp", "settings", "memory", "transcripts"]}, "description": "resources the runtime must have"},
-            "qargi": {"type": "string", "pattern": "^>=[0-9]+(\\.[0-9]+){0,2}$", "description": "the least qargi version, like >=0.2.0"}
+            "crown": {"type": "string", "pattern": "^>=[0-9]+(\\.[0-9]+){0,2}$", "description": "the least crown version, like >=0.2.0"}
           }
         },
         "adds": {
@@ -195,7 +195,7 @@
       }
     },
     "effort": {
-      "description": "qargi's effort level to the runtime's own value; null (or a level that is null or absent) means no such control",
+      "description": "crown's effort level to the runtime's own value; null (or a level that is null or absent) means no such control",
       "type": ["object", "null"],
       "additionalProperties": false,
       "properties": {
@@ -223,7 +223,7 @@
       }
     },
     "exclusion": {
-      "description": "how the runtime's own configuration switches an item off (qargi only reads it). form selects which of the other keys apply; null: none",
+      "description": "how the runtime's own configuration switches an item off (crown only reads it). form selects which of the other keys apply; null: none",
       "type": ["object", "null"],
       "additionalProperties": false,
       "required": ["form"],

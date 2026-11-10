@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Link a project's resources (skills, agents, memory) from where qargi keeps them into the checkout and the home directory, for the
+"""Link a project's resources (skills, agents, memory) from where crown keeps them into the checkout and the home directory, for the
 project's local runtime, on the generic link engine (lib/linker.py).
 
-Everything a project uses lives under ~/.qargi (the packs' render, the members' render, the project's memory) and is linked from the
+Everything a project uses lives under ~/.crown (the packs' render, the members' render, the project's memory) and is linked from the
 places the runtime reads: skills and agents into the checkout, memory into the runtime's memory directory of that checkout. What is
 linked, where and how comes from the runtime's definition (resources.skills, .agents and .memory, each with link.project or link.user:
 dir-symlink, entry-symlinks, copy or none); nothing here names a runtime.
@@ -19,9 +19,9 @@ The checkout is the top of the work tree the current directory is in when that w
 or the repository itself), else the project's repo.path: a worktree gets its links by running the verb inside it. The links are the record:
 nothing lists the worktrees of a project, and the status of a link is the status of the current work tree's.
 
-Skills: the render of the project's packs (qargi packs apply). Agents: the render of the project's members, state/render/PROJECT/RUNTIME.agents
-(qargi agent add NAME --project PROJECT; beside the runtime's render, not in it, because a packs render replaces its directory whole). Memory: the
-project's memory tier (qargi memory init project), linked at the runtime's memory directory for the checkout (resources.memory.user_dir).
+Skills: the render of the project's packs (crown packs apply). Agents: the render of the project's members, state/render/PROJECT/RUNTIME.agents
+(crown agent add NAME --project PROJECT; beside the runtime's render, not in it, because a packs render replaces its directory whole). Memory: the
+project's memory tier (crown memory init project), linked at the runtime's memory directory for the checkout (resources.memory.user_dir).
 
 All the resources of one call are planned first and one token covers them; an apply that fails on one resource says which were done and which not.
 A member's run never applies (the engine refuses). The mechanics, the only paths written and the crash safety are the engine's.
@@ -60,24 +60,24 @@ def members_dir(state, project, runtime):
 
 
 def words(project, resource):
-    base = {"cli": "project", "unlink": "qargi project unlink %s --resource %s" % (project, resource)}
+    base = {"cli": "project", "unlink": "crown project unlink %s --resource %s" % (project, resource)}
     if resource == "agents":
         base.update(plural="members", singular="member", dir="agents directory", source="this project's member render", source_word="member render",
                     loads="the project's members from the render")
     if resource == "memory":
         base.update(plural="notes", singular="note", dir="memory directory", source="this project's memory", source_word="project memory",
-                    loads="the project's memory from qargi's memory directory", place="the home directory")
+                    loads="the project's memory from crown's memory directory", place="the home directory")
     return base
 
 
 class Memory(linker.Link):
     def source_missing(self):
-        raise Missing("the memory of %s does not exist yet: %s is missing (qargi memory init project)" % (self.project, self.source))
+        raise Missing("the memory of %s does not exist yet: %s is missing (crown memory init project)" % (self.project, self.source))
 
 
 class Members(linker.Link):
     def source_missing(self):
-        raise Missing("no member of %s is rendered for this runtime yet: %s does not exist (qargi agent add NAME --project %s)"
+        raise Missing("no member of %s is rendered for this runtime yet: %s does not exist (crown agent add NAME --project %s)"
                       % (self.project, self.source, self.project))
 
 
@@ -89,7 +89,7 @@ class Skills(packs_link.SkillsLink):
                 super().source_missing()
             except SystemExit:
                 pass
-        raise Missing(buf.getvalue().strip().removeprefix("qargi: "))
+        raise Missing(buf.getvalue().strip().removeprefix("crown: "))
 
 
 def mode_of(res, key, scope):
@@ -131,7 +131,7 @@ class Context:
         self.res = (provider.composed(self.runtime, "local", project).get("resources") or {})
         repo = (self.answers.get("repo") or {}).get("path") or ""
         if not repo:
-            die("project %s has no checkout (repo.path is empty): qargi project set %s repo.path DIR" % (project, project))
+            die("project %s has no checkout (repo.path is empty): crown project set %s repo.path DIR" % (project, project))
         self.repo = repo
         self.checkout = linker.resolve_checkout(repo)
 
@@ -165,7 +165,7 @@ class Context:
         src = tier["location"]
         mroot = os.path.join(paths.root(), "memory")
         if not src or not os.path.realpath(src).startswith(os.path.realpath(mroot) + os.sep):
-            die("the memory of project %s is placed at %r, outside %s (memory.tiers.project.path); qargi links only what is kept there"
+            die("the memory of project %s is placed at %r, outside %s (memory.tiers.project.path); crown links only what is kept there"
                 % (p, src, mroot))
         return Memory("memory", p, co, tpl[2:], src, mode, st, words(p, "memory"), root=os.path.expanduser("~"), source_root=mroot)
 
@@ -177,7 +177,7 @@ def quiet(fn, *a):
         with contextlib.redirect_stderr(buf):
             return fn(*a), None
     except SystemExit:
-        return None, buf.getvalue().strip().removeprefix("qargi: ")
+        return None, buf.getvalue().strip().removeprefix("crown: ")
 
 
 def select(ctx, verb, named):
@@ -247,7 +247,7 @@ def cmd_apply(verb, ctx, named, token):
         except SystemExit:
             if done or len(todo) > len(done) + 1:
                 rest = [r for r, _, _ in todo[len(done):]]
-                print("qargi: %s of %s stopped at %s: %s done, %s not done; running the same command again plans what is left" % (
+                print("crown: %s of %s stopped at %s: %s done, %s not done; running the same command again plans what is left" % (
                     verb, ctx.project, rest[0], ", ".join(done) or "nothing", ", ".join(rest)), file=sys.stderr)
             raise
         done.append(resource)
@@ -268,10 +268,10 @@ def main():
         ctx = Context(project)
         (cmd_plan if phase == "plan" else cmd_apply)(verb, ctx, named, sys.argv[5])
     except provider.Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         sys.exit(3)
     except provider.NoProvider as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         sys.exit(2)
     except provider.ProviderError as e:
         die(str(e))

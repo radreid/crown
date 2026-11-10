@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# qargi local run: the command line of a member is made from the data of the project's local runtime, and a fake CLI stands in for
+# crown local run: the command line of a member is made from the data of the project's local runtime, and a fake CLI stands in for
 # the real one (nothing here spends or reaches a network). Run: tests/test_local_run.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
 T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0
-export QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T TMPDIR=$T/tmp
+export CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T TMPDIR=$T/tmp
 mkdir -p "$T/tmp" "$T/bin" "$T/c/projects"
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-DA=./bin/qargi
+DA=./bin/crown
 LC="git -c user.name=t -c user.email=t@example.net"
 git init -q -b main "$T/r" && $LC -C "$T/r" commit -q --allow-empty -m one
 git init -q -b main "$T/r2" && $LC -C "$T/r2" commit -q --allow-empty -m one
@@ -22,7 +22,7 @@ cat > "$T/bin/fakellm" <<'SH'
 out=''
 for a in "$@"; do printf 'ARG[%s]\n' "$a"; done
 while [ $# -gt 0 ]; do [ "$1" = --out ] && out=$2; shift; done
-echo "PWD=$PWD"; echo "HOME=$HOME"; echo "KEY=${FAKE_KEY-unset}"; echo "OTHER=${OTHER_SECRET-unset}"; echo "GITCFG=${GIT_CONFIG_GLOBAL-unset}"; echo "GITWRAP=${GIT-unset}"; echo "MEMBERMARK=${QARGI_MEMBER_RUN-unset}"
+echo "PWD=$PWD"; echo "HOME=$HOME"; echo "KEY=${FAKE_KEY-unset}"; echo "OTHER=${OTHER_SECRET-unset}"; echo "GITCFG=${GIT_CONFIG_GLOBAL-unset}"; echo "GITWRAP=${GIT-unset}"; echo "MEMBERMARK=${CROWN_MEMBER_RUN-unset}"
 echo "STDIN-BEGIN"; if [ -t 0 ]; then echo "(tty)"; else cat; fi; echo "STDIN-END"
 [ -z "$out" ] || echo "report of the fake" > "$out/report.md"
 case ${FAKE_MODE-} in
@@ -71,8 +71,8 @@ prep "$T/r" w1; task
 out=$($DA local run "$RUN" --dry-run 2>"$T/err"); rc=$?
 want=$(jq -nc --arg c "$CLONE" --arg o "$OUT" '["fakellm","run","--model","fake-m-1","--clone",$c,"--out",$o]')
 [ "$rc" = 0 ] && [ "$(arg0 <<<"$out")" = "$want" ] && ok "dry run: the argv is the data's, with the placeholders filled" || no "dry argv: rc=$rc [$(arg0 <<<"$out")] want [$want] $(cat "$T/err")"
-grep -q '^You are a qargi member: a task-scoped worker' <<<"$out" && grep -q '^TASK: change the thing' <<<"$out" && grep -q '^CLASS=write' <<<"$out" \
-  && ok "dry run: the prompt is the member body and the task block, with the class qargi recorded" || no "dry prompt: $out"
+grep -q '^You are a crown member: a task-scoped worker' <<<"$out" && grep -q '^TASK: change the thing' <<<"$out" && grep -q '^CLASS=write' <<<"$out" \
+  && ok "dry run: the prompt is the member body and the task block, with the class crown recorded" || no "dry prompt: $out"
 grep -q '{skills_dir}' <<<"$out" && no "the member body still has {skills_dir}" || ok "the member body's {skills_dir} is filled"
 [ ! -e "$RUN/dispatch.json" ] && [ ! -e "$OUT/transcript" ] && [ ! -e "$RUN/prompt" ] && ok "dry run writes nothing" || no "dry run wrote: $(ls "$RUN" "$OUT")"
 grep -q '^COMMAND=fakellm' <<<"$out" && grep -q '^PROMPT_VIA=stdin' <<<"$out" && grep -q '^ENV_PASS=FAKE_KEY,FAKE_MODE' <<<"$out" && ok "dry run names the command, the prompt route and the environment passed (names only)" || no "dry fields: $out"
@@ -133,11 +133,11 @@ tr=$OUT/transcript
 grep -q '^ARG\[run\]' "$tr" && grep -q '^ARG\[--model\]' "$tr" && grep -q '^ARG\[fake-m-1\]' "$tr" && grep -q "^ARG\[$CLONE\]" "$tr" && ok "the fake CLI got the argv as separate arguments" || no "transcript args: $(head -20 "$tr")"
 [ "$(cat "$OUT/report.md" 2>/dev/null)" = "report of the fake" ] && ok "what the CLI wrote to OUT is there" || no "no report in OUT"
 grep -q "^PWD=$CLONE\$" "$tr" && ok "it ran in the clone" || no "cwd: $(grep PWD "$tr")"
-grep -q '^STDIN-BEGIN' "$tr" && sed -n '/^STDIN-BEGIN/,/^STDIN-END/p' "$tr" | grep -q 'TASK: change the thing' && sed -n '/^STDIN-BEGIN/,/^STDIN-END/p' "$tr" | grep -q 'You are a qargi member' \
+grep -q '^STDIN-BEGIN' "$tr" && sed -n '/^STDIN-BEGIN/,/^STDIN-END/p' "$tr" | grep -q 'TASK: change the thing' && sed -n '/^STDIN-BEGIN/,/^STDIN-END/p' "$tr" | grep -q 'You are a crown member' \
   && ok "the prompt came on its standard input" || no "stdin: $(sed -n '/STDIN-BEGIN/,$p' "$tr" | head)"
 grep -q '^KEY=envval-k1$' "$tr" && grep -q '^OTHER=unset$' "$tr" && ok "only env_pass names reach it (FAKE_KEY did, OTHER_SECRET did not)" || no "env: $(grep -E 'KEY|OTHER' "$tr")"
 grep -q "^HOME=$RUN/home\$" "$tr" && grep -q '^GITCFG=/dev/null$' "$tr" && grep -q "^GITWRAP=$RUN/git\$" "$tr" && ok "it has the git wrapper's environment (no home, no global git configuration)" || no "git env: $(grep -E 'HOME|GIT' "$tr")"
-grep -q "^MEMBERMARK=$RUN\$" "$tr" && ok "it carries the member mark QARGI_MEMBER_RUN (the run directory), so the marshal knows it from any directory" || no "member mark: $(grep MEMBERMARK "$tr")"
+grep -q "^MEMBERMARK=$RUN\$" "$tr" && ok "it carries the member mark CROWN_MEMBER_RUN (the run directory), so the marshal knows it from any directory" || no "member mark: $(grep MEMBERMARK "$tr")"
 [ "$(jq -r .outcome "$RUN/dispatch.json")" = ok ] && [ "$(jq -r '.argv | join(" ")' "$RUN/dispatch.json")" = "fakellm run --model fake-m-1 --clone $CLONE --out $OUT" ] && ! grep -q 'envval-k1' "$RUN/dispatch.json" \
   && ok "dispatch.json records the argv and the outcome, not an environment value" || no "dispatch.json: $(jq -c . "$RUN/dispatch.json" 2>&1) (wanted outcome ok, argv: fakellm run --model fake-m-1 --clone $CLONE --out $OUT)"
 $DA local verify "$RUN" >/dev/null 2>&1 && ok "verify passes after the run" || no "verify after run"
@@ -164,8 +164,8 @@ if [ -n "$kid" ] && ! kill -0 "$kid" 2>/dev/null; then ok "the whole process gro
 setprov fakearg; prep "$T/r" w3; task
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
 n=$(arg0 <<<"$out" | jq -r 'length'); p=$(arg0 <<<"$out" | jq -r '.[2]')
-{ [ "$rc" = 0 ] && [ "$n" = 5 ] && [ "$(arg0 <<<"$out" | jq -r '.[1]')" = -p ] && [[ $p == "You are a qargi member"* ]] && [[ $p == *"TASK: change the thing"* ]]; } && ok "via arg: the whole prompt is one argument" || no "arg via: rc=$rc $out"
-out=$($DA local run "$RUN" 2>&1); rc=$?; grep -q '^ARG\[You are a qargi member' "$OUT/transcript" && [ "$rc" = 0 ] && ok "and a real run passes it" || no "arg run: rc=$rc $out"
+{ [ "$rc" = 0 ] && [ "$n" = 5 ] && [ "$(arg0 <<<"$out" | jq -r '.[1]')" = -p ] && [[ $p == "You are a crown member"* ]] && [[ $p == *"TASK: change the thing"* ]]; } && ok "via arg: the whole prompt is one argument" || no "arg via: rc=$rc $out"
+out=$($DA local run "$RUN" 2>&1); rc=$?; grep -q '^ARG\[You are a crown member' "$OUT/transcript" && [ "$rc" = 0 ] && ok "and a real run passes it" || no "arg run: rc=$rc $out"
 setprov fakeobj; prep "$T/r" w4; task
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
 [ "$rc" = 0 ] && [ "$(arg0 <<<"$out" | jq -c '.')" = "$(jq -nc --arg f "$RUN/prompt/prompt.md" --arg o "$OUT" '["fakellm","-p",$f,"--out",$o]')" ] && ok "via file: {prompt_file} is the run's prompt/prompt.md, and a write run has no class group" || no "file via: rc=$rc $out"
@@ -178,7 +178,7 @@ mk fakectl "$(jq -n --argjson m "$M" '{schema:2,kind:"provider",provider:"fakect
 setprov fakectl; prep "$T/r" w4b; task
 refs=$(cat "$RUN/refs.before"); cls=$(cat "$RUN/class" 2>/dev/null || true)
 out=$($DA local run "$RUN" 2>&1); rc=$?
-{ [ "$(cat "$RUN/refs.before")" = "$refs" ] && [ "$(cat "$RUN/class" 2>/dev/null || true)" = "$cls" ] && ! grep -q 'You are a qargi member' "$RUN/refs.before"; } \
+{ [ "$(cat "$RUN/refs.before")" = "$refs" ] && [ "$(cat "$RUN/class" 2>/dev/null || true)" = "$cls" ] && ! grep -q 'You are a crown member' "$RUN/refs.before"; } \
   && ok "prompt.file named refs.before: the run's refs.before is untouched" || no "prompt.file overwrote a control file: $(head -c 200 "$RUN/refs.before")"
 [ "$(sed -n 's/^ARG\[\(.*refs.before\)\]$/\1/p' "$OUT/transcript" 2>/dev/null | head -1)" = "$RUN/prompt/refs.before" ] && grep -q 'TASK: change the thing' "$RUN/prompt/refs.before" \
   && ok "the prompt went to RUN/prompt/, the dedicated directory, under that name" || no "prompt dir: rc=$rc $out $(ls "$RUN" "$RUN/prompt" 2>&1)"
@@ -196,7 +196,7 @@ setprov fakeobj
 setprov fakecmd; prep "$T/r" rv2 review; task
 setprov fakeobj
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'has no read-only barrier on local' <<<"$out" && grep -q 'qargi provider accept fakeobj --surface local --no-barrier --project rproj' <<<"$out"; } \
+{ [ "$rc" = 2 ] && grep -q 'has no read-only barrier on local' <<<"$out" && grep -q 'crown provider accept fakeobj --surface local --no-barrier --project rproj' <<<"$out"; } \
   && ok "read-only on a runtime with no barrier: refused, with the accept command" || no "no barrier: rc=$rc $out"
 jq '.models.accept_no_barrier = {local: {by: "owner", at: "2026-11-02", reason: "test"}}' "$T/c/projects/rproj.json" > "$T/p.tmp" && mv "$T/p.tmp" "$T/c/projects/rproj.json"
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
@@ -213,7 +213,7 @@ verify_ro fakeclaim
 setprov fakeclaim; prep "$T/r" rv2c review; task
 [ "$(python3 -I lib/provider.py effective fakeclaim local read_only_barrier 2>&1)" = no ] && ok "fail-open claim: the attested claim with nothing behind it reads as no" || no "fail-open setup: $(python3 -I lib/provider.py effective fakeclaim local read_only_barrier 2>&1)"
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'fakeclaim' <<<"$out" && grep -q 'on local' <<<"$out" && grep -q 'barrier.kind is none' <<<"$out" && grep -q 'qargi provider accept fakeclaim --surface local --no-barrier --project rproj' <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
+{ [ "$rc" = 2 ] && grep -q 'fakeclaim' <<<"$out" && grep -q 'on local' <<<"$out" && grep -q 'barrier.kind is none' <<<"$out" && grep -q 'crown provider accept fakeclaim --surface local --no-barrier --project rproj' <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
   && ok "a read-only run of a runtime that claims a barrier it does not have is refused (exit 2) with the accept command" || no "fail-open claim, dry: rc=$rc $out"
 out=$($DA local run "$RUN" 2>&1); rc=$?
 { [ "$rc" = 2 ] && [ ! -e "$RUN/dispatch.json" ] && [ ! -e "$OUT/transcript" ]; } && ok "and a real one starts nothing" || no "fail-open claim, real: rc=$rc $out"
@@ -238,7 +238,7 @@ for v in write empty; do
   verify_ro "fakeclaim$v"
   setprov "fakeclaim$v"; prep "$T/r" "rv2$v" review; task
   out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
-  { [ "$rc" = 2 ] && grep -q "fakeclaim$v" <<<"$out" && grep -q "qargi provider accept fakeclaim$v --surface local --no-barrier" <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
+  { [ "$rc" = 2 ] && grep -q "fakeclaim$v" <<<"$out" && grep -q "crown provider accept fakeclaim$v --surface local --no-barrier" <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
     && ok "a read-only run whose only class arguments are $v ones is refused: they hold no read-only member" || no "class arguments ($v): rc=$rc $out"
 done
 
@@ -259,7 +259,7 @@ for n in fakehook fakehookargs fakeadapt; do verify_ro "$n"; done
 for n in fakehook fakeadapt; do
   setprov "$n"; prep "$T/r" "rv6$n" review; task
   out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
-  { [ "$rc" = 2 ] && grep -q "$n" <<<"$out" && grep -q 'on local' <<<"$out" && grep -q "qargi provider accept $n --surface local --no-barrier --project rproj" <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
+  { [ "$rc" = 2 ] && grep -q "$n" <<<"$out" && grep -q 'on local' <<<"$out" && grep -q "crown provider accept $n --surface local --no-barrier --project rproj" <<<"$out" && ! grep -q '^ARGV=' <<<"$out"; } \
     && ok "a read-only run of $n, whose own barrier nothing in a local run applies, is refused (exit 2) with the accept command" || no "$n barrier, dry: rc=$rc $out"
   out=$($DA local run "$RUN" 2>&1); rc=$?
   { [ "$rc" = 2 ] && [ ! -e "$RUN/dispatch.json" ] && [ ! -e "$OUT/transcript" ]; } && ok "and a real one starts nothing" || no "$n barrier, real: rc=$rc $out"
@@ -359,8 +359,8 @@ seal fakepack '["bin/pack-llm"]'
 out=$($DA local run "$RUN" --dry-run 2>&1); rc=$?
 { [ "$rc" = 0 ] && grep -q '^COMMAND=<sealed copy of pack fakepack>/bin/pack-llm' <<<"$out"; } && ok "dry run on an approved pack executable names the sealed copy and checks it" || no "pack dry: rc=$rc $out"
 out=$($DA local run "$RUN" 2>&1); rc=$?
-{ [ "$rc" = 0 ] && grep -Eq "^SELF=$T/tmp/qargi-exec\..+/fakepack/bin/pack-llm\$" "$OUT/transcript"; } && ok "approved: it ran from the private exec copy, not from the library" || no "pack run: rc=$rc $out $(cat "$OUT/transcript" 2>/dev/null)"
-[ -z "$(ls -d "$T"/tmp/qargi-exec.* 2>/dev/null)" ] && ok "the copy is removed afterwards" || no "exec copy left: $(ls "$T/tmp")"
+{ [ "$rc" = 0 ] && grep -Eq "^SELF=$T/tmp/crown-exec\..+/fakepack/bin/pack-llm\$" "$OUT/transcript"; } && ok "approved: it ran from the private exec copy, not from the library" || no "pack run: rc=$rc $out $(cat "$OUT/transcript" 2>/dev/null)"
+[ -z "$(ls -d "$T"/tmp/crown-exec.* 2>/dev/null)" ] && ok "the copy is removed afterwards" || no "exec copy left: $(ls "$T/tmp")"
 echo '# changed after the seal' >> "$LIB/fakepack/bin/pack-llm"
 out=$($DA local run "$RUN" --again 2>&1); rc=$?
 { [ "$rc" = 2 ] && grep -q 'changed since it was sealed' <<<"$out"; } && ok "a pack changed since it was sealed is not run (drift)" || no "drift: rc=$rc $out"
@@ -399,7 +399,7 @@ jq -n --argjson m "$M" --arg f "$T/PWNED" '{schema:2,kind:"provider",provider:"h
   dispatch:{mode:"command",argv:["bash","-c",("touch " + $f)],prompt:{via:"stdin"},output:{format:"text"}}}' > "$LIB/handrun/definition.json"
 setprov handrun
 out=$($DA local run "$RUN" 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q "provider 'handrun' has no record" <<<"$out" && grep -q 'qargi provider seal handrun' <<<"$out" && [ ! -e "$T/PWNED" ]; } \
+{ [ "$rc" = 2 ] && grep -q "provider 'handrun' has no record" <<<"$out" && grep -q 'crown provider seal handrun' <<<"$out" && [ ! -e "$T/PWNED" ]; } \
   && ok "a pack put in the library by hand is refused with the way in (seal it), and its command did not run" || no "hand-placed pack: rc=$rc $out"
 
 # --- the run itself ---------------------------------------------------------------------------------------------------------------------

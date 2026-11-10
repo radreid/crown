@@ -1,10 +1,10 @@
 # shellcheck shell=bash
-# Sourced by a shell test, after hermetic.sh and after the test has set T (its temporary directory), fail=0 and DA (the qargi under test).
+# Sourced by a shell test, after hermetic.sh and after the test has set T (its temporary directory), fail=0 and DA (the crown under test).
 # The helpers the tests re-implemented one by one: the report lines, a scratch repository, a bare origin, the machines (a clone of the
 # origin with its own home, conf and state), the git and ssh-keygen shims, and a poll that replaces a fixed sleep. A test that needs the
 # helper under another name or another body keeps its own; nothing here reads anything but the arguments and the variables named below.
 #
-# Variables a helper reads: T (a writable directory the test owns), fail (set to 1 by no), DA (the qargi to run), ORIGIN (the bare origin
+# Variables a helper reads: T (a writable directory the test owns), fail (set to 1 by no), DA (the crown to run), ORIGIN (the bare origin
 # make_origin made). Every helper takes its directories as arguments or from T, so a test may run a second world with T set to another directory.
 
 # --- the report: `ok TEXT` prints an ok line, `no TEXT` a FAIL line and fails the test
@@ -40,7 +40,7 @@ make_origin() {
     && git -C "$1.seed" remote add origin "$1" && git -C "$1.seed" push -q origin master develop
   rm -rf "$1.seed"
 }
-# make_machine NAME: $T/m/NAME with home/, c/ (QARGI_CONF, with a valid project "app" pointing at the machine's clone), s/ (QARGI_STATE) and
+# make_machine NAME: $T/m/NAME with home/, c/ (CROWN_CONF, with a valid project "app" pointing at the machine's clone), s/ (CROWN_STATE) and
 # app/ (a clone of $ORIGIN with a local develop). The first call builds the clone and the project record in $T/.fx; every later one copies
 # them with `cp -a` and points the record at its own clone, so each machine is as independent as one cloned from scratch.
 make_machine() {
@@ -49,7 +49,7 @@ make_machine() {
   if [ ! -d "$fx/app" ]; then
     mkdir -p "$fx/home" "$fx/c" "$fx/s"
     git clone -q "$ORIGIN" "$fx/app" && git -C "$fx/app" branch develop origin/develop >/dev/null 2>&1
-    env HOME="$fx/home" QARGI_CONF="$fx/c" QARGI_STATE="$fx/s" "$DA" project template app \
+    env HOME="$fx/home" CROWN_CONF="$fx/c" CROWN_STATE="$fx/s" "$DA" project template app \
       | jq '.repo.url = "https://github.com/acme/app" | .methodology = "gitflow" | .test_command = "true"' > "$fx/app.json"
   fi
   cp -a "$fx/app" "$d/app"

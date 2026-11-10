@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The conformance suite of a provider adapter: what every lib/providers/NAME/adapter must do, whatever the vendor.
-# It ships with the tool (lib/conformance/), because `qargi provider check` runs it on the adapter of a library pack; tests/conformance.sh
+# It ships with the tool (lib/conformance/), because `crown provider check` runs it on the adapter of a library pack; tests/conformance.sh
 # is a wrapper that runs it for the shipped runtimes with the same arguments and the same output.
 #
 # Usage: lib/conformance/run.sh NAME [--stub DIR] [--tool DIR]      (tests/conformance.sh prints its own name in the usage line)
@@ -10,12 +10,12 @@
 #              definition whose models are inline and one that references a catalog are checked the same way. A descriptor
 #              with adapter null is skipped with a message (exit 0).
 #   --stub DIR the provider's test directory, default tests/providers/NAME. It holds `stub` (an executable that stands in
-#              for the vendor, exported to the adapter as $QARGI_TRANSPORT; see tests/providers/lib/stub.py), fixtures/
+#              for the vendor, exported to the adapter as $CROWN_TRANSPORT; see tests/providers/lib/stub.py), fixtures/
 #              (what the stub replays), for case 9 definition.json and, for a provider whose start-session builds the body of a
 #              session request, start-session/worker.request.json (the request the sample of cases 1, 5 and 10 uses).
 #   --tool DIR a tool root (a directory with lib/providers/) other than this checkout; the suite of a fixture uses it.
 # Output: one line per case, `ok`, `FAIL` (with the problems indented below) or `skip` (with the reason). Exit 1 when any
-# case fails, 2 on a usage error, else 0. Hermetic: HOME, QARGI_CONF and QARGI_STATE are temporary, the adapter's
+# case fails, 2 on a usage error, else 0. Hermetic: HOME, CROWN_CONF and CROWN_STATE are temporary, the adapter's
 # transport is the stub, nothing leaves the temporary directory. Needs bash, jq and python3.
 #
 # Cases (the request and the response of every verb are in lib/providers/adapter-schema.json):
@@ -89,8 +89,8 @@ if [ -z "$AD_REL" ]; then
 fi
 ADAPTER=$TOOL/$AD_REL
 STUB=$STUBDIR/stub
-export QARGI_TRANSPORT=$STUB QARGI_STUB_LOG=$W/stub.log CONFORMANCE_TOOL=$TOOL
-: > "$QARGI_STUB_LOG"
+export CROWN_TRANSPORT=$STUB CROWN_STUB_LOG=$W/stub.log CONFORMANCE_TOOL=$TOOL
+: > "$CROWN_STUB_LOG"
 
 nok=0; nfail=0; nskip=0
 PROB=(); NOTES=(); RAN=0; SKIPWHY=""
@@ -266,7 +266,7 @@ case3() {
 case4() {
   begin
   if ! listed cloud; then nothing "the provider has no cloud surface"; finish 4 "provision in plan mode is read-only"; return; fi
-  : > "$QARGI_STUB_LOG"
+  : > "$CROWN_STUB_LOG"
   call provision "$(sample provision cloud)"
   if [ "$RC" = 3 ]; then nothing "provision is not implemented (exit 3)"
   elif [ "$RC" != 0 ]; then ran; problem "provision in plan mode: exit $RC: ${OUT:0:200}"
@@ -277,7 +277,7 @@ case4() {
     while IFS=$'\t' read -r m t; do
       calls=$((calls + 1))
       case $m in GET|HEAD|OPTIONS|LIST|SHOW|RETRIEVE|DESCRIBE|READ) ;; *) problem "provision in plan mode made a mutating transport call: $m $t";; esac
-    done < <(jq -r '[(.argv[0] | ascii_upcase), (.argv[1] // "")] | @tsv' "$QARGI_STUB_LOG")
+    done < <(jq -r '[(.argv[0] | ascii_upcase), (.argv[1] // "")] | @tsv' "$CROWN_STUB_LOG")
     note "$calls transport call(s), all read-class"
   fi
   finish 4 "provision in plan mode is read-only"
@@ -293,18 +293,18 @@ case5() {
   for verb in $(jq -r '.verbs | to_entries[] | select(.value.request.properties.credentials != null) | .key' "$SCHEMA"); do
     req=$(sample "$verb" cloud | jq -c --arg c "$SENT" '. + {credentials: {api_key: $c, token: $c}}')
     bad=$(check_schema "$verb" request "$req") || problem "internal: the sample request of $verb with credentials is not in the schema: $bad"
-    : > "$QARGI_STUB_LOG"; : > "$W/ps.hits"; : > "$W/polling"
+    : > "$CROWN_STUB_LOG"; : > "$W/ps.hits"; : > "$W/polling"
     ( while [ -e "$W/polling" ]; do
         for f in /proc/[0-9]*/cmdline; do grep -qaF -f "$W/sentinel" "$f" 2>/dev/null && echo hit >> "$W/ps.hits"; done
         sleep 0.02
       done ) &
     poller=$!
-    QARGI_STUB_DELAY=0.3 call "$verb" "$req"
+    CROWN_STUB_DELAY=0.3 call "$verb" "$req"
     rm -f "$W/polling"; wait "$poller" 2>/dev/null
     if [ "$RC" = 3 ]; then continue; fi
     ran; n=$((n + 1)); tried="$tried $verb"
     [ "$RC" = 0 ] || problem "$verb with credentials: exit $RC: ${OUT:0:200}"
-    hits=$(jq -r --arg c "$SENT" 'select(.argv | map(contains($c)) | any) | .argv | join(" ")' "$QARGI_STUB_LOG" | head -1)
+    hits=$(jq -r --arg c "$SENT" 'select(.argv | map(contains($c)) | any) | .argv | join(" ")' "$CROWN_STUB_LOG" | head -1)
     [ -z "$hits" ] || problem "$verb: the credential is in the transport's argv (the stub's log): ${hits//$SENT/<credential>}"
     [ ! -s "$W/ps.hits" ] || problem "$verb: the credential showed in the process list while the adapter ran"
     grep -qF -- "$SENT" <<<"$OUT" && problem "$verb: the credential is in the adapter's output"
@@ -321,7 +321,7 @@ case6() {
   local req rc1
   listed cloud || { nothing "the provider has no cloud surface"; finish 6 "stop twice exits 0"; return; }
   req=$(sample stop cloud)
-  : > "$QARGI_STUB_LOG"
+  : > "$CROWN_STUB_LOG"
   call stop "$req"; rc1=$RC
   if [ "$rc1" = 3 ]; then nothing "stop is not implemented (exit 3)"
   else

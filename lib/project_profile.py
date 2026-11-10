@@ -1,4 +1,4 @@
-"""qargi project profile check: read a repository's profile (~/.qargi/config/profiles/<repository>.md, or the file given) and say what is
+"""crown project profile check: read a repository's profile (~/.crown/config/profiles/<repository>.md, or the file given) and say what is
 wrong with it. Read only; nothing is written.
 
   project_profile.py check CONF ANSWERS PROFILE   print the findings; exit 1 when the profile still carries the shipped template header,
@@ -9,9 +9,9 @@ CONF is the config directory, ANSWERS the project's answers file ("" for none: t
 PROFILE a profile file ("" for CONF/profiles/<repository name>.md). The repository's name is the name of its directory (repo.path), else the
 last part of repo.url, else the project's name.
 
-The shipped example (examples/myproject/profile.md) opens with an "Example profile" title and a "Copy to ~/.qargi/config/profiles/<repository-name>.md"
+The shipped example (examples/myproject/profile.md) opens with an "Example profile" title and a "Copy to ~/.crown/config/profiles/<repository-name>.md"
 line: a profile that still has either was copied and not adapted. The gate commands are the backticked commands of the profile's "Gates"
-section; each must be found in the repository's instruction files (DOC_FILES: the files `qargi attach` reads) or its Makefile: a make target of
+section; each must be found in the repository's instruction files (DOC_FILES: the files `crown attach` reads) or its Makefile: a make target of
 the Makefile, the text of the command in one of those files, or a script that exists in the repository.
 """
 import json
@@ -143,9 +143,9 @@ def check(conf, answers, given):
     lines = read_lines(path)
     if lines is None:
         if given:
-            print("qargi: no such profile file: " + given, file=sys.stderr)
+            print("crown: no such profile file: " + given, file=sys.stderr)
             return 2
-        print("no profile at %s (a profile is optional; the example to copy is examples/myproject/profile.md of the qargi install)" % path)
+        print("no profile at %s (a profile is optional; the example to copy is examples/myproject/profile.md of the crown install)" % path)
         return 0
     print("profile: %s%s" % (path, " (repository %s)" % name if name else ""))
     rc = 0
@@ -192,7 +192,7 @@ def warn(conf, answers):
     path = os.path.join(conf, "profiles", repo_name(ans) + ".md")
     lines = read_lines(path)
     if lines and header_findings(lines):
-        print("WARN: the profile %s still carries the shipped template header; adapt it to the repository (qargi project profile check %s)" % (path, ans.get("project") or "NAME"))
+        print("WARN: the profile %s still carries the shipped template header; adapt it to the repository (crown project profile check %s)" % (path, ans.get("project") or "NAME"))
     return 0
 
 

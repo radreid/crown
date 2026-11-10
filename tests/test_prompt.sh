@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.." || exit 1
 . tests/hermetic.sh
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
+export CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
 mkdir -p "$T/c" "$T/s" "$T/bin" "$FAKE"
 cat > "$T/bin/ant" <<'EOS'
 #!/usr/bin/env bash
@@ -30,19 +30,19 @@ case $1 in
 esac
 EOS
 chmod 755 "$T/bin/ant"; export PATH=$T/bin:$PATH
-DA=$PWD/bin/qargi
+DA=$PWD/bin/crown
 # the stored answers of a project: its cloud runtime supplies the cloud-only part of the prompt
 mkdir -p "$T/c/projects"
 mkproj() { jq -n --arg p "$1" --argjson v "$2" '{schema:1,project:$p,repo:{url:"https://github.com/example/\($p)",long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:$v},memory:{},budget_cents:500}' > "$T/c/projects/$1.json"; }
 mkproj alpha '{"local":"claude-code","cloud":"claude-platform"}'
 # a scratch copy of the tool whose skill and preamble can be edited
-copy_tool "$PWD" "$T/copy"; DC=$T/copy/bin/qargi
+copy_tool "$PWD" "$T/copy"; DC=$T/copy/bin/crown
 
 render() { bash -c ". '$1/lib/lib.sh'; agent_prompt build alpha"; }
 render "$PWD" > "$FAKE/system"; echo 1 > "$FAKE/aver"
 # what a cloud agent's prompt is made of: the contract, the output format, the cloud-only part, then the role; the lead gets none of them
 RB=$(render "$PWD"); RL=$(bash -c ". '$PWD/lib/lib.sh'; agent_prompt lead alpha" 2>/dev/null)
-for k in "You are a qargi agent" "# Output files" "# In a cloud run" "# Role: build"; do
+for k in "You are a crown agent" "# Output files" "# In a cloud run" "# Role: build"; do
   grep -qF "$k" <<<"$RB" && ok "the build prompt holds: $k" || no "the build prompt lacks: $k"
 done
 grep -qF "# In a cloud run" <<<"$RL" && no "the lead got the cloud-only part" || ok "the lead's prompt has no cloud-only part"
@@ -55,7 +55,7 @@ grep -rq "mnt/session" contract provision/templates provision/role-seeds && no "
 # outside the cloud runtime's definition the hosted output directory is still named by the dispatch skill's cloud.md; this list can only shrink
 # (lib/team.sh and lib/collect.sh ask the runtime's notes: output-dir, clone-dir)
 hosted=$(grep -rl "mnt/session" bin lib agents contract packs roles skills provision 2>/dev/null | grep -v '^lib/providers/' | sort | tr '\n' ' ')
-[ "$hosted" = "skills/qargi-task/cloud.md " ] && ok "only the qargi-task skill's cloud.md names the hosted output directory outside the runtime's definition" || no "the hosted output directory is named in: $hosted"
+[ "$hosted" = "skills/crown-task/cloud.md " ] && ok "only the crown-task skill's cloud.md names the hosted output directory outside the runtime's definition" || no "the hosted output directory is named in: $hosted"
 grep -q "RUN_DIR" provision/templates/cloud-preamble.md provision/role-seeds/lead/contract.md && no "the preamble or the lead contract names RUN_DIR as a place" || ok "the preamble and the lead contract send outputs to OUT"
 grep -rqE "write (new )?(verified )?(facts )?only (to|under)|members write only" provision/templates provision/role-seeds/lead/contract.md && no "a prompt text lets an agent write the memory store on its own" || ok "no prompt text lets an agent write the memory store on its own"
 grep -q "RUN_DIR" <<<"$RB" && no "the build prompt names RUN_DIR" || ok "the build prompt does not name RUN_DIR"

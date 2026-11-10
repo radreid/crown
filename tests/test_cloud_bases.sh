@@ -8,11 +8,11 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/bin" "$FAKE"
 
 # the ant fake: logs its calls, logged in, answers a deployment run with a session id, everything else with nothing
@@ -49,7 +49,7 @@ cls() { instance_class "$1" 2>/dev/null; }
 [ "$(cls odd)" = read-only ] && ok "a role with an unknown class fails closed: read-only" || no "odd: '$(cls odd)'"
 [ "$(cls '')" = read-only ] && ok "an empty name fails closed: read-only" || no "empty: '$(cls '')'"
 # a defaults table that cannot be read must not turn a base into write
-( _QARGI_DEFAULTS=$T/missing.json; [ "$(instance_class reviewer 2>/dev/null)" = read-only ] ) && ok "a base class that cannot be read is read-only" || no "unreadable defaults"
+( _CROWN_DEFAULTS=$T/missing.json; [ "$(instance_class reviewer 2>/dev/null)" = read-only ] ) && ok "a base class that cannot be read is read-only" || no "unreadable defaults"
 # the old helper is unchanged: it fails for a name it does not know
 role_class worker >/dev/null 2>&1 && no "role_class answered for a base name" || ok "role_class itself still fails for a base name (callers use instance_class)"
 
@@ -83,7 +83,7 @@ rm -rf "$T/c/roles/worker" "$T/c/roles/reviewer"
 
 # --- the barrier guard fires for <project>-reviewer (claude has no read-only barrier on cloud)
 refused() { # name rc output project
-  [ "$2" = 2 ] && grep -q "qargi provider accept claude-platform --surface cloud --no-barrier --project $4 --asked" <<<"$3" && ok "$1" || no "$1 (rc=$2: $3)"
+  [ "$2" = 2 ] && grep -q "crown provider accept claude-platform --surface cloud --no-barrier --project $4 --asked" <<<"$3" && ok "$1" || no "$1 (rc=$2: $3)"
 }
 # delta names its provider (there is no default one to fall back to when a project has none)
 jq -n '{schema:1,project:"delta",repo:{url:"https://github.com/example/delta",long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}},review:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/delta.json"
@@ -127,7 +127,7 @@ system_of() { sed '1,/^---$/d' "$1" | sed '1{/^$/d}'; }          # everything af
 A=$PD/gamma-build/agents/gamma-build
 $DA provision plan --project gamma --role build >/dev/null 2>&1 || no "plan gamma-build"
 want='name: gamma-build
-description: Task-scoped build agent for the qargi cloud backend (one task, own clone, returns patches, never pushes).
+description: Task-scoped build agent for the crown cloud backend (one task, own clone, returns patches, never pushes).
 model:
   id: claude-sonnet-5-5
   effort: high
@@ -156,11 +156,11 @@ initial_events:
     content:
       - type: text
         text: |
-          You are on standby for the /qargi-task cloud backend. Do no repository work until the coordinator sends a task with a --done check. Reply only: ready.'
+          You are on standby for the /crown-task cloud backend. Do no repository work until the coordinator sends a task with a --done check. Reply only: ready.'
 [ "$(cat "$A/deployment-standby.yaml")" = "$want" ] && ok "legacy gamma-build: the deployment is unchanged" || no "legacy gamma-build deployment"
 $DA provision plan --project gamma --role write >/dev/null 2>&1 || no "plan gamma-write"
 A=$PD/gamma-write/agents/gamma-write
-[ "$(front "$A/agent.md" | sed -n '2,8p')" = 'description: Task-scoped write agent for the qargi cloud backend (one task, own clone, returns patches, never pushes).
+[ "$(front "$A/agent.md" | sed -n '2,8p')" = 'description: Task-scoped write agent for the crown cloud backend (one task, own clone, returns patches, never pushes).
 model:
   id: claude-sonnet-5-5
   effort: medium

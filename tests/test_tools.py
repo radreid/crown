@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """lib/tools.py: the tools a role declares (roles.<role>.tools). What an entry needs, the one list across roles, where a tool is and
-whether it is the declared one (a fake go, a file and its sha256), and the offline submodule checkout qargi local prepare runs.
+whether it is the declared one (a fake go, a file and its sha256), and the offline submodule checkout crown local prepare runs.
 Offline. Run: python3 tests/test_tools.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import hashlib, json, os, shutil, subprocess, sys, tempfile, unittest
@@ -179,7 +179,7 @@ class Status(unittest.TestCase):
 
 
 class Checkout(unittest.TestCase):
-    """What qargi local prepare runs: the declared submodules checked out in the member's clone from the lead's copy, nothing fetched."""
+    """What crown local prepare runs: the declared submodules checked out in the member's clone from the lead's copy, nothing fetched."""
 
     def setUp(self):
         self.t = tempfile.mkdtemp()
@@ -277,7 +277,7 @@ class Checkout(unittest.TestCase):
         r = subprocess.run([sys.executable, "-I", os.path.join(ROOT, "lib", "tools.py"), "checkout", "--answers", answers, "--role", "test", "--clone", clone,
                             "--copies", os.path.join(self.t, "run-sub")], capture_output=True, text=True)
         self.assertEqual((r.returncode, r.stdout), (0, ""))
-        self.assertIn("qargi: note: submodule vendor/acme-test: the run was cloned from a URL", r.stderr)
+        self.assertIn("crown: note: submodule vendor/acme-test: the run was cloned from a URL", r.stderr)
         self.assertEqual(subprocess.run([sys.executable, "-I", os.path.join(ROOT, "lib", "tools.py"), "checkout"], capture_output=True).returncode, 2)
 
 

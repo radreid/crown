@@ -15,15 +15,15 @@ cd "$(dirname "$0")/.." || exit 1
 SRC=$PWD
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T FAKE=$T/fake
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T FAKE=$T/fake
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-unset QARGI_PROJECT
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/bin" "$FAKE" "$T/scr"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
 TOOL=$T/tool; mkdir -p "$TOOL"
 copy_tool "$SRC" "$TOOL"
-DA=$TOOL/bin/qargi
+DA=$TOOL/bin/crown
 # a fake provider: a family of two runtimes (fakeprov-local, fakeprov-cloud) built from the shipped claude-code and claude-platform
 # (tests/fakeprov.sh), with a catalog of its own (models, aliases, a pattern) and a reserved name of its own
 # shellcheck source=fakeprov.sh
@@ -68,7 +68,7 @@ store() { # project provider (JSON: null for none, an object {local, cloud}) -> 
 }
 store np null; store cl '{"local":"claude-code","cloud":"claude-platform"}'; store fk '{"local":"fakeprov-local","cloud":"fakeprov-cloud"}'
 jq -e '(.models // {}) | has("provider") | not' "$T/c/projects/np.json" >/dev/null && ok "np is stored with no models.provider" || no "np has a provider"
-msg() { echo "qargi: project $1 has no provider: set one with qargi project set $1 models.provider NAME"; }   # the one message (lib/provider.py)
+msg() { echo "crown: project $1 has no provider: set one with crown project set $1 models.provider NAME"; }   # the one message (lib/provider.py)
 refuses() { # name rc output project: exit 2 with the shared message and no word claude
   if [ "$2" = 2 ] && [ "$3" = "$(msg "$4")" ]; then ok "$1"; else no "$1 (rc=$2: $3)"; fi
 }
@@ -79,7 +79,7 @@ noclaude() { # name output: the output does not name claude (CLAUDE.md, a file o
 # --- the helper and the python side
 out=$(python3 -I "$TOOL/lib/provider.py" of np --conf "$T/c" 2>&1); refuses "provider of: a project with none" "$?" "$out" np
 out=$(python3 -I "$TOOL/lib/provider.py" of nosuch --conf "$T/c" 2>&1); rc=$?
-{ [ "$rc" = 2 ] && [ "$out" = "qargi: no such project 'nosuch'" ]; } && ok "provider of: an unknown project says so" || no "unknown project: rc=$rc $out"
+{ [ "$rc" = 2 ] && [ "$out" = "crown: no such project 'nosuch'" ]; } && ok "provider of: an unknown project says so" || no "unknown project: rc=$rc $out"
 out=$(python3 -I "$TOOL/lib/provider.py" of "" --conf "$T/c" 2>&1); rc=$?
 { [ "$rc" = 2 ] && grep -q 'pass --project NAME' <<<"$out"; } && ok "provider of: no project at all says to pass --project" || no "no project: rc=$rc $out"
 ( . "$TOOL/lib/lib.sh"; DA_CONF=$T/c
@@ -93,7 +93,7 @@ out=$("$DA" agent add m1 --project np 2>&1); refuses "agent add: a project with 
 out=$("$DA" agent add m1 2>&1); rc=$?
 { [ "$rc" = 2 ] && grep -q -- '--project NAME' <<<"$out" && ! grep -qi claude <<<"$out"; } && ok "agent add: no --project is refused and says to pass it" || no "agent add without --project: rc=$rc $out"
 out=$("$DA" agent add m1 --project nosuch 2>&1); rc=$?
-{ [ "$rc" = 2 ] && [ "$out" = "qargi: no such project 'nosuch'" ]; } && ok "agent add: an unknown project says so" || no "agent add unknown project: rc=$rc $out"
+{ [ "$rc" = 2 ] && [ "$out" = "crown: no such project 'nosuch'" ]; } && ok "agent add: an unknown project says so" || no "agent add unknown project: rc=$rc $out"
 [ "$(jq '[(.projects // {})[] | keys[]] | length' "$T/c/agents.json" 2>/dev/null || echo 0)" = 0 ] && [ ! -e "$T/repo-np/.claude/agents" ] && ok "and nothing was made" || no "a member was made for a project with no provider"
 out=$("$DA" agent models --project np 2>&1); refuses "agent models --project: a project with none is refused" "$?" "$out" np
 out=$("$DA" agent for build --project np 2>&1); refuses "agent for --project: a project with none is refused" "$?" "$out" np
@@ -124,9 +124,9 @@ out=$("$DA" agent refresh mc 2>&1); refuses "agent refresh: the project lost its
 out=$("$DA" agent rename mc mc2 2>&1); refuses "agent rename: the project lost its provider, refused" "$?" "$out" cl
 cp "$T/cl.keep" "$T/c/projects/cl.json"
 out=$("$DA" agent rename mc mc2 2>&1); [ "$?" = 0 ] && ok "agent rename: works again once the provider is back" || no "rename: $out"
-# a member belongs to a project and takes that project's provider, each time it is rendered; the project in effect (QARGI_PROJECT) lends nothing
-out=$(QARGI_PROJECT=cl "$DA" agent add ul 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q -- '--project NAME' <<<"$out" && ! jq -e '[(.projects // {})[] | keys[]] | index("ul")' "$T/c/agents.json" >/dev/null; } && ok "agent add: the project in effect is not enough, --project is required" || no "add under QARGI_PROJECT: rc=$rc $out"
+# a member belongs to a project and takes that project's provider, each time it is rendered; the project in effect (CROWN_PROJECT) lends nothing
+out=$(CROWN_PROJECT=cl "$DA" agent add ul 2>&1); rc=$?
+{ [ "$rc" = 2 ] && grep -q -- '--project NAME' <<<"$out" && ! jq -e '[(.projects // {})[] | keys[]] | index("ul")' "$T/c/agents.json" >/dev/null; } && ok "agent add: the project in effect is not enough, --project is required" || no "add under CROWN_PROJECT: rc=$rc $out"
 
 # --- provision plan: the model default comes from the project's provider (the answers here name no role model)
 mdl() { sed -n '/^model:/,/^[a-z]/p' "$T/s/provision/$1-build/agents/$1-build/agent.md" 2>/dev/null | tr -d '\n'; }   # the model block of the rendered agent
@@ -160,17 +160,17 @@ jq -n --argjson i "$(inst depl_1)" '{"np-review":$i,"cl-review":$i,"fk-review":$
 : > "$FAKE/ant.log"
 out=$("$DA" start np-review --asked "start the review" 2>&1); refuses "start: a read-only instance of a project with none is refused" "$?" "$out" np
 out=$("$DA" start np-reviewer --role review --asked "start" 2>&1); refuses "start: a reviewer base of a project with none is refused" "$?" "$out" np
-out=$(QARGI_DRY_RUN=1 "$DA" start np-worker --role build --asked "start the build base" 2>&1); refuses "start: a worker base of a project with none is refused before the request is built" "$?" "$out" np
+out=$(CROWN_DRY_RUN=1 "$DA" start np-worker --role build --asked "start the build base" 2>&1); refuses "start: a worker base of a project with none is refused before the request is built" "$?" "$out" np
 grep -q 'sessions create\|deployments run' "$FAKE/ant.log" && no "a session was created" || ok "and no session was created"
 # the session request is built by the adapter of the project's provider: claude and the fake one (the copies have the cloud overrides verified)
 for p in cl fk; do
-  out=$(QARGI_DRY_RUN=1 "$DA" start "$p-worker" --role build --asked "start the build base" 2>&1); rc=$?
+  out=$(CROWN_DRY_RUN=1 "$DA" start "$p-worker" --role build --asked "start the build base" 2>&1); rc=$?
   { [ "$rc" = 0 ] && jq -e '.agent.type == "agent_with_overrides"' <<<"$out" >/dev/null; } && ok "start: a worker base session of $p is built (dry run)" || no "start base $p: rc=$rc $(head -c 400 <<<"$out")"
 done
 out=$("$DA" start cl-review --asked "start the review" 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'qargi provider accept claude-platform --surface cloud --no-barrier --project cl' <<<"$out"; } && ok "start: claude names itself in the barrier refusal (it has no cloud barrier)" || no "start claude review: rc=$rc $out"
+{ [ "$rc" = 2 ] && grep -q 'crown provider accept claude-platform --surface cloud --no-barrier --project cl' <<<"$out"; } && ok "start: claude names itself in the barrier refusal (it has no cloud barrier)" || no "start claude review: rc=$rc $out"
 out=$("$DA" start fk-review --asked "start the review" 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'qargi provider accept fakeprov-cloud --surface cloud --no-barrier --project fk' <<<"$out" && ! grep -qi claude <<<"$out"; } && ok "start: the fake provider's barrier refusal names it, never claude" || no "start fake review: rc=$rc $out"
+{ [ "$rc" = 2 ] && grep -q 'crown provider accept fakeprov-cloud --surface cloud --no-barrier --project fk' <<<"$out" && ! grep -qi claude <<<"$out"; } && ok "start: the fake provider's barrier refusal names it, never claude" || no "start fake review: rc=$rc $out"
 out=$("$DA" start fk-worker --asked "start" 2>&1); rc=$?; [ "$rc" = 0 ] && ok "start: a worker of the fake provider starts" || no "start fake worker: rc=$rc $out"
 
 # --- project attach and new: --provider is stored only when given, and the roles' models are the named provider's
@@ -253,7 +253,7 @@ storeo() { # project models.provider-as-JSON -> stored answers like store(), wit
 for p in ob ol oc fm sa sb; do git init -q -b main "$T/repo-$p" && git -C "$T/repo-$p" -c user.name=t -c user.email=t@example.net commit -q --allow-empty -m one; done
 storeo ob '{"local":"fakeprov-local","cloud":"claude-platform"}'; storeo ol '{"local":"fakeprov-local"}'; storeo oc '{"cloud":"claude-platform"}'
 jq -e '.models.provider == {"local":"fakeprov-local","cloud":"claude-platform"}' "$T/c/projects/ob.json" >/dev/null && ok "ob is stored with a runtime for each surface" || no "ob not stored: $(jq -c .models "$T/c/projects/ob.json")"
-msgs() { echo "qargi: project $1 has no $2 provider: set one with qargi project set $1 models.provider.$2 NAME"; }   # the message of a surface left out
+msgs() { echo "crown: project $1 has no $2 provider: set one with crown project set $1 models.provider.$2 NAME"; }   # the message of a surface left out
 refuses_s() { # name rc output project surface: exit 2 with the message that names the surface and the project set command
   if [ "$2" = 2 ] && [ "$3" = "$(msgs "$4" "$5")" ]; then ok "$1"; else no "$1 (rc=$2: $3)"; fi
 }
@@ -261,7 +261,7 @@ refuses_s() { # name rc output project surface: exit 2 with the message that nam
 out=$(python3 -I "$TOOL/lib/provider.py" of ob --conf "$T/c" --surface local 2>&1); [ "$out" = fakeprov-local ] && ok "provider of --surface local: the local runtime" || no "of ob local: $out"
 out=$(python3 -I "$TOOL/lib/provider.py" of ob --conf "$T/c" --surface cloud 2>&1); [ "$out" = claude-platform ] && ok "provider of --surface cloud: the cloud runtime" || no "of ob cloud: $out"
 out=$(python3 -I "$TOOL/lib/provider.py" of ob --conf "$T/c" 2>&1); rc=$?
-{ [ "$rc" = 2 ] && grep -q 'qargi provider of ob --surface' <<<"$out"; } && ok "provider of with no surface: refused when the surfaces differ, and it says to name one" || no "of ob: rc=$rc $out"
+{ [ "$rc" = 2 ] && grep -q 'crown provider of ob --surface' <<<"$out"; } && ok "provider of with no surface: refused when the surfaces differ, and it says to name one" || no "of ob: rc=$rc $out"
 ( . "$TOOL/lib/lib.sh"; DA_CONF=$T/c
   [ "$(project_provider ob local)" = fakeprov-local ] && [ "$(project_provider ob cloud)" = claude-platform ] && [ "$(project_provider cl local)" = claude-code ] && [ "$(project_provider cl cloud)" = claude-platform ] ) 2>/dev/null \
   && ok "project_provider PROJECT SURFACE: each surface's runtime (and a family name is resolved on each)" || no "project_provider with a surface"
@@ -281,7 +281,7 @@ jq '. + {"ob-worker": .["np-worker"], "ol-worker": .["np-worker"], "ol-review": 
 out=$("$DA" provision plan --project ol --role build 2>&1); refuses_s "ol: provision plan needs the cloud runtime and says so" "$?" "$out" ol cloud
 out=$("$DA" agent for build --project ol --surface cloud 2>&1); refuses_s "ol: agent for --surface cloud is refused" "$?" "$out" ol cloud
 out=$("$DA" start ol-review --asked "start" 2>&1); refuses_s "ol: start of a read-only instance is refused" "$?" "$out" ol cloud
-out=$(QARGI_DRY_RUN=1 "$DA" start ol-worker --role build --asked "start" 2>&1); refuses_s "ol: start of a base is refused" "$?" "$out" ol cloud
+out=$(CROWN_DRY_RUN=1 "$DA" start ol-worker --role build --asked "start" 2>&1); refuses_s "ol: start of a base is refused" "$?" "$out" ol cloud
 # only cloud named: the cloud verbs work, members and the local barrier are refused
 out=$("$DA" agent add moc --project oc 2>&1); refuses_s "oc: agent add needs the local runtime and says so" "$?" "$out" oc local
 out=$("$DA" agent models --project oc 2>&1); refuses_s "oc: agent models is refused" "$?" "$out" oc local
@@ -289,9 +289,9 @@ out=$(prep "$T/repo-oc" rv5 review); refuses_s "oc: local prepare --role review 
 out=$(prep "$T/repo-oc" b2 build); [ "$?" = 0 ] && ok "oc: a write role needs no provider: prepare goes on" || no "oc build prepare: $out"
 out=$("$DA" provision plan --project oc --role build 2>&1); rc=$?
 { [ "$rc" = 0 ] && grep -q 'claude-sonnet-5-5' <<<"$(mdl oc)"; } && ok "oc: provision plan works on the cloud runtime" || no "oc provision: rc=$rc [$(mdl oc)] $(head -3 <<<"$out")"
-out=$(QARGI_DRY_RUN=1 "$DA" start oc-worker --role build --asked "start" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$DA" start oc-worker --role build --asked "start" 2>&1); rc=$?
 { [ "$rc" = 0 ] && jq -e '.agent.type == "agent_with_overrides"' <<<"$out" >/dev/null; } && ok "oc: a base session is built on the cloud runtime" || no "oc start: rc=$rc $(head -c 300 <<<"$out")"
-out=$(QARGI_DRY_RUN=1 "$DA" start ob-worker --role build --asked "start" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$DA" start ob-worker --role build --asked "start" 2>&1); rc=$?
 { [ "$rc" = 0 ] && jq -e '.agent.type == "agent_with_overrides"' <<<"$out" >/dev/null; } && ok "ob: a base session is built on the cloud runtime (claude), not the local one" || no "ob start: rc=$rc $(head -c 300 <<<"$out")"
 
 # a single name that resolves through its family says so (stderr), per surface; the runtimes here are in the library
@@ -305,11 +305,11 @@ python3 -I "$SRC/tests/handseal.py" "$LIB/fam-cli" "$LIB/fam-hosted"        # a 
 storeo fm '"fam"'
 jq -e '.models.provider == "fam"' "$T/c/projects/fm.json" >/dev/null && ok "fm is stored with the family name (a string)" || no "fm not stored: $(jq -c .models "$T/c/projects/fm.json" 2>&1)"
 out=$(python3 -I "$TOOL/lib/provider.py" of fm --conf "$T/c" --surface local 2>"$T/err"); rc=$?
-{ [ "$rc" = 0 ] && [ "$out" = fam-cli ] && grep -q "models.provider is the single name 'fam'; on the local surface it resolves to fam-cli through the family" "$T/err" && grep -q 'qargi project set fm models.provider.local fam-cli' "$T/err"; } \
+{ [ "$rc" = 0 ] && [ "$out" = fam-cli ] && grep -q "models.provider is the single name 'fam'; on the local surface it resolves to fam-cli through the family" "$T/err" && grep -q 'crown project set fm models.provider.local fam-cli' "$T/err"; } \
   && ok "a family name: the runtime of the surface, and the notice says what to set" || no "of fm local: rc=$rc $out $(cat "$T/err")"
 out=$(python3 -I "$TOOL/lib/provider.py" of fm --conf "$T/c" --surface cloud 2>/dev/null); [ "$out" = fam-hosted ] && ok "and the family has another runtime on the other surface" || no "of fm cloud: $out"
 out=$(prep "$T/repo-fm" rv6 review); rc=$?
-{ [ "$rc" = 2 ] && grep -q "resolves to fam-cli through the family" <<<"$out" && grep -q 'qargi provider accept fam-cli --surface local --no-barrier --project fm' <<<"$out"; } \
+{ [ "$rc" = 2 ] && grep -q "resolves to fam-cli through the family" <<<"$out" && grep -q 'crown provider accept fam-cli --surface local --no-barrier --project fm' <<<"$out"; } \
   && ok "a verb on a string family name works on the runtime and prints the notice (here the barrier is refused for it)" || no "fm prepare: rc=$rc $out"
 out=$("$DA" project validate fm 2>&1); rc=$?
 { [ "$rc" = 0 ] && grep -q "^finding: models.provider is the single name 'fam'" <<<"$out" && ! grep -q 'no descriptor' <<<"$out"; } && ok "project validate: the string family name is a finding with the notice, not an error" || no "validate fm: rc=$rc $out"
@@ -318,7 +318,7 @@ out=$("$DA" project validate cl 2>&1); [ "$out" = ok ] && ok "project validate: 
 # project set: models.provider.local|cloud writes one surface of the object
 storeo sa '{}'; jq 'del(.models)' "$T/c/projects/sa.json" > "$T/sa.tmp" && mv "$T/sa.tmp" "$T/c/projects/sa.json"
 out=$("$DA" project set sa models.provider.local fakeprov-local 2>&1); rc=$?
-{ [ "$rc" = 0 ] && jq -e '.models.provider == {"local":"fakeprov-local"}' "$T/c/projects/sa.json" >/dev/null && grep -q '^finding: models.provider.cloud is not set' <<<"$out" && grep -q 'qargi project set sa models.provider.cloud NAME' <<<"$out"; } \
+{ [ "$rc" = 0 ] && jq -e '.models.provider == {"local":"fakeprov-local"}' "$T/c/projects/sa.json" >/dev/null && grep -q '^finding: models.provider.cloud is not set' <<<"$out" && grep -q 'crown project set sa models.provider.cloud NAME' <<<"$out"; } \
   && ok "project set models.provider.local on a project with none writes the object and names what is left" || no "set local: rc=$rc $out $(jq -c .models "$T/c/projects/sa.json")"
 out=$("$DA" project set sa models.provider.cloud claude-platform 2>&1); rc=$?
 { [ "$rc" = 0 ] && jq -e '.models.provider == {"local":"fakeprov-local","cloud":"claude-platform"}' "$T/c/projects/sa.json" >/dev/null && ! grep -q '^finding' <<<"$out"; } && ok "project set models.provider.cloud completes it, with no finding" || no "set cloud: rc=$rc $out"
@@ -399,8 +399,8 @@ out=$("$DA" project new nr --dir "$T/nr" --provider claude --provider-cloud clau
 { [ "$rc" != 0 ] && [ ! -e "$T/nr" ]; } && ok "new: --provider with --provider-cloud is refused" || no "new both forms: rc=$rc $out"
 
 # --- no fallback to claude is written in the code (the claude adapter, its shim and its descriptor are the only places that name it)
-hits=$(grep -nE '// *"claude"|default claude|load\("claude"\)|\.get\([^)]*"claude"\)|p=claude|_prov=claude|:-claude\}' lib/*.sh lib/*.py bin/qargi 2>/dev/null | grep -vE '^lib/(packs_claude\.py|guard\.py):')
-[ -z "$hits" ] && ok "no fallback to claude in lib/*.sh, lib/*.py or bin/qargi" || no "a fallback to claude is written: $hits"
+hits=$(grep -nE '// *"claude"|default claude|load\("claude"\)|\.get\([^)]*"claude"\)|p=claude|_prov=claude|:-claude\}' lib/*.sh lib/*.py bin/crown 2>/dev/null | grep -vE '^lib/(packs_claude\.py|guard\.py):')
+[ -z "$hits" ] && ok "no fallback to claude in lib/*.sh, lib/*.py or bin/crown" || no "a fallback to claude is written: $hits"
 # the check itself finds each form (a self-test with the forbidden strings built here, so this file is not a hit)
 f=$T/forbidden.sh; q='"'
 { echo "x=\$(jq -r '.models.provider // ${q}claude${q}' f)"; echo "# the default claude"; echo "PV.load(${q}claude${q})"; echo 'p=claude'; } > "$f"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sessions of the two cloud bases (<project>-worker, <project>-reviewer) started and driven for a role and a profile:
-#   qargi start|send <project>-worker|-reviewer --role ROLE [--profile P] [--opt-in] --asked "..."
-# The session is created with agent_with_overrides (the full model object and the system prompt rendered from qargi's own
+#   crown start|send <project>-worker|-reviewer --role ROLE [--profile P] [--opt-in] --asked "..."
+# The session is created with agent_with_overrides (the full model object and the system prompt rendered from crown's own
 # files), the deployment's environment, resources, vaults and budget are copied, the repository credential travels on
 # stdin only, a reviewer needs the project's acceptance of the missing read-only barrier, and an idle session is reused only
 # for the same role, profile, model and effort. The legacy role instances (<project>-build ...) start exactly as before.
@@ -14,8 +14,8 @@ cd "$(dirname "$0")/.." || exit 1
 SRC=$PWD
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/bin" "$FAKE" "$T/secrets"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
@@ -26,7 +26,7 @@ copy_tool "$SRC" "$SHIPT"
 # the checkout once had the cloud overrides unverified; the copy keeps that state so the fallback to the role instances stays tested
 jq '.capabilities.per_dispatch_model_override.verified_on = null
   | .capabilities.per_dispatch_effort_override.verified_on = null' "$SRC/lib/providers/claude-platform.json" > "$T/cp.json" && mv "$T/cp.json" "$SHIPT/lib/providers/claude-platform.json"
-SHIP=$SHIPT/bin/qargi; YES=$TOOL/bin/qargi
+SHIP=$SHIPT/bin/crown; YES=$TOOL/bin/crown
 jq '.capabilities.per_dispatch_model_override.verified_on = "2026-10-31"
   | .capabilities.per_dispatch_effort_override.verified_on = "2026-10-31"' "$SRC/lib/providers/claude-platform.json" > "$T/cp.json" && mv "$T/cp.json" "$TOOL/lib/providers/claude-platform.json"
 
@@ -71,11 +71,11 @@ trk() { jq -r --arg s "$1" ".[\$s] | ($2)" "$T/s/sessions.json"; }
 S=claude-sonnet-5-5; H=claude-haiku-5-5
 
 # --- the body of a worker session, from the dry run (alpha has a credential)
-body=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role build --asked "start the build base" 2>"$T/err"); rc=$?
+body=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role build --asked "start the build base" 2>"$T/err"); rc=$?
 [ $rc = 0 ] && jq -e . <<<"$body" >/dev/null 2>&1 && ok "dry run: start alpha-worker --role build prints a JSON body" || no "dry run (rc=$rc): $body $(cat "$T/err")"
 jq -e '.agent.type == "agent_with_overrides" and .agent.id == "agent_01" and .agent.version == 3' <<<"$body" >/dev/null && ok "the agent is agent_with_overrides, with the deployment's agent id and version" || no "agent: $(jq -c .agent <<<"$body")"
 jq -e --arg m "$S" '.agent.model == {id: $m, effort: "high"}' <<<"$body" >/dev/null && ok "the model is a full object {id, effort} of the build profile" || no "model: $(jq -c .agent.model <<<"$body")"
-[ "$(jq -r .agent.system <<<"$body")" = "$(agent_prompt build alpha)" ] && ok "the system is agent_prompt build alpha (qargi's own files)" || no "system differs from agent_prompt build alpha"
+[ "$(jq -r .agent.system <<<"$body")" = "$(agent_prompt build alpha)" ] && ok "the system is agent_prompt build alpha (crown's own files)" || no "system differs from agent_prompt build alpha"
 jq -e 'has("tools") or has("skills") or has("mcp_servers") or (.agent|has("tools") or has("skills") or has("mcp_servers")) | not' <<<"$body" >/dev/null && ok "no tools, skills or mcp_servers in the body" || no "fixed fields in the body"
 jq -e '.environment_id == "env_01" and .vault_ids == ["vlt_01"] and .metadata == {deployment_id: "depl_W"}' <<<"$body" >/dev/null && ok "environment, vaults and metadata are the deployment's" || no "env: $(jq -c '[.environment_id,.vault_ids,.metadata]' <<<"$body")"
 jq -e '.budget == {type: "limit", max_list_cost: {amount: "500", currency: "USD"}}' <<<"$body" >/dev/null && ok "the deployment's budget is copied (send refuses a session without one)" || no "budget: $(jq -c .budget <<<"$body")"
@@ -84,40 +84,40 @@ jq -e '.resources[] | select(.type == "github_repository") | .url == "https://gi
 grep -q "$TOKEN" <<<"$body" && no "THE DRY RUN PRINTED THE TOKEN" || ok "the dry run never prints the token"
 jq -e '.initial_events | length == 1' <<<"$body" >/dev/null && ok "the deployment's initial events are kept" || no "initial_events"
 [ "$(n_creates)" = 0 ] && ok "a dry run creates no session" || no "the dry run created a session"
-body=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role build --profile test --asked "start the test profile" 2>&1)
+body=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role build --profile test --asked "start the test profile" 2>&1)
 jq -e --arg m "$S" '.agent.model == {id: $m, effort: "low"}' <<<"$body" >/dev/null && ok "--profile test: sonnet with effort low" || no "profile test: $(jq -c .agent.model <<<"$body" 2>/dev/null || echo "$body")"
-body=$(QARGI_DRY_RUN=1 "$YES" start beta-worker --role tw --asked "no credential" 2>&1)
+body=$(CROWN_DRY_RUN=1 "$YES" start beta-worker --role tw --asked "no credential" 2>&1)
 jq -e '.resources | map(.type) == ["memory_store"]' <<<"$body" >/dev/null && ok "a project with no credential mounts no repository" || no "beta resources: $(jq -c .resources <<<"$body" 2>/dev/null || echo "$body")"
 
 # --- the reviewer is refused until the project accepts that cloud has no read-only barrier
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-reviewer --role review --asked "review" 2>&1); rc=$?
-{ [ $rc = 2 ] && grep -q "qargi provider accept claude-platform --surface cloud --no-barrier --project alpha --asked" <<<"$out"; } && ok "start alpha-reviewer: refused (exit 2) with the accept command" || no "reviewer without acceptance (rc=$rc): $out"
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-reviewer --role review --asked "review" 2>&1); rc=$?
+{ [ $rc = 2 ] && grep -q "crown provider accept claude-platform --surface cloud --no-barrier --project alpha --asked" <<<"$out"; } && ok "start alpha-reviewer: refused (exit 2) with the accept command" || no "reviewer without acceptance (rc=$rc): $out"
 out=$("$YES" send alpha-reviewer "review it" --role review --label rv --new --asked "review" 2>&1); rc=$?
 [ $rc = 2 ] && [ "$(n_creates)" = 0 ] && ok "send --new: refused too, and no session was created" || no "send reviewer without acceptance (rc=$rc, creates=$(n_creates)): $out"
 tok=$("$YES" provider accept claude-platform --surface cloud --no-barrier --project alpha --asked "I accept it" | sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p')
 "$YES" provider accept claude-platform --surface cloud --no-barrier --project alpha --asked "I accept it" --plan "$tok" --approved go >"$T/acc.out" 2>&1 || no "accept: tok=$tok $(cat "$T/acc.out")"
-body=$(QARGI_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile auditor --asked "audit" 2>&1); rc=$?
+body=$(CROWN_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile auditor --asked "audit" 2>&1); rc=$?
 [ $rc = 0 ] && jq -e --arg m "$H" '.agent.type == "agent_with_overrides" and .agent.id == "agent_01" and .agent.model == {id: $m, effort: "low"}' <<<"$body" >/dev/null && ok "after the acceptance: the reviewer body, haiku with effort low for the auditor profile" || no "reviewer accepted (rc=$rc): $body"
 [ "$(jq -r .agent.system <<<"$body")" = "$(agent_prompt review alpha)" ] && ok "the reviewer's system is agent_prompt review alpha" || no "reviewer system"
 jq -e '.metadata == {deployment_id: "depl_R"}' <<<"$body" >/dev/null && ok "and it copies the reviewer deployment" || no "reviewer metadata"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile researcher --asked "research" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile researcher --asked "research" 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q 'opt-in' <<<"$out"; } && ok "an opt-in profile needs --opt-in" || no "researcher (rc=$rc): $out"
-QARGI_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile researcher --opt-in --asked "research" 2>&1 | jq -e '.agent.model.id == "claude-fable-5-1"' >/dev/null && ok "--opt-in passes it on" || no "researcher with --opt-in"
+CROWN_DRY_RUN=1 "$YES" start alpha-reviewer --role review --profile researcher --opt-in --asked "research" 2>&1 | jq -e '.agent.model.id == "claude-fable-5-1"' >/dev/null && ok "--opt-in passes it on" || no "researcher with --opt-in"
 
 # --- the role must belong to the base's class, the base must be usable, and the options are for bases
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role review --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role review --asked "x" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "read-only class" <<<"$out" && ! jq -e . <<<"$out" >/dev/null 2>&1 && ok "a read-only role on the worker base is refused" || no "review on worker (rc=$rc): $out"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-reviewer --role build --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-reviewer --role build --asked "x" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "write class" <<<"$out" && ! jq -e . <<<"$out" >/dev/null 2>&1 && ok "a write role on the reviewer base is refused" || no "build on reviewer (rc=$rc): $out"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role build --profile review --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role build --profile review --asked "x" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "review" <<<"$out" && ! jq -e . <<<"$out" >/dev/null 2>&1 && ok "a profile of the other class is refused" || no "review profile on worker (rc=$rc): $out"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role nosuch --asked "x" 2>&1); [ $? != 0 ] && grep -q -- "--role: a role of" <<<"$out" && ok "an unknown role is refused" || no "unknown role"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --role lead --asked "x" 2>&1); [ $? != 0 ] && grep -q -- "--role: a role of" <<<"$out" && ok "lead is not a role of a base" || no "lead role"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-worker --profile test --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role nosuch --asked "x" 2>&1); [ $? != 0 ] && grep -q -- "--role: a role of" <<<"$out" && ok "an unknown role is refused" || no "unknown role"
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --role lead --asked "x" 2>&1); [ $? != 0 ] && grep -q -- "--role: a role of" <<<"$out" && ok "lead is not a role of a base" || no "lead role"
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-worker --profile test --asked "x" 2>&1); rc=$?
 { [ $rc != 0 ] && grep -q 'need --role' <<<"$out"; } && ok "--profile without --role is refused: a base without a role is the standby session, as before" || no "profile without role (rc=$rc): $out"
-out=$(QARGI_DRY_RUN=1 "$YES" start alpha-build --role build --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start alpha-build --role build --asked "x" 2>&1); rc=$?
 { [ $rc != 0 ] && grep -q 'are for the bases' <<<"$out"; } && ok "--role is for the bases: a legacy instance refuses it" || no "legacy with --role (rc=$rc): $out"
-out=$(QARGI_DRY_RUN=1 "$SHIP" start alpha-worker --role build --asked "x" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$SHIP" start alpha-worker --role build --asked "x" 2>&1); rc=$?
 { [ $rc = 2 ] && ! jq -e . <<<"$out" >/dev/null 2>&1 && grep -q 'cannot set the model and effort per dispatch' <<<"$out" && ! grep -q 'alpha-build' <<<"$out"; } && ok "the shipped tool (overrides unverified): the base is refused, with the reason, and no role instance takes its place" || no "unverified base (rc=$rc): $out"
 [ "$(n_creates)" = 0 ] && ok "none of these created a session" || no "a refused start created a session"
 
@@ -200,12 +200,12 @@ P.record_verification("fakecloud", {c: {"hash": h, "by": "attest", "at": "2026-1
 PY
 jq -n '{schema:1,project:"libp",repo:{url:"https://github.com/example/libp",long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{cloud:"fakecloud"}},memory:{},budget_cents:500}' > "$T/c/projects/libp.json"
 jq --argjson w "$(inst depl_L)" '. + {"libp-worker":$w}' "$T/c/instances.json" > "$T/i.json" && mv "$T/i.json" "$T/c/instances.json"
-body=$(QARGI_DRY_RUN=1 "$YES" start libp-worker --role build --asked "start the build base" 2>"$T/err"); rc=$?
-{ [ $rc = 0 ] && jq -e '.fake_adapter | test("/qargi-exec\\.[^/]+/fakecloud/adapter$")' <<<"$body" >/dev/null && [ "$(jq -r '.model' <<<"$body")" = fake-cloud-m ] && [ "$(jq -r '.effort' <<<"$body")" = h ]; } \
+body=$(CROWN_DRY_RUN=1 "$YES" start libp-worker --role build --asked "start the build base" 2>"$T/err"); rc=$?
+{ [ $rc = 0 ] && jq -e '.fake_adapter | test("/crown-exec\\.[^/]+/fakecloud/adapter$")' <<<"$body" >/dev/null && [ "$(jq -r '.model' <<<"$body")" = fake-cloud-m ] && [ "$(jq -r '.effort' <<<"$body")" = h ]; } \
   && ok "library runtime: the dry run is built by its adapter (a sealed private copy), with the model and effort its adapter resolved" || no "library start (rc=$rc): $body $(cat "$T/err")"
 [ -z "$(ls "$T/tmp")" ] && ok "library runtime: the copy of the pack is removed afterwards" || no "left in TMPDIR: $(ls "$T/tmp")"
 echo "# drift" >> "$T/c/packs/providers/fakecloud/adapter"
-out=$(QARGI_DRY_RUN=1 "$YES" start libp-worker --role build --asked "start" 2>&1); rc=$?
+out=$(CROWN_DRY_RUN=1 "$YES" start libp-worker --role build --asked "start" 2>&1); rc=$?
 { [ $rc != 0 ] && grep -q "changed since it was sealed" <<<"$out"; } && ok "library runtime: an adapter changed after the approval is not run" || no "library drift (rc=$rc): $out"
 
 [ $fail = 0 ] && echo "session profile tests passed" || { echo "session profile tests FAILED"; exit 1; }

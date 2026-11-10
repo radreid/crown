@@ -3,7 +3,7 @@
 
 The adapter contract (the same for every provider; an adapter may be written in any language):
   exit 0 ok, 1 bad request, 2 refused by policy, 3 unsupported (the descriptor says `no`, or the verb is not built for the
-  surface), 4 transport error. Vendor access only through $QARGI_TRANSPORT (the local verbs need none). Secrets never in argv.
+  surface), 4 transport error. Vendor access only through $CROWN_TRANSPORT (the local verbs need none). Secrets never in argv.
 
 Verbs served here (claude-platform serves the cloud surface only):
   resolve        {surface, tier, effort, profile}                  -> {model, alias, effort_native|null, notes[]}
@@ -248,7 +248,7 @@ def main(argv):
     except Reply as r:
         body, code = r.body, r.code
         if code == 2:                             # a refusal is said on stderr too, for a person at a terminal
-            sys.stderr.write("qargi: %s\n" % body["error"])
+            sys.stderr.write("crown: %s\n" % body["error"])
     sys.stdout.write(json.dumps(body) + "\n")
     return code
 

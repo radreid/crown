@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""qargi noticed: the things members saw and did not act on (noticed_not_acted_on in a manifest), each with a
-disposition. Raw events go to the append-only $QARGI_STATE/events.jsonl; a disposition is a later event that names the
+"""crown noticed: the things members saw and did not act on (noticed_not_acted_on in a manifest), each with a
+disposition. Raw events go to the append-only $CROWN_STATE/events.jsonl; a disposition is a later event that names the
 note, so nothing is rewritten. Notes are agent-written text: they are stored short, with secret-looking strings
-redacted, and are shown only by `list`; `qargi report` shows counts and ages.
+redacted, and are shown only by `list`; `crown report` shows counts and ages.
 
 Usage: noticed.py ingest SID DIR            (collect.sh calls it; reads DIR/manifest.json and DIR/*/manifest.json)
        noticed.py list [--all]              open notes, oldest first (--all: every note with its disposition)
@@ -136,14 +136,14 @@ def ingest(sid, d):
 
 def main(argv):
     if not argv:
-        print("usage: qargi noticed list [--all] | resolve ID followup|dismissed|accepted|superseded [--why CODE]", file=sys.stderr)
+        print("usage: crown noticed list [--all] | resolve ID followup|dismissed|accepted|superseded [--why CODE]", file=sys.stderr)
         return 2
     verb, rest = argv[0], argv[1:]
     if verb == "ingest" and len(rest) == 2:
         return ingest(rest[0], rest[1])
     if verb == "list":
         if rest not in ([], ["--all"]):
-            print("qargi: usage: qargi noticed list [--all]", file=sys.stderr)
+            print("crown: usage: crown noticed list [--all]", file=sys.stderr)
             return 2
         notes = sorted(fold(read_events()).values(), key=lambda n: n["ts"] or "")
         shown = [n for n in notes if rest or n["disposition"] == "open"]
@@ -164,25 +164,25 @@ def main(argv):
                 args.append(rest[i])
                 i += 1
         if len(args) != 2:
-            print("qargi: usage: qargi noticed resolve ID followup|dismissed|accepted|superseded [--why CODE]", file=sys.stderr)
+            print("crown: usage: crown noticed resolve ID followup|dismissed|accepted|superseded [--why CODE]", file=sys.stderr)
             return 2
         nid, disp = args
         if disp not in DISPOSITIONS:
-            print("qargi: a disposition is one of %s" % ", ".join(DISPOSITIONS), file=sys.stderr)
+            print("crown: a disposition is one of %s" % ", ".join(DISPOSITIONS), file=sys.stderr)
             return 2
         if disp == "dismissed" and why is None:
-            print("qargi: dismissing a note needs --why CODE (%s)" % ", ".join(reasons()), file=sys.stderr)
+            print("crown: dismissing a note needs --why CODE (%s)" % ", ".join(reasons()), file=sys.stderr)
             return 2
         if why is not None and why not in reasons():
-            print("qargi: --why is one of %s" % ", ".join(reasons()), file=sys.stderr)
+            print("crown: --why is one of %s" % ", ".join(reasons()), file=sys.stderr)
             return 2
         if nid not in fold(read_events()):
-            print("qargi: no note %s (qargi noticed list --all)" % nid, file=sys.stderr)
+            print("crown: no note %s (crown noticed list --all)" % nid, file=sys.stderr)
             return 1
         append({"kind": "noticed_disposition", "id": nid, "ts": now(), "disposition": disp, "why": why})
         print("note %s: %s%s" % (nid, disp, " (%s)" % why if why else ""))
         return 0
-    print("qargi: usage: qargi noticed list [--all] | resolve ID DISPOSITION [--why CODE]", file=sys.stderr)
+    print("crown: usage: crown noticed list [--all] | resolve ID DISPOSITION [--why CODE]", file=sys.stderr)
     return 2
 
 

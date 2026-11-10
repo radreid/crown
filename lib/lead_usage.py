@@ -6,7 +6,7 @@
   lead_usage.py advice        [--project P] [--feature NAME]        (the one line the stage verbs print)
   lead_usage.py open-runs     [--project P] --feature NAME          (the open runs of feature/NAME, one per line: run, slug, role, state, the command that closes it; exit 1 when there are some)
 
-The lead's own context is the cost the owner cares about most, so qargi measures it and says when a compact (the owner's /compact; no
+The lead's own context is the cost the owner cares about most, so crown measures it and says when a compact (the owner's /compact; no
 hook can run it) is safe. Where the transcripts are and how to read the context in use from one come from the project's local runtime
 (resources.transcripts of lib/providers/NAME.json, lib/provider.py): a directory of JSON-line files named for the session id, and
 JSON pointers that pick the last assistant turn and add up its input, cache-read and cache-creation tokens. The window is the answer
@@ -26,7 +26,7 @@ context: "compact advised" from 50% and "compact strongly advised" from 70% (whe
 advice prints one line when the context is at or above the answer lead.compact_advice_pct (default 40; 0 disables): that a compact is
 safe now, or why not. With --feature NAME it prints only when no open run of feature/NAME is left. It never fails.
 
-Environment: QARGI_LEAD (the session id, which names the transcript), QARGI_LEAD_NOW (epoch seconds; tests). Run through lib/lead.sh;
+Environment: CROWN_LEAD (the session id, which names the transcript), CROWN_LEAD_NOW (epoch seconds; tests). Run through lib/lead.sh;
 python3 -I, standard library only."""
 import argparse, importlib.util, json, os, re, stat, subprocess, sys, time
 
@@ -52,7 +52,7 @@ def load(name):
 
 
 def now():
-    v = os.environ.get("QARGI_LEAD_NOW")
+    v = os.environ.get("CROWN_LEAD_NOW")
     try:
         return int(float(v)) if v else int(time.time())
     except ValueError:
@@ -176,7 +176,7 @@ def find_transcript(a, answers, tr_for):
     if a.transcript:
         p = os.path.abspath(a.transcript)
         return (p, os.path.basename(p).rsplit(".", 1)[0], "") if os.path.isfile(p) else (None, "", "no such file %s" % clean(a.transcript))
-    want = a.session or os.environ.get("QARGI_LEAD") or ""
+    want = a.session or os.environ.get("CROWN_LEAD") or ""
     if a.session and not SESSION_RE.match(a.session):
         raise Soft("%s is not a session id" % clean(a.session))
     seen = []
@@ -463,14 +463,14 @@ def closing(run):
     d, slug, role, base, what = run
     if read_only(d, getattr(run, "cls", None)):
         if has_report(d):
-            return "qargi local clean %s" % d
-        return "qargi local clean %s (once the member has written OUT/report.md; --discard drops the run)" % d
+            return "crown local clean %s" % d
+        return "crown local clean %s (once the member has written OUT/report.md; --discard drops the run)" % d
     name = base[len("feature/"):] if base.startswith("feature/") else "NAME"
     if what == "prepared, not verified":
-        return "qargi local verify %s (then take its work in, or drop it with qargi local clean %s --discard)" % (d, d)
+        return "crown local verify %s (then take its work in, or drop it with crown local clean %s --discard)" % (d, d)
     if what == "verified, not applied":
-        return "qargi local close %s --applied-by-am (when you applied its patches by hand with git am); else qargi review apply %s, qargi feature merge %s agent/%s, qargi local clean %s" % (d, d, name, slug, d)
-    return "qargi feature merge %s agent/%s, then qargi local clean %s" % (name, slug, d)
+        return "crown local close %s --applied-by-am (when you applied its patches by hand with git am); else crown review apply %s, crown feature merge %s agent/%s, crown local clean %s" % (d, d, name, slug, d)
+    return "crown feature merge %s agent/%s, then crown local clean %s" % (name, slug, d)
 
 
 def check(a, conf, state):
@@ -485,34 +485,34 @@ def check(a, conf, state):
         if read_only(d, run.cls):
             reasons.append("a read-only local run is open: %s (%s %s on %s, %s); read its report, then close it: %s" % (d, role, slug, base, what, closing(run)))
         elif what == "prepared, not verified":
-            reasons.append("a local run is prepared and not verified: %s (%s %s on %s); verify it (qargi local verify %s) or discard it" % (d, role, slug, base, d))
+            reasons.append("a local run is prepared and not verified: %s (%s %s on %s); verify it (crown local verify %s) or discard it" % (d, role, slug, base, d))
         elif what == "verified, not applied":
-            reasons.append("a local run is verified and not applied: %s (%s %s on %s); apply it (qargi review apply %s BRANCH) and merge it, or close it if you applied it by hand (qargi local close %s --applied-by-am), or clean it" % (d, role, slug, base, d, d))
+            reasons.append("a local run is verified and not applied: %s (%s %s on %s); apply it (crown review apply %s BRANCH) and merge it, or close it if you applied it by hand (crown local close %s --applied-by-am), or clean it" % (d, role, slug, base, d, d))
         else:
-            reasons.append("a local run is applied and not merged: %s (%s %s on %s); merge it (qargi feature merge NAME BRANCH), then qargi local clean" % (d, role, slug, base))
+            reasons.append("a local run is applied and not merged: %s (%s %s on %s); merge it (crown feature merge NAME BRANCH), then crown local clean" % (d, role, slug, base))
     for n in conflicts(state, project):
         reasons.append("a merge waits to be resolved or applied (%s under the conflicts directory): resolve it and run the same command with --resolved, or abandon it" % clean(n))
     for what, pid in busy(state, project):
         reasons.append("the whole suite is running (%s, pid %d): wait for it" % (clean(what), pid))
     h, lm = handoff_of(state, project), last_merge(state, project)
     if h and lm > h["epoch"]:
-        reasons.append("the handoff note (written %s) is older than the last merge (%s): write it again (qargi marshal handoff --write FILE)" % (stamp(h["epoch"]), stamp(lm)))
+        reasons.append("the handoff note (written %s) is older than the last merge (%s): write it again (crown marshal handoff --write FILE)" % (stamp(h["epoch"]), stamp(lm)))
     rel = release_branches(repo, answers)
     if rel:
-        reasons.append("a release is in progress (%s): finish it first (qargi release finish)" % ", ".join(clean(r) for r in rel))
+        reasons.append("a release is in progress (%s): finish it first (crown release finish)" % ", ".join(clean(r) for r in rel))
     feats = features_of(repo)
     restart = ["After the compact, resume from stored state, not from memory:"]
     if h and h.get("file"):
         restart.append("  1. read the handoff note: %s (written %s)" % (clean(str(h["file"])), stamp(h["epoch"])))
     else:
-        restart.append("  1. no handoff note is recorded: write one first (qargi marshal handoff%s --write FILE)" % (" " + feats[0] if len(feats) == 1 else ""))
-    restart.append("  2. qargi marshal status --all --brief   (who leads what; your lease)")
+        restart.append("  1. no handoff note is recorded: write one first (crown marshal handoff%s --write FILE)" % (" " + feats[0] if len(feats) == 1 else ""))
+    restart.append("  2. crown marshal status --all --brief   (who leads what; your lease)")
     for f in feats:
-        restart.append("  3. qargi feature status %s" % f)
+        restart.append("  3. crown feature status %s" % f)
     if not feats:
         restart.append("  3. no feature branch is open")
     if runs:
-        restart.append("  4. open runs (qargi local list): " + "; ".join("%s %s [%s]" % (r[2], r[1], r[4]) for r in runs))
+        restart.append("  4. open runs (crown local list): " + "; ".join("%s %s [%s]" % (r[2], r[1], r[4]) for r in runs))
     else:
         restart.append("  4. open runs: none")
     return {"safe": not reasons, "reasons": reasons, "restart": restart, "open_runs": [{"run": r[0], "slug": r[1], "role": r[2], "base": r[3], "state": r[4]} for r in runs], "features": feats}
@@ -545,10 +545,10 @@ def cmd_usage(a, conf, state):
 
 def cmd_check(a, conf, state):
     if not a.project:
-        print("qargi: which project? Give --project NAME or run this inside its repository", file=sys.stderr)
+        print("crown: which project? Give --project NAME or run this inside its repository", file=sys.stderr)
         return 2
     if not answers_of(conf, a.project):
-        print("qargi: no stored answers for project %s" % clean(a.project), file=sys.stderr)
+        print("crown: no stored answers for project %s" % clean(a.project), file=sys.stderr)
         return 2
     c = check(a, conf, state)
     u = measure(a, conf) if a.advise else None
@@ -605,7 +605,7 @@ def cmd_advice(a, conf, state):
         if c["safe"]:
             print("lead: %s; compact is safe now: run /compact" % p)
         else:
-            print("lead: %s; compact is not safe yet: %s (qargi lead compact-check)" % (p, c["reasons"][0].split(":")[0]))
+            print("lead: %s; compact is not safe yet: %s (crown lead compact-check)" % (p, c["reasons"][0].split(":")[0]))
     except Exception:                                # noqa: BLE001  (an advice line never blocks a verb)
         pass
     return 0

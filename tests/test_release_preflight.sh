@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# The preflight of `qargi release start`: a man page's .TH line and an empty or missing changelog section refuse the start
+# The preflight of `crown release start`: a man page's .TH line and an empty or missing changelog section refuse the start
 # before anything changes; the first commit sets the .TH date and version. Run: tests/test_release_preflight.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 SRC=$PWD
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects"
 REL="$DA release"
 tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
@@ -17,7 +17,7 @@ rstart() { local p t; p=$($REL start "$@" 2>&1); t=$(tok <<<"$p"); [ -n "$t" ] |
 mk() { # name: a repository with develop only (master too), man page and changelog set by the caller afterwards
   R=$T/$1; git init -q -b master "$R"; echo 0.1.0 > "$R/VERSION"
   jq -n --arg p "$R" --arg n "$1" '{schema:1, project:$n, methodology:"gitflow", repo:{url:"https://github.com/acme/x", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/$1.json"
-  export QARGI_PROJECT=$1
+  export CROWN_PROJECT=$1
 }
 seal() { git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" branch -f develop && $REL verify 0.2.0 >/dev/null 2>&1; }
 refuses() { # label expected-text-in-message
@@ -51,19 +51,19 @@ mk plain; seal
 rstart 0.2.0 >/dev/null 2>&1 && ok "a project with neither man page nor changelog is not checked" || no "plain: $(rstart 0.2.0 2>&1)"
 # the generated manual page keeps the date `release start` set: regenerating it after the start must not empty the date again
 mk regen; cp -r "$SRC/lib" "$SRC/skills" "$R/"; mkdir "$R/man"; printf '# Changelog\n\n## [Unreleased]\n- x\n' > "$R/CHANGELOG.md"
-(cd "$R" && python3 lib/help.py man > man/qargi.1)
-[ "$(head -1 "$R/man/qargi.1")" = '.TH QARGI 1 "" "qargi 0.1.0"' ] && ok "a first generation (no page yet) writes an empty date" || no "first generation: $(head -1 "$R/man/qargi.1")"
+(cd "$R" && python3 lib/help.py man > man/crown.1)
+[ "$(head -1 "$R/man/crown.1")" = '.TH CROWN 1 "" "crown 0.1.0"' ] && ok "a first generation (no page yet) writes an empty date" || no "first generation: $(head -1 "$R/man/crown.1")"
 seal
 rstart 0.2.0 --date 2026-03-04 >/dev/null 2>&1 || no "regen start: $(rstart 0.2.0 2>&1)"
 git -C "$R" checkout -q release/0.2.0
-(cd "$R" && python3 lib/help.py man > man/qargi.1)
-[ "$(head -1 "$R/man/qargi.1")" = '.TH QARGI 1 "2026-03-04" "qargi 0.2.0"' ] && git -C "$R" diff --quiet && ok "regenerating the page after release start keeps its date (python3 lib/help.py man > man/qargi.1)" || no "regenerated: $(head -1 "$R/man/qargi.1")"
-printf '.TH QARGI 1 "2031-05-06" "qargi 0.2.0"\n' > "$T/dated.1"
+(cd "$R" && python3 lib/help.py man > man/crown.1)
+[ "$(head -1 "$R/man/crown.1")" = '.TH CROWN 1 "2026-03-04" "crown 0.2.0"' ] && git -C "$R" diff --quiet && ok "regenerating the page after release start keeps its date (python3 lib/help.py man > man/crown.1)" || no "regenerated: $(head -1 "$R/man/crown.1")"
+printf '.TH CROWN 1 "2031-05-06" "crown 0.2.0"\n' > "$T/dated.1"
 (cd "$R" && python3 lib/help.py man --keep-date "$T/dated.1" > "$T/kept.1")
-[ "$(sed -n 1p "$T/kept.1")" = '.TH QARGI 1 "2031-05-06" "qargi 0.2.0"' ] && ok "--keep-date reads the date from the named file" || no "--keep-date: $(sed -n 1p "$T/kept.1")"
+[ "$(sed -n 1p "$T/kept.1")" = '.TH CROWN 1 "2031-05-06" "crown 0.2.0"' ] && ok "--keep-date reads the date from the named file" || no "--keep-date: $(sed -n 1p "$T/kept.1")"
 
 # --- the layout answers: release.version_file, release.changelog.*, release.man_pages, release.test_command, release.preflight
-rel() { jq --argjson r "$1" '.release = $r' "$T/c/projects/$QARGI_PROJECT.json" > "$T/x.json" && mv "$T/x.json" "$T/c/projects/$QARGI_PROJECT.json"; }
+rel() { jq --argjson r "$1" '.release = $r' "$T/c/projects/$CROWN_PROJECT.json" > "$T/x.json" && mv "$T/x.json" "$T/c/projects/$CROWN_PROJECT.json"; }
 onbranch() { # BRANCH 'commands run in a checkout of it': one more commit there
   git -C "$R" worktree add -q "$T/wt" "$1" && (cd "$T/wt" && eval "$2" && git add -A && git commit -q -m edit); git -C "$R" worktree remove --force "$T/wt"
 }
@@ -120,11 +120,11 @@ mk stat; seal
 out=$($REL status 0.2.0 2>&1)
 grep -Eq '^no release/0.2.0 yet. develop is at [0-9a-f]+, full suite: pass at this head \(command: true; ran [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+Z; took [0-9]+s\)$' <<<"$out" && ! grep -q "note:" <<<"$out" && ok "status names the command, the time and the duration of the suite record, and says nothing more when release.test_command is not set" || no "status verdict: $out"
 rel '{"test_command":"echo gate"}'; out=$($REL status 0.2.0 2>&1)
-grep -q 'full suite: pass at this head (command: true; ran ' <<<"$out" && grep -qx '  note: release.test_command is "echo gate", not the command of that run: it is not the release gate (qargi release verify 0.2.0 runs it)' <<<"$out" && ok "a release.test_command that differs from the recorded command is named on its own line" || no "status note: $out"
+grep -q 'full suite: pass at this head (command: true; ran ' <<<"$out" && grep -qx '  note: release.test_command is "echo gate", not the command of that run: it is not the release gate (crown release verify 0.2.0 runs it)' <<<"$out" && ok "a release.test_command that differs from the recorded command is named on its own line" || no "status note: $out"
 $REL verify 0.2.0 >/dev/null 2>&1; rstart 0.2.0 --date 2026-03-04 >/dev/null 2>&1; $REL verify 0.2.0 >/dev/null 2>&1; out=$($REL status 0.2.0 2>&1)
 grep -q '^full suite: pass at this head (command: echo gate; ran ' <<<"$out" && ! grep -q "note:" <<<"$out" && ok "after the release's own verify the branch status shows that command and no note" || no "branch status: $out"
 rel '{"test_command":"echo gate2"}'; out=$($REL status 0.2.0 2>&1)
-grep -q '^full suite: pass at this head (command: echo gate; ran ' <<<"$out" && grep -qx '  note: release.test_command is "echo gate2", not the command of that run: it is not the release gate (qargi release verify 0.2.0 runs it)' <<<"$out" && ok "the note shows on the release branch status too" || no "branch note: $out"
+grep -q '^full suite: pass at this head (command: echo gate; ran ' <<<"$out" && grep -qx '  note: release.test_command is "echo gate2", not the command of that run: it is not the release gate (crown release verify 0.2.0 runs it)' <<<"$out" && ok "the note shows on the release branch status too" || no "branch note: $out"
 # the record keeps how long the run took and the mode its command names (-j N, shard I/K); an older record without them still shows
 rel '{"test_command":"echo gate -j 8 --shard 2/4"}'; $REL verify 0.2.0 >/dev/null 2>&1; out=$($REL status 0.2.0 2>&1)
 grep -Eq '^full suite: pass at this head \(command: echo gate -j 8 --shard 2/4; ran [0-9T:Z-]+; took [0-9]+s; -j 8, shard 2/4\)$' <<<"$out" && ok "status shows the duration and the mode (-j N, shard I/K) of the suite record" || no "status mode: $out"
@@ -160,8 +160,8 @@ out=$(rstart 0.2.0 2>&1); grep -q "preflight boom" <<<"$out" && grep -q "nothing
 rm "$T/pre.fail"; : > "$T/pre.log"
 rstart 0.2.0 --date 2026-03-04 >/dev/null 2>&1 && [ "$(sort -u "$T/pre.log")" = 0.2.0 ] && [ "$(wc -l < "$T/pre.log")" = 2 ] && ok "a passing preflight lets the start go on (it runs for the plan and for the apply), and {version} is replaced in its arguments" || no "preflight start: $(cat "$T/pre.log")"
 touch "$T/pre.fail"; t=$($REL push 0.2.0 | sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p')
-out=$(QARGI_GH=true $REL push 0.2.0 --plan "$t" --approved go 2>&1) && no "push with a failing preflight" || { grep -q "release.preflight failed (exit 3)" <<<"$out" && [ -z "$(git -C "$T/pre-origin.git" for-each-ref refs/heads/release)" ] && ok "a failing preflight refuses the push before anything is pushed" || no "push preflight: $out"; }
-rm "$T/pre.fail"; QARGI_GH=true $REL push 0.2.0 --plan "$t" --approved go >/dev/null 2>&1 && [ -n "$(git -C "$T/pre-origin.git" for-each-ref refs/heads/release)" ] && ok "a passing preflight lets the push go on" || no "push passing preflight"
+out=$(CROWN_GH=true $REL push 0.2.0 --plan "$t" --approved go 2>&1) && no "push with a failing preflight" || { grep -q "release.preflight failed (exit 3)" <<<"$out" && [ -z "$(git -C "$T/pre-origin.git" for-each-ref refs/heads/release)" ] && ok "a failing preflight refuses the push before anything is pushed" || no "push preflight: $out"; }
+rm "$T/pre.fail"; CROWN_GH=true $REL push 0.2.0 --plan "$t" --approved go >/dev/null 2>&1 && [ -n "$(git -C "$T/pre-origin.git" for-each-ref refs/heads/release)" ] && ok "a passing preflight lets the push go on" || no "push passing preflight"
 mk badpre; rel '{"preflight":"make check"}'; seal
 refuses "a preflight that is text, not a list, refuses" "release.preflight: a command as a list of words"
 

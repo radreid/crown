@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# qargi project adopt: closes the safe gaps of an attached repository (missing long-lived branches, missing scaffold files on
+# crown project adopt: closes the safe gaps of an attached repository (missing long-lived branches, missing scaffold files on
 # one new branch) behind a plan token, and nothing else. Hermetic: scratch repositories made with git init.
 # Run: tests/test_adopt.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c"
 cd "$T" || exit 1   # a member run is told by the working directory: the checks below must not depend on where the suite was started
 tokof() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p' <<<"$1"; }
@@ -142,8 +142,8 @@ grep -q "^    AGENTS.md$" <<<"$out" && ! grep -q "^    Makefile$" <<<"$out" && g
   && ok "adopt drafts the section and leaves the targets of an existing runner to the owner" || no "adopt env plan: $out"
 $DA project adopt heth --plan "$tok" --approved go >/dev/null 2>&1 || no "apply heth"
 a=$(git -C "$H" show agent/adopt-gitflow:AGENTS.md)
-grep -q '^## Development environment$' <<<"$a" && grep -q '`just bootstrap`' <<<"$a" && grep -q '`just --dry-run bootstrap`' <<<"$a" && grep -q '`just doctor`' <<<"$a" && ! grep -qi qargi <<<"$a" \
-  && [ "$(git -C "$H" show agent/adopt-gitflow:CLAUDE.md 2>&1)" = "# Mine" ] && ok "the drafted section names the runner's commands, nothing about qargi, and CLAUDE.md is untouched" || no "drafted AGENTS.md: $a"
+grep -q '^## Development environment$' <<<"$a" && grep -q '`just bootstrap`' <<<"$a" && grep -q '`just --dry-run bootstrap`' <<<"$a" && grep -q '`just doctor`' <<<"$a" && ! grep -qi crown <<<"$a" \
+  && [ "$(git -C "$H" show agent/adopt-gitflow:CLAUDE.md 2>&1)" = "# Mine" ] && ok "the drafted section names the runner's commands, nothing about crown, and CLAUDE.md is untouched" || no "drafted AGENTS.md: $a"
 I=$T/i; git init -q -b main "$I"; printf '# Iota\n\n## Setup\n\nmake bootstrap\n' > "$I/README.md"; printf 'bootstrap:\n\t@true\ndoctor:\n\t@true\n' > "$I/Makefile"
 git -C "$I" add -A; git -C "$I" commit -q -m first
 attach iota "$I"
@@ -161,7 +161,7 @@ git -C "$K" merge-base master develop >/dev/null 2>&1 && no "the snapshot master
 attach kappa "$K"
 st0=$(state "$K")
 out=$($DA project adopt kappa 2>&1); tok=$(tokof "$out")
-grep -q "^    - history: master and develop share no history (no merge base) (adopt changes no existing branch, so it does not join them" <<<"$out" && grep -q "Next step: the first release joins them (qargi release start VERSION, then qargi release push VERSION, whose plan joins the history of master" <<<"$out" \
+grep -q "^    - history: master and develop share no history (no merge base) (adopt changes no existing branch, so it does not join them" <<<"$out" && grep -q "Next step: the first release joins them (crown release start VERSION, then crown release push VERSION, whose plan joins the history of master" <<<"$out" \
   && grep -q "git switch develop && git merge -s ours --allow-unrelated-histories master (keeps the tree of develop)" <<<"$out" \
   && ok "K: the plan names the missing merge base as left for the owner, and the next step (the release verbs, or the git merge)" || no "K plan: $out"
 [ "$st0" = "$(state "$K")" ] && ok "K: showing the plan changes nothing" || no "K: the plan changed the repository"
@@ -191,6 +191,6 @@ wf=$(sh_ .github/workflows/test.yml)
 grep -qx "    name: 'lint'" <<<"$wf" && grep -qx "    name: 'unit'" <<<"$wf" && grep -qx "    name: 'pack'" <<<"$wf" && grep -qx '          make check' <<<"$wf" && ! grep -qx '  test:' <<<"$wf" && [ "$(grep -c 'runs-on' <<<"$wf")" = 3 ] \
   && ok "gates: the CI workflow has one job for each gate, named after it" || no "gates workflow: $wf"
 mkdir -p "$T/tree/.github/workflows"; sh_ .github/workflows/test.yml > "$T/tree/.github/workflows/test.yml"
-python3 "${DA%/bin/qargi}/lib/gates.py" scan "$T/c/projects/gdemo.json" "$T/tree" >"$T/scan.out" 2>&1 && [ ! -s "$T/scan.out" ] && ok "gates: the scan of the written workflow finds every job matched by a gate" || no "gates scan: $(cat "$T/scan.out")"
+python3 "${DA%/bin/crown}/lib/gates.py" scan "$T/c/projects/gdemo.json" "$T/tree" >"$T/scan.out" 2>&1 && [ ! -s "$T/scan.out" ] && ok "gates: the scan of the written workflow finds every job matched by a gate" || no "gates scan: $(cat "$T/scan.out")"
 rm -rf "$T"
 exit $fail

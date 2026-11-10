@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""qargi provider: the model-provider definitions. Shipped ones are lib/providers/NAME.json (a runtime: one definition on one surface, in
+"""crown provider: the model-provider definitions. Shipped ones are lib/providers/NAME.json (a runtime: one definition on one surface, in
 the schema lib/providers/schema-2.json) and lib/providers/catalogs/FAMILY.json (the models of a family); the user's are in the pack
-library, QARGI_CONF/packs/providers/NAME/definition.json. A name defined in both places is refused.
+library, CROWN_CONF/packs/providers/NAME/definition.json. A name defined in both places is refused.
 
-As a library (import provider; stdlib only, found beside the descriptors, so it works from a checkout and from /opt/qargi):
+As a library (import provider; stdlib only, found beside the descriptors, so it works from a checkout and from /opt/crown):
   definition(name, surface=None)       the definition of a runtime on its surface (a copy); ProviderError when there is none
   surfaces_of(name) / origin(name)     the surfaces it serves / "shipped" or "library"
   catalog(family) / models_of(name, surface=None) / model_for(models, tier)
@@ -52,7 +52,7 @@ As a library (import provider; stdlib only, found beside the descriptors, so it 
                                        optional object of topic name to one line of text, at most 16 topics of 2000 characters)
   contract_addenda(name, surface)      the texts the runtime's definition adds to the member contract (resources.contract_addenda: files in its
                                        own directory, plain text); ProviderError for one that is missing, is not text or leaves the directory
-  discard_exec_copy(directory)         remove what exec_copy made (its parent directory, qargi-exec.XXXX)
+  discard_exec_copy(directory)         remove what exec_copy made (its parent directory, crown-exec.XXXX)
   project_provider(answers, project)   models.provider of the project's answers; there is no default: NoProvider (exit 2)
   provider_of(answers, surface)        the runtime for one surface: models.provider is a name (runtime or family) or {local, cloud};
                                        a surface left unset is NoProvider (exit 2). resolve_runtime(name, surface) is the rule: a
@@ -63,7 +63,7 @@ As a library (import provider; stdlib only, found beside the descriptors, so it 
                                        (a file put there by hand, never read or approved). Only a sealed pack is used; any other is Drift (exit 2).
   definitions_unsealed(name)           {surface: definition} without the seal check, for a reader that only needs to see what a definition names
   exec_copy(name, rel)                 a private copy of a sealed library pack with the executable rel, after its hash and the pack's were
-                                       checked against the record and again on the copy; the only way qargi runs a library pack's code
+                                       checked against the record and again on the copy; the only way crown runs a library pack's code
   verify_record / record_verification  the verified.json of a library definition: hash-bound to the definition (and the pack it is in)
 Every function that reads a definition takes root= (the shipped directory) and library= (the pack library) for tests; the defaults are
 beside this file and below the configuration directory. A test that names a root sees a library only when it names one too.
@@ -78,7 +78,7 @@ Usage: provider.py list
                                          lib/provider.sh does it: plan first, then the token and the approval
        provider.py require-barrier PROVIDER SURFACE [--project P]
                                          exit 0 when a read-only role may run there (a partial barrier prints its note to
-                                         stderr), 2 with the qargi provider accept command when it may not
+                                         stderr), 2 with the crown provider accept command when it may not
        provider.py effective PROVIDER SURFACE CAPABILITY [--project P]
                                          prints yes, partial or no (what enforcement may rely on; with a project, as composed with its
                                          enabled extensions); exit 1 when the provider does not list the surface, 2 on a conflict
@@ -210,7 +210,7 @@ def _conf():
         import paths
         return paths.conf()
     except ImportError:                           # a copy of this file without its neighbours (the tests): the same rule by hand
-        return os.environ.get("QARGI_CONF") or os.path.join(os.path.expanduser("~"), ".qargi", "config")
+        return os.environ.get("CROWN_CONF") or os.path.join(os.path.expanduser("~"), ".crown", "config")
 
 
 def _state_dir():
@@ -219,11 +219,11 @@ def _state_dir():
         import paths
         return paths.state()
     except ImportError:
-        return os.environ.get("QARGI_STATE") or os.path.join(os.path.expanduser("~"), ".qargi", "state")
+        return os.environ.get("CROWN_STATE") or os.path.join(os.path.expanduser("~"), ".crown", "state")
 
 
 def library_dir():
-    """The pack library of provider definitions: QARGI_CONF/packs/providers/NAME/definition.json."""
+    """The pack library of provider definitions: CROWN_CONF/packs/providers/NAME/definition.json."""
     return os.path.join(_conf(), "packs", "providers")
 
 
@@ -345,17 +345,17 @@ def seal_state(e):
 # ---- the environment pack and runtime code gets ----------------------------------------------------------------------------------
 
 ENV_DENIED = {
-    "HOME": "the run's own home is set by qargi, never the real one", "USER": "the login identity is not handed on", "LOGNAME": "the login identity is not handed on",
-    "SHELL": "the login shell is not handed on", "PWD": "the working directory is set by qargi", "OLDPWD": "the working directory is set by qargi",
-    "TMPDIR": "the run's temporary directory is set by qargi", "TMP": "the run's temporary directory is set by qargi", "TEMP": "the run's temporary directory is set by qargi",
-    "PATH": "the search path is qargi's (absolute entries of the caller's PATH); a pack does not replace it", "IFS": "it changes how a shell splits words",
+    "HOME": "the run's own home is set by crown, never the real one", "USER": "the login identity is not handed on", "LOGNAME": "the login identity is not handed on",
+    "SHELL": "the login shell is not handed on", "PWD": "the working directory is set by crown", "OLDPWD": "the working directory is set by crown",
+    "TMPDIR": "the run's temporary directory is set by crown", "TMP": "the run's temporary directory is set by crown", "TEMP": "the run's temporary directory is set by crown",
+    "PATH": "the search path is crown's (absolute entries of the caller's PATH); a pack does not replace it", "IFS": "it changes how a shell splits words",
     "CDPATH": "it changes where a shell goes", "ENV": "a shell startup file", "BASH_ENV": "a shell startup file", "SHELLOPTS": "it changes how a shell behaves",
     "BASHOPTS": "it changes how a shell behaves", "PROMPT_COMMAND": "a command a shell runs by itself", "PS4": "a shell prompt that runs commands",
     "NODE_OPTIONS": "it loads code into node", "NODE_PATH": "it changes where node loads code from", "JAVA_TOOL_OPTIONS": "it loads code into java",
     "_JAVA_OPTIONS": "it loads code into java", "CLASSPATH": "it changes where java loads code from", "GCONV_PATH": "it changes where libc loads code from",
     "LOCPATH": "it changes where libc loads code from", "NLSPATH": "it changes where libc loads code from",
     "EDITOR": "a program other tools run by themselves", "VISUAL": "a program other tools run by themselves", "PAGER": "a program other tools run by themselves",
-    "MANPAGER": "a program other tools run by themselves", "BROWSER": "a program other tools run by themselves", "GIT": "qargi's git wrapper of the run",
+    "MANPAGER": "a program other tools run by themselves", "BROWSER": "a program other tools run by themselves", "GIT": "crown's git wrapper of the run",
     "GNUPGHOME": "the user's keys", "NETRC": "the user's stored logins", "KRB5CCNAME": "the user's Kerberos credentials",
     "JDK_JAVA_OPTIONS": "it loads code into java", "FPATH": "it changes where a shell loads functions from", "ZDOTDIR": "a shell startup directory",
     "KSH_ENV": "a shell startup file", "LUA_INIT": "it runs code in lua", "LUA_PATH": "it changes where lua loads code from",
@@ -364,10 +364,10 @@ ENV_DENIED = {
     "TERMINFO": "it changes where terminal definitions are loaded from", "SUDO_ASKPASS": "a program sudo runs by itself",
 }
 ENV_DENIED_PREFIX = (
-    ("GIT_", "the run's git wrapper and its settings are qargi's"), ("QARGI_", "qargi's own settings are not handed on"),
+    ("GIT_", "the run's git wrapper and its settings are crown's"), ("CROWN_", "crown's own settings are not handed on"),
     ("LD_", "it changes what the dynamic loader loads"), ("DYLD_", "it changes what the dynamic loader loads"),
     ("PYTHON", "it changes what python loads"), ("PERL", "it changes what perl loads"), ("RUBY", "it changes what ruby loads"),
-    ("BASH_FUNC_", "an exported shell function"), ("XDG_", "the run's own configuration, data and state directories are qargi's"),
+    ("BASH_FUNC_", "an exported shell function"), ("XDG_", "the run's own configuration, data and state directories are crown's"),
     ("SSH_", "the ssh agent and its keys are the user's, and a member never pushes"), ("GPG_", "the user's signing agent"),
     ("GH_", "a forge credential: a member never pushes or calls the forge"), ("GITHUB_", "a forge credential: a member never pushes or calls the forge"),
     ("GITLAB_", "a forge credential: a member never pushes or calls the forge"), ("BITBUCKET_", "a forge credential: a member never pushes or calls the forge"),
@@ -378,7 +378,7 @@ ENV_DENIED_PREFIX = (
 def env_pass_problem(name):
     """Why a variable of the caller's environment may not be listed in a runtime's dispatch.env_pass, or None when it may. What is refused is
     what would hand the member or a pack the user's own home, search path, code loaders, shell startup, ssh agent or forge credentials, or
-    would replace what qargi sets for the run. A name that merely looks like a credential (an API key the vendor's command needs) is
+    would replace what crown sets for the run. A name that merely looks like a credential (an API key the vendor's command needs) is
     allowed: it travels by name, and the review shows it (review.scan lists env_pass and flags such names)."""
     if name in ENV_DENIED:
         return ENV_DENIED[name]
@@ -389,7 +389,7 @@ def env_pass_problem(name):
 
 
 def pack_env(home, tmp):
-    """The environment pack code runs in when qargi runs it itself (the conformance harness of `provider check`): nothing of the caller's, only
+    """The environment pack code runs in when crown runs it itself (the conformance harness of `provider check`): nothing of the caller's, only
     a search path of absolute entries, a home and temporary directory of the run, a locale and a clock zone. Same shape as the environment a
     renderer command gets (render.py) and a member gets (local_run.py) before its env_pass names."""
     path = os.pathsep.join(p for p in os.environ.get("PATH", "").split(os.pathsep) if p.startswith("/")) or "/usr/local/bin:/usr/bin:/bin"
@@ -400,8 +400,8 @@ def exec_copy(name, rel, root=None, library=None, tmp=None):
     """(directory, path): a private copy (mode 0700, in tmp or the temporary directory) of the library pack NAME, and the executable rel in
     it. The pack must be sealed with that executable approved: the content hash and the executable's hash are compared with the record
     before the copy is made and again on the copy, so what runs is what was approved, whatever happens to the library meanwhile. The
-    copy sits in a directory of its own, tmp/qargi-exec.XXXX/, and `directory` is the pack inside it (tmp/qargi-exec.XXXX/NAME): what
-    the caller removes afterwards is the PARENT of `directory`, so that no empty qargi-exec.XXXX is left behind; discard_exec_copy(directory)
+    copy sits in a directory of its own, tmp/crown-exec.XXXX/, and `directory` is the pack inside it (tmp/crown-exec.XXXX/NAME): what
+    the caller removes afterwards is the PARENT of `directory`, so that no empty crown-exec.XXXX is left behind; discard_exec_copy(directory)
     does exactly that. Refused (Refused) for a pack that is not sealed, or an executable the record does not list."""
     import shutil
     import tempfile
@@ -417,7 +417,7 @@ def exec_copy(name, rel, root=None, library=None, tmp=None):
     n = os.path.normpath(rel) if isinstance(rel, str) else ""
     if not want or n != rel or rel.startswith(("/", "..")):
         raise Refused("'%s' is not an executable approved for the pack '%s'" % (rel, name))
-    d = tempfile.mkdtemp(prefix="qargi-exec.", dir=tmp)
+    d = tempfile.mkdtemp(prefix="crown-exec.", dir=tmp)
     try:
         dst = os.path.join(d, name)
         shutil.copytree(src, dst, symlinks=True)
@@ -434,11 +434,11 @@ def exec_copy(name, rel, root=None, library=None, tmp=None):
 
 def discard_exec_copy(directory):
     """Remove what exec_copy made: the temporary directory that holds the copy, given the `directory` exec_copy returned (the pack
-    inside it). Refuses to remove anything that is not shaped like that (a directory whose parent is not a qargi-exec.* one), so a wrong
+    inside it). Refuses to remove anything that is not shaped like that (a directory whose parent is not a crown-exec.* one), so a wrong
     argument cannot delete the temporary directory itself or anything above it. No error when it is already gone."""
     import shutil
     parent = os.path.dirname(os.path.abspath(directory))
-    if not os.path.basename(parent).startswith("qargi-exec."):
+    if not os.path.basename(parent).startswith("crown-exec."):
         raise ProviderError("%s is not a copy made by exec_copy; not removed" % directory)
     shutil.rmtree(parent, ignore_errors=True)
 
@@ -453,15 +453,15 @@ def _pick(name, kind, root, library):
     """The one entry of this name and kind, or None. A name defined both shipped and in the library is Clash, whatever its kinds."""
     es = _scan(root, library).get(name, [])
     if len({e["origin"] for e in es}) > 1:
-        raise Clash("'%s' is defined twice (shipped and library); qargi provider remove %s, or rename it" % (name, name))
+        raise Clash("'%s' is defined twice (shipped and library); crown provider remove %s, or rename it" % (name, name))
     es = [e for e in es if _kind(e) == kind]
     if es and es[0]["origin"] == "library":
         state, why = seal_state(es[0])
         if state == "unrecorded":
-            raise Drift("%s '%s' %s and was never reviewed, so it is not used; read it and seal it (qargi provider seal %s), or qargi provider import it from its source"
+            raise Drift("%s '%s' %s and was never reviewed, so it is not used; read it and seal it (crown provider seal %s), or crown provider import it from its source"
                         % (kind, name, why, name))
         if state != "sealed":
-            raise Drift("%s '%s' %s; qargi provider check %s, then qargi provider seal %s" % (kind, name, why, name, name))
+            raise Drift("%s '%s' %s; crown provider check %s, then crown provider seal %s" % (kind, name, why, name, name))
     return es[0] if es else None
 
 
@@ -472,7 +472,7 @@ def entry_any(name, root=None, library=None):
         return None
     es = _scan(root, library).get(name, [])
     if len({e["origin"] for e in es}) > 1:
-        raise Clash("'%s' is defined twice (shipped and library); qargi provider remove %s, or rename it" % (name, name))
+        raise Clash("'%s' is defined twice (shipped and library); crown provider remove %s, or rename it" % (name, name))
     if es:
         _kind(es[0])
     return es[0] if es else None
@@ -581,7 +581,7 @@ def _resolve_models(doc, root=None, library=None):
 
 
 def model_for(models, tier):
-    """The model name qargi passes for a tier: the alias when the runtime uses aliases and the tier has one, else the id."""
+    """The model name crown passes for a tier: the alias when the runtime uses aliases and the tier has one, else the id."""
     row = models["tiers"][tier]
     return row["alias"] if models.get("use") == "alias" and row.get("alias") else row["model"]
 
@@ -1025,7 +1025,7 @@ def validate2(d, name=None):
         out += [("fail", "dispatch.env_pass: %s is never handed on: %s" % (n, env_pass_problem(n))) for n in disp["env_pass"] if isinstance(n, str) and env_pass_problem(n)]
     notes = d.get("notes")
     if d.get("surface") == "local" and isinstance(disp, dict) and disp.get("mode") == "in-session" and not (isinstance(notes, dict) and "spawn" in notes):
-        out.append(("warn", "notes.spawn: a local runtime that works in the session has no way to tell a lead how to start a member without a 'spawn' note (qargi provider notes spawn)"))
+        out.append(("warn", "notes.spawn: a local runtime that works in the session has no way to tell a lead how to start a member without a 'spawn' note (crown provider notes spawn)"))
     ad = d.get("adapter")
     if isinstance(ad, str) and (not ad or os.path.isabs(ad) or ad.startswith("~") or ".." in ad.split("/")):
         out.append(("fail", "adapter: '%s' is not a path inside the definition's directory" % ad))
@@ -1203,11 +1203,11 @@ def _extension(name, root, library):
     """(entry, document) of an extension pack. Drift when it is unsealed or changed since it was sealed; Refused when there is none."""
     e = _pick(name, "extension", root, library) if isinstance(name, str) and NAME_RE.match(name) and name not in NON_PROVIDERS else None
     if e is None:
-        raise Refused("extension '%s' is enabled, but there is no such extension pack (qargi provider list); qargi provider disable PROJECT %s" % (name, name))
+        raise Refused("extension '%s' is enabled, but there is no such extension pack (crown provider list); crown provider disable PROJECT %s" % (name, name))
     raw = _read(e)
     bad = [m for lvl, m in validate_extension(raw, name) if lvl == "fail"]
     if bad:
-        raise Refused("extension '%s' breaks its schema (%s); qargi provider check %s" % (name, bad[0], name))
+        raise Refused("extension '%s' breaks its schema (%s); crown provider check %s" % (name, bad[0], name))
     return e, raw
 
 
@@ -1274,7 +1274,7 @@ def _version_tuple(v):
     return tuple(int(x) for x in v.split("."))
 
 
-def _qargi_version():
+def _crown_version():
     try:
         with open(os.path.join(TOOL, "VERSION")) as f:
             return f.read().split()[0]
@@ -1310,22 +1310,22 @@ def _unmet(doc, name, surface, base, root, library, state):
     for c in rq.get("capabilities") or []:
         if effective(name, surface, c, root, library, state) == "no":
             return "needs %s, which %s does not have verified" % (c, name)
-    q = rq.get("qargi")
+    q = rq.get("crown")
     if isinstance(q, str):
-        have = _qargi_version()
+        have = _crown_version()
         try:
             if have is None or _version_tuple(have) < _version_tuple(q[2:]):
-                return "needs qargi %s (this is %s)" % (q, have or "of unknown version")
+                return "needs crown %s (this is %s)" % (q, have or "of unknown version")
         except ValueError:
-            return "needs qargi %s (this is %s)" % (q, have or "of unknown version")
+            return "needs crown %s (this is %s)" % (q, have or "of unknown version")
     return None
 
 
 def _claim(prov, path, pack, name):
     if path in prov:
         if prov[path] == name:
-            raise Conflict("extension %s adds %s, which the runtime %s already has; an extension never overrides (qargi provider disable PROJECT %s)" % (pack, path, name, pack))
-        raise Conflict("extensions %s and %s both add %s; neither overrides the other (qargi provider disable PROJECT one of them)" % (prov[path], pack, path))
+            raise Conflict("extension %s adds %s, which the runtime %s already has; an extension never overrides (crown provider disable PROJECT %s)" % (pack, path, name, pack))
+        raise Conflict("extensions %s and %s both add %s; neither overrides the other (crown provider disable PROJECT one of them)" % (prov[path], pack, path))
     prov[path] = pack
 
 
@@ -1517,8 +1517,8 @@ def _provider_answer(answers):
 def _no_provider(project, surface=None):
     project = project or "PROJECT"
     if surface is None:
-        return NoProvider("project %s has no provider: set one with qargi project set %s models.provider NAME" % (project, project))
-    return NoProvider("project %s has no %s provider: set one with qargi project set %s models.provider.%s NAME" % (project, surface, project, surface))
+        return NoProvider("project %s has no provider: set one with crown project set %s models.provider NAME" % (project, project))
+    return NoProvider("project %s has no %s provider: set one with crown project set %s models.provider.%s NAME" % (project, surface, project, surface))
 
 
 def project_provider(answers, project, surface=None, root=None, library=None):
@@ -1536,7 +1536,7 @@ def project_provider(answers, project, surface=None, root=None, library=None):
         if len(values) == 1 and all(isinstance(p.get(s), str) and p[s].strip() for s in SURFACES):
             return values.pop()
         raise Refused("project %s names a runtime per surface (models.provider is %s); this verb has to ask for one surface: "
-                      "qargi provider of %s --surface local|cloud" % (project or "PROJECT", json.dumps(p, sort_keys=True), project or "PROJECT"))
+                      "crown provider of %s --surface local|cloud" % (project or "PROJECT", json.dumps(p, sort_keys=True), project or "PROJECT"))
     raise _no_provider(project)
 
 
@@ -1560,12 +1560,12 @@ def resolve_project(answers, surface, project=None, root=None, library=None):
     try:
         runtime, by_family = _resolve(p, surface, root, library)
     except NotServed as e:
-        raise NoProvider("project %s has no %s provider: its provider '%s' does not serve that surface; set one with qargi project set %s "
+        raise NoProvider("project %s has no %s provider: its provider '%s' does not serve that surface; set one with crown project set %s "
                          "models.provider.%s NAME" % (project or "PROJECT", surface, p, project or "PROJECT", surface)) from e
     notice = None
     if by_family:
         notice = ("models.provider is the single name '%s'; on the %s surface it resolves to %s through the family. Name a runtime for each "
-                  "surface: qargi project set %s models.provider.%s %s" % (p, surface, runtime, project or "PROJECT", surface, runtime))
+                  "surface: crown project set %s models.provider.%s %s" % (p, surface, runtime, project or "PROJECT", surface, runtime))
     return runtime, notice
 
 
@@ -1581,7 +1581,7 @@ def provider_of(answers, surface=None, project=None, root=None, library=None):
 
 def provider_of_project(project, conf=None, surface=None, root=None, library=None):
     """The provider of a stored project. A project with no stored answers is NoProvider too (exit 2), but says so: "no such project 'X'"
-    is not "project X has no provider", whose fix (qargi project set) would fail for a name that is not a project. No project at all (a
+    is not "project X has no provider", whose fix (crown project set) would fail for a name that is not a project. No project at all (a
     verb given none, and none inferred from the checkout) is a refusal that says what to pass. With a surface the name is resolved for
     it (provider_of); without, project_provider() answers."""
     return project_provider(_stored_answers(project, conf), project, surface, root, library)
@@ -1595,7 +1595,7 @@ def _stored_answers(project, conf=None):
         raise NoProvider("no such project '%s'" % project)
     answers = project_answers(project, conf)
     if answers is None:
-        raise NoProvider("cannot read the stored answers of project '%s' (qargi project show %s)" % (project, project))
+        raise NoProvider("cannot read the stored answers of project '%s' (crown project show %s)" % (project, project))
     return answers
 
 
@@ -1632,7 +1632,7 @@ def _resolve(name, surface, root, library):
             continue
         if len({e["origin"] for e in es}) > 1:                         # defined twice: it matters only if it could be this family
             if any(d.get("family") == name for d in docs):
-                raise Clash("'%s' is defined twice (shipped and library); qargi provider remove %s, or rename it" % (n, n))
+                raise Clash("'%s' is defined twice (shipped and library); crown provider remove %s, or rename it" % (n, n))
             continue
         runtimes.add(n)
         families.add(docs[0].get("family"))
@@ -1765,7 +1765,7 @@ def accepted(project, surface, conf=None):
 
 
 def accept_command(provider, surface, project=None):
-    return 'qargi provider accept %s --surface %s --no-barrier --project %s --asked "<your words>"' % (provider, surface, project or "PROJECT")
+    return 'crown provider accept %s --surface %s --no-barrier --project %s --asked "<your words>"' % (provider, surface, project or "PROJECT")
 
 
 def require_barrier(provider, surface, project=None, root=None, conf=None, library=None):
@@ -1783,7 +1783,7 @@ def require_barrier(provider, surface, project=None, root=None, conf=None, libra
         doc = comp["definition"]
     cell = _dict(_dict(doc and doc.get("capabilities")).get("read_only_barrier"))
     if v == "partial":
-        return "partial", "%s has only a partial read-only barrier on %s: %s" % (provider, surface, cell.get("note") or "see qargi provider show %s" % provider)
+        return "partial", "%s has only a partial read-only barrier on %s: %s" % (provider, surface, cell.get("note") or "see crown provider show %s" % provider)
     if accepted(project, surface, conf):
         return "accepted", ""
     by = (comp["provenance"] if comp else {}).get("capabilities.read_only_barrier")
@@ -1799,10 +1799,10 @@ def cmd_require_barrier(provider, surface, project):
         raise ProviderError("unknown surface '%s'; one of %s" % (surface, ", ".join(SURFACES)))
     state, text = require_barrier(provider, surface, project)
     if state == "refused":
-        print("qargi: " + text, file=sys.stderr)
+        print("crown: " + text, file=sys.stderr)
         return 2
     if state == "partial":
-        print("qargi: note: " + text, file=sys.stderr)
+        print("crown: note: " + text, file=sys.stderr)
     return 0
 
 
@@ -1951,7 +1951,7 @@ def _show2(name, e, doc, project=None):
 def cmd_show(name, as_json, project=None):
     e, d, findings = findings_of(name)
     if any(lvl == "fail" for lvl, _ in findings):
-        print("qargi: provider '%s' breaks the schema (qargi provider check %s)" % (name, name), file=sys.stderr)
+        print("crown: provider '%s' breaks the schema (crown provider check %s)" % (name, name), file=sys.stderr)
         return 1
     if as_json and project:
         print(json.dumps(dict(compose(name, d["surface"], project), project=project), indent=2))
@@ -2063,7 +2063,7 @@ def contract_addenda(name, surface, root=None, library=None):
 def cmd_addenda(args):
     """addenda NAME SURFACE: the contract addenda of a runtime, as they are added to the contract, to standard output (nothing when it has none)."""
     if len(args) != 2 or args[1] not in SURFACES:
-        print("usage: qargi provider addenda NAME local|cloud", file=sys.stderr)
+        print("usage: crown provider addenda NAME local|cloud", file=sys.stderr)
         return 2
     sys.stdout.write("".join(contract_addenda(args[0], args[1])))
     return 0
@@ -2116,7 +2116,7 @@ def run_adapter(name, surface, verb, data, root=None, library=None, env=None):
     import subprocess
     import tempfile
     path, cleanup = adapter_exec(name, surface, verb, root, library)
-    home = tempfile.mkdtemp(prefix="qargi-adapter.")
+    home = tempfile.mkdtemp(prefix="crown-adapter.")
     try:
         r = subprocess.run([path, verb], input=data, capture_output=True, text=True,
                            env=env if env is not None else adapter_env(name, surface, home, root, library))
@@ -2134,7 +2134,7 @@ def cmd_adapter(args):
     check = "--check" in args
     pos = [a for a in args if a != "--check"]
     if len(pos) != 3 or pos[1] not in SURFACES:
-        print("usage: qargi provider adapter-run NAME local|cloud VERB [--check]", file=sys.stderr)
+        print("usage: crown provider adapter-run NAME local|cloud VERB [--check]", file=sys.stderr)
         return 2
     name, surface, verb = pos
     if check:
@@ -2152,14 +2152,14 @@ def cmd_adapter(args):
 def cmd_model(args):
     """model NAME SURFACE TIER: the model id of a tier of the runtime on a surface."""
     if len(args) != 3 or args[1] not in SURFACES or args[2] not in TIERS:
-        print("usage: qargi provider model NAME local|cloud %s" % "|".join(TIERS), file=sys.stderr)
+        print("usage: crown provider model NAME local|cloud %s" % "|".join(TIERS), file=sys.stderr)
         return 2
     print(models_of(args[0], args[1])["tiers"][args[2]]["model"])
     return 0
 
 
 def _project_in_effect():
-    """The project in effect (QARGI_PROJECT, else the one whose repository holds the current directory), or None: lib/help.py's rule."""
+    """The project in effect (CROWN_PROJECT, else the one whose repository holds the current directory), or None: lib/help.py's rule."""
     if HERE not in sys.path:
         sys.path.insert(0, HERE)
     try:
@@ -2197,7 +2197,7 @@ def cmd_notes(args):
             topics.append(args[i])
             i += 1
     if len(topics) > 1:
-        print("usage: qargi provider notes [TOPIC] [--project P] [--surface local|cloud]", file=sys.stderr)
+        print("usage: crown provider notes [TOPIC] [--project P] [--surface local|cloud]", file=sys.stderr)
         return 2
     try:
         runtime, notes = notes_of(project or _project_in_effect(), surface=surface)
@@ -2207,12 +2207,12 @@ def cmd_notes(args):
         raise Refused(str(e)) from e
     if not topics:
         if not notes:
-            print("qargi: the runtime %s has no notes" % runtime, file=sys.stderr)
+            print("crown: the runtime %s has no notes" % runtime, file=sys.stderr)
             return 1
         print("\n".join(sorted(notes)))
         return 0
     if topics[0] not in notes:
-        print("qargi: the runtime %s has no notes topic '%s'%s" % (runtime, topics[0], "; its topics: " + ", ".join(sorted(notes)) if notes else " (it has no notes)"),
+        print("crown: the runtime %s has no notes topic '%s'%s" % (runtime, topics[0], "; its topics: " + ", ".join(sorted(notes)) if notes else " (it has no notes)"),
               file=sys.stderr)
         return 1
     print(notes[topics[0]])
@@ -2258,7 +2258,7 @@ def cmd_layout(name, field, would, home, project=None):
         print(json.dumps(lay, indent=2))
         return 0
     if field not in LAYOUT_FIELDS:
-        print("qargi: unknown layout field '%s'; one of %s" % (field, ", ".join(LAYOUT_FIELDS)), file=sys.stderr)
+        print("crown: unknown layout field '%s'; one of %s" % (field, ", ".join(LAYOUT_FIELDS)), file=sys.stderr)
         return 2
     v = require(name, field, would or "the verb needs it", home=home, project=project)
     print(v if isinstance(v, str) else json.dumps(v))
@@ -2279,12 +2279,12 @@ def cmd_of(args, if_set=False):
             pos.append(args[i])
             i += 1
     if len(pos) != 1 or "--surface" in opts and opts["--surface"] not in SURFACES or any(a.startswith("--") for a in pos):
-        print("usage: qargi provider of PROJECT [--conf DIR] [--surface local|cloud] | of-if-set PROJECT --conf DIR --surface local|cloud", file=sys.stderr)
+        print("usage: crown provider of PROJECT [--conf DIR] [--surface local|cloud] | of-if-set PROJECT --conf DIR --surface local|cloud", file=sys.stderr)
         return 2
     project, conf, surface = pos[0], opts.get('--conf'), opts.get("--surface")
     if surface is None:
         if if_set:
-            print("usage: qargi provider of-if-set PROJECT --surface local|cloud (it needs a surface)", file=sys.stderr)
+            print("usage: crown provider of-if-set PROJECT --surface local|cloud (it needs a surface)", file=sys.stderr)
             return 2
         print(provider_of_project(project, conf))
         return 0
@@ -2302,13 +2302,13 @@ def cmd_of(args, if_set=False):
     else:
         runtime, notice = resolve_project(_stored_answers(project, conf), surface, project)
     if notice:
-        print("qargi: note: " + notice, file=sys.stderr)
+        print("crown: note: " + notice, file=sys.stderr)
     print(runtime)
     return 0
 
 
 def main(argv):
-    usage = ("usage: qargi provider list | show NAME [--project P] [--json] | effective RUNTIME SURFACE CAP [--project P] | check NAME|DIR [--project P] | new NAME [--kind K] [--from F] | import SOURCE [--name N] | seal NAME | remove NAME "
+    usage = ("usage: crown provider list | show NAME [--project P] [--json] | effective RUNTIME SURFACE CAP [--project P] | check NAME|DIR [--project P] | new NAME [--kind K] [--from F] | import SOURCE [--name N] | seal NAME | remove NAME "
              "| enable|disable PROJECT EXT | attest NAME CAP --asked W ... | accept NAME --surface S --no-barrier [--project P] --asked WORDS "
              "[--approved WORDS] [--plan TOKEN] | layout NAME [FIELD] [--project P] | require-skills NAME [--project P] | launch NAME RENDER [--project P] | adapter-run NAME SURFACE VERB [--check] | addenda NAME SURFACE | notes [TOPIC] [--project P] | model NAME SURFACE TIER | of PROJECT [--surface S] | of-if-set PROJECT --surface S")
     if not argv:
@@ -2333,7 +2333,7 @@ def main(argv):
         if verb in LIBRARY_VERBS or verb == "check":
             lib = _library_module()
             if lib is None and verb != "check":
-                print("qargi: provider %s needs lib/conformance/, which is not beside this file" % verb, file=sys.stderr)
+                print("crown: provider %s needs lib/conformance/, which is not beside this file" % verb, file=sys.stderr)
                 return 1
             rc = lib.run(verb, rest) if lib else None
             if rc is not None:
@@ -2379,13 +2379,13 @@ def main(argv):
                 print(launch_line(pos[0], pos[1], project=opts.get('--project')))
                 return 0
     except Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 3
     except (NoProvider, Refused) as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
     except ProviderError as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     print(usage, file=sys.stderr)
     return 2

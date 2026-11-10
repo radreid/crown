@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Memory tiers, slice 1 (read-only): lib/tiers.py and `qargi memory tiers|check`. Offline: tempdir HOME and QARGI_HOME,
-directories for the dir tiers, a JSONL fixture (QARGI_CANON_FIXTURE_DIR) for the cloud tier, no real ant.
+"""Memory tiers, slice 1 (read-only): lib/tiers.py and `crown memory tiers|check`. Offline: tempdir HOME and CROWN_HOME,
+directories for the dir tiers, a JSONL fixture (CROWN_CANON_FIXTURE_DIR) for the cloud tier, no real ant.
 Run: python3 tests/test_tiers.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import atexit, json, os, re, shutil, subprocess, sys, tempfile, unittest
@@ -8,7 +8,7 @@ import atexit, json, os, re, shutil, subprocess, sys, tempfile, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LIB = os.path.join(ROOT, "lib")
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 TIERS = os.path.join(LIB, "tiers.py")
 sys.path.insert(0, LIB)
 import canon as C  # noqa: E402
@@ -87,14 +87,14 @@ class Env:
 
     def __init__(self, tiers=None, store=STORE, reference=REF, roles=("build", "write")):
         self.tmp = tempfile.mkdtemp(prefix="tiers.")
-        self.home = os.path.join(self.tmp, "qhome")           # QARGI_HOME
+        self.home = os.path.join(self.tmp, "qhome")           # CROWN_HOME
         self.conf = os.path.join(self.tmp, "conf")
         self.state = os.path.join(self.tmp, "state")
         self.repo = os.path.join(self.tmp, "src", P)
         self.fix = os.path.join(self.tmp, "fixtures")
         for d in (self.home, self.repo, self.fix, os.path.join(self.conf, "projects")):
             os.makedirs(d)
-        self.env = dict(os.environ, QARGI_HOME=self.home, QARGI_CONF=self.conf, QARGI_STATE=self.state, QARGI_CANON_FIXTURE_DIR=self.fix)
+        self.env = dict(os.environ, CROWN_HOME=self.home, CROWN_CONF=self.conf, CROWN_STATE=self.state, CROWN_CANON_FIXTURE_DIR=self.fix)
         self.roles = roles
         self.answers = self.make_answers(tiers, store, reference)
         self.write_answers(self.answers)
@@ -116,7 +116,7 @@ class Env:
 
     # the default locations
     def d(self, tier):
-        return {"repo": os.path.join(self.repo, "qargi", "memory"), "project": os.path.join(self.home, "memory", "projects", P),
+        return {"repo": os.path.join(self.repo, "crown", "memory"), "project": os.path.join(self.home, "memory", "projects", P),
                 "shared": os.path.join(self.home, "memory", "shared"), "system": os.path.join(self.home, "memory", "system")}[tier]
 
     def cloud(self, files, store=STORE):
@@ -127,7 +127,7 @@ class Env:
     def snap(self):
         return snapshot(*[self.d(t) for t in ("repo", "project", "shared", "system")], os.path.join(self.fix, STORE + ".jsonl"))
 
-    def qargi(self, *args, env=None):
+    def crown(self, *args, env=None):
         return subprocess.run([BIN, *args], capture_output=True, text=True, env=env or self.env)
 
     def cleanup(self):
@@ -150,7 +150,7 @@ class Resolve(Base):
     def test_order(self):
         self.assertEqual(tuple(T.ORDER), ("repo", "cloud", "project", "shared", "system"))
 
-    def test_resolve_defaults_are_under_qargi_home_not_home(self):
+    def test_resolve_defaults_are_under_crown_home_not_home(self):
         e = self.mk()
         self.environ(e)
         ts = T.resolve(e.answers, P)
@@ -160,7 +160,7 @@ class Resolve(Base):
         for name in ("project", "shared", "system"):
             loc = os.path.realpath(os.path.expanduser(by[name]["location"]))
             self.assertEqual(loc, os.path.realpath(e.d(name)), name)
-            self.assertFalse(loc.startswith(os.path.realpath(os.path.expanduser("~")) + os.sep + ".qargi"), name)
+            self.assertFalse(loc.startswith(os.path.realpath(os.path.expanduser("~")) + os.sep + ".crown"), name)
         self.assertEqual(by["repo"]["kind"], "dir")
         self.assertEqual(by["cloud"]["kind"], "cloud")
         for name in ("project", "shared", "system"):
@@ -235,7 +235,7 @@ class Status(Base):
         self.environ(e)
         keep = without_ant(os.environ["PATH"])
         os.environ["PATH"] = os.pathsep.join(keep)
-        os.environ.pop("QARGI_CANON_FIXTURE_DIR")
+        os.environ.pop("CROWN_CANON_FIXTURE_DIR")
         by = {t["tier"]: t for t in T.resolve(e.answers, P)}
         self.assertEqual(T.status(by["cloud"]), "unreachable")
         self.assertIsNone(T.listing(by["cloud"]))
@@ -335,7 +335,7 @@ class Validation(Base):
         f = os.path.join(e.tmp, "a.json")
         with open(f, "w") as h:
             json.dump(a, h)
-        return e.qargi("project", "validate", f)
+        return e.crown("project", "validate", f)
 
     def test_valid_answers(self):
         e = self.mk()
@@ -355,7 +355,7 @@ class Validation(Base):
 
     def test_template_has_empty_tiers(self):
         e = self.mk()
-        r = e.qargi("project", "template", P)
+        r = e.crown("project", "template", P)
         self.assertEqual(json.loads(r.stdout)["memory"].get("tiers"), {})
 
 
@@ -371,13 +371,13 @@ class Cli(Base):
 
     def test_tiers_lines(self):
         e = self.populated()
-        r = e.qargi("memory", "tiers", "--project", P)
+        r = e.crown("memory", "tiers", "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = [l for l in r.stdout.splitlines() if l.strip()]
         names = [l.split()[0] for l in lines]
         self.assertEqual(names, ["repo", "cloud", "project", "shared", "system", "reference:"], r.stdout)
         by = {l.split()[0]: l for l in lines}
-        self.assertRegex(by["repo"], r"^repo\s+dir\s+\S*qargi/memory\s+present\s+\d+ notes?")
+        self.assertRegex(by["repo"], r"^repo\s+dir\s+\S*crown/memory\s+present\s+\d+ notes?")
         self.assertRegex(by["cloud"], r"^cloud\s+cloud\s+%s .*present" % STORE)
         self.assertRegex(by["project"], r"^project\s+dir\s+\S+\s+missing")
         self.assertRegex(by["shared"], r"^shared\s+dir\s+\S+\s+present")
@@ -386,12 +386,12 @@ class Cli(Base):
 
     def test_tiers_dev_run_never_reads_the_real_home(self):
         e = self.populated()
-        r = e.qargi("memory", "tiers", "--project", P)
+        r = e.crown("memory", "tiers", "--project", P)
         self.assertIn(e.home, r.stdout)
 
     def test_tiers_json_shape(self):
         e = self.populated()
-        r = e.qargi("memory", "tiers", "--project", P, "--json")
+        r = e.crown("memory", "tiers", "--project", P, "--json")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         j = tiers_json(r)
         self.assertEqual(j["project"], P)
@@ -408,8 +408,8 @@ class Cli(Base):
         e = self.populated()
         keep = without_ant(e.env["PATH"])
         env = dict(e.env, PATH=os.pathsep.join(keep))
-        env.pop("QARGI_CANON_FIXTURE_DIR")
-        r = e.qargi("memory", "tiers", "--project", P, env=env)
+        env.pop("CROWN_CANON_FIXTURE_DIR")
+        r = e.crown("memory", "tiers", "--project", P, env=env)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertNotIn("Traceback", r.stdout + r.stderr)
         cloud = [l for l in r.stdout.splitlines() if l.startswith("cloud")][0]
@@ -418,15 +418,15 @@ class Cli(Base):
 
     def test_tiers_exit_codes(self):
         e = self.mk()
-        self.assertEqual(e.qargi("memory", "tiers", "--project", "nosuch").returncode, 1)
-        self.assertEqual(e.qargi("memory", "tiers", "--project", P, "--bogus").returncode, 2)
+        self.assertEqual(e.crown("memory", "tiers", "--project", "nosuch").returncode, 1)
+        self.assertEqual(e.crown("memory", "tiers", "--project", P, "--bogus").returncode, 2)
         bad = json.loads(json.dumps(e.answers))
         bad["memory"]["tiers"] = {"repo": {"path": "/abs"}}
         e.write_answers(bad)
-        r = e.qargi("memory", "tiers", "--project", P)
+        r = e.crown("memory", "tiers", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("memory.tiers", r.stdout + r.stderr)
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1)
 
     def test_module_usage_error_is_2(self):
@@ -435,44 +435,44 @@ class Cli(Base):
 
     def test_check_sections_and_clean_exit(self):
         e = self.populated()
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         out = r.stdout
         self.assertIn("== tier repo (dir %s)" % e.d("repo"), out)
         self.assertIn("== tier cloud (cloud %s" % STORE, out)
         self.assertIn("== tier shared (dir %s)" % e.d("shared"), out)
         self.assertNotIn("== tier project", out)                         # missing: not checked
         self.assertIn("== tiers", out)
-        self.assertRegex(out, r"INFO tier project: missing \(qargi memory init project\)")
+        self.assertRegex(out, r"INFO tier project: missing \(crown memory init project\)")
         self.assertRegex(out, r"INFO tier system: .*empty|INFO tier system: missing")
         self.assertRegex(out.strip().splitlines()[-1], r"^\d+ fail, \d+ warn, 3 tiers checked$")
 
     def test_check_collision_is_a_fail(self):
         e = self.populated()
         put(e.d("shared"), {"/shared/r.md": NOTE})                       # also in the repo tier
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn("FAIL /shared/r.md: in tiers repo, shared (a note lives in one tier; qargi memory move PATH --from T --to T)", r.stdout)
+        self.assertIn("FAIL /shared/r.md: in tiers repo, shared (a note lives in one tier; crown memory move PATH --from T --to T)", r.stdout)
         self.assertRegex(r.stdout.strip().splitlines()[-1], r"^[1-9]\d* fail, \d+ warn, \d+ tiers checked$")
 
     def test_check_collision_across_three_tiers(self):
         e = self.populated()
         put(e.d("shared"), {"/shared/r.md": NOTE})
         e.cloud({**seed_files(P), "/shared/r.md": NOTE})
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1)
-        self.assertIn("FAIL /shared/r.md: in tiers repo, cloud, shared (a note lives in one tier; qargi memory move PATH --from T --to T)", r.stdout)
+        self.assertIn("FAIL /shared/r.md: in tiers repo, cloud, shared (a note lives in one tier; crown memory move PATH --from T --to T)", r.stdout)
 
     def test_check_structural_repeats_are_not_collisions(self):
         e = self.populated()
-        r = e.qargi("memory", "check", "--project", P)                    # README, CANON, _template, INDEX repeat in every tier
+        r = e.crown("memory", "check", "--project", P)                    # README, CANON, _template, INDEX repeat in every tier
         self.assertNotIn("a note lives in one tier", r.stdout)
 
     def test_check_unreachable_cloud_is_info(self):
         e = self.populated()
         keep = without_ant(e.env["PATH"])
         env = dict(e.env, PATH=os.pathsep.join(keep))
-        env.pop("QARGI_CANON_FIXTURE_DIR")
-        r = e.qargi("memory", "check", "--project", P, env=env)
+        env.pop("CROWN_CANON_FIXTURE_DIR")
+        r = e.crown("memory", "check", "--project", P, env=env)
         self.assertNotIn("Traceback", r.stdout + r.stderr)
         self.assertIn("INFO tier cloud: unreachable, collisions computed without it", r.stdout)
         self.assertNotIn("FAIL tier cloud", r.stdout)
@@ -480,7 +480,7 @@ class Cli(Base):
     def test_check_unknown_canon_in_repo_tier_names_the_answer(self):
         e = self.mk()
         put(e.d("repo"), {"/CANON.md": "# Canon\n\ncanon: 99\nkind: memory\nproject: demo\nroles: build write\n"})
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout)
         hint = [l for l in r.stdout.splitlines() if "project set %s memory.tiers.repo.path" % P in l]
         self.assertEqual(len(hint), 1, r.stdout)
@@ -490,14 +490,14 @@ class Cli(Base):
     def test_check_half_initialised_tier_says_init_finishes_it(self):
         e = self.mk()
         put(e.d("repo"), {k: v for k, v in seed_files(P).items() if k in ("/shared/INDEX.md", "/roles/build/INDEX.md")})   # init stopped before its marker
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("INFO tier repo: a set-up that was interrupted before it wrote the marker (qargi memory init repo finishes it)", r.stdout)
+        self.assertIn("INFO tier repo: a set-up that was interrupted before it wrote the marker (crown memory init repo finishes it)", r.stdout)
         self.assertNotIn("no canon marker", r.stdout)
         self.assertNotIn("project set", r.stdout)
         self.assertRegex(r.stdout.strip().splitlines()[-1], r"^0 fail, 0 warn, 1 tiers checked$")
         put(e.d("repo"), {"/shared/stray.md": "# a note\n"})                       # a store with other files is not an interrupted set-up
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("FAIL tier repo: no canon marker and no known layout", r.stdout)
 
@@ -505,7 +505,7 @@ class Cli(Base):
         e = self.mk(roles=("build", "test"))
         put(e.d("repo"), seed_files(P, "build,test"))
         put(e.d("shared"), seed_files("shared", "build,write"))           # written for build,write
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         sect = r.stdout.split("== tier shared", 1)[1].split("== ", 1)[0]
         self.assertNotIn("FAIL", sect, r.stdout)
 
@@ -514,31 +514,31 @@ class Cli(Base):
         put(e.d("shared"), {"/shared/r.md": NOTE})
         before = e.snap()
         for args in (("tiers",), ("tiers", "--json"), ("check",)):
-            e.qargi("memory", *args, "--project", P)
+            e.crown("memory", *args, "--project", P)
         keep = without_ant(e.env["PATH"])
         env = dict(e.env, PATH=os.pathsep.join(keep))
-        e.qargi("memory", "check", "--project", P, env=env)
+        e.crown("memory", "check", "--project", P, env=env)
         self.assertEqual(e.snap(), before)
         self.assertFalse(os.path.exists(e.d("project")))                 # a missing tier is not created
 
 
 class Slice2Messages(Base):
-    """Slice 2 makes `qargi memory init` and `move` real: the hints of the check name them without "later slice" or "comes later"."""
+    """Slice 2 makes `crown memory init` and `move` real: the hints of the check name them without "later slice" or "comes later"."""
     populated = Cli.populated
 
     def test_missing_and_empty_hints_name_init_without_later_slice(self):
         e = self.populated()
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertNotIn("later slice", r.stdout)
-        self.assertRegex(r.stdout, r"INFO tier project: missing \(qargi memory init project\)")
-        self.assertRegex(r.stdout, r"INFO tier system: empty \(qargi memory init system\)")
+        self.assertRegex(r.stdout, r"INFO tier project: missing \(crown memory init project\)")
+        self.assertRegex(r.stdout, r"INFO tier system: empty \(crown memory init system\)")
 
     def test_collision_hint_names_the_move_verb(self):
         e = self.populated()
         put(e.d("shared"), {"/shared/r.md": NOTE})
-        r = e.qargi("memory", "check", "--project", P)
+        r = e.crown("memory", "check", "--project", P)
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn("FAIL /shared/r.md: in tiers repo, shared (a note lives in one tier; qargi memory move PATH --from T --to T)", r.stdout)
+        self.assertIn("FAIL /shared/r.md: in tiers repo, shared (a note lives in one tier; crown memory move PATH --from T --to T)", r.stdout)
         self.assertNotIn("comes later", r.stdout)
 
 

@@ -30,21 +30,21 @@ case $verb in
     printf '%-12s %-10s %-9s %s\n' ROLE CLASS WHERE DESCRIPTION
     for r in $(role_names); do
       d=$(role_dir "$r") || continue
-      w=user; case $d in "$QARGI_TOOL"/*) w=built-in;; esac
+      w=user; case $d in "$CROWN_TOOL"/*) w=built-in;; esac
       printf '%-12s %-10s %-9s %s\n' "$r" "$(jq -r '.class // "write"' "$d/role.json")" "$w" "$(jq -r '.description // ""' "$d/role.json")"
     done;;
   show)
-    n=${1:-}; [ -n "$n" ] || usage_die "usage: qargi role show NAME"
-    d=$(role_dir "$n") || die "no role named $n (qargi role list)"
+    n=${1:-}; [ -n "$n" ] || usage_die "usage: crown role show NAME"
+    d=$(role_dir "$n") || die "no role named $n (crown role list)"
     echo "role: $n"; echo "dir: $d"; echo "class: $(role_class "$n")"; jq -r '"description: " + (.description // "")' "$d/role.json"
     echo; cat "$d/ROLE.md";;
   prompt)
-    n=${1:-}; [ -n "$n" ] || usage_die "usage: qargi role prompt NAME"
-    d=$(role_dir "$n") || die "no role named $n (qargi role list)"
+    n=${1:-}; [ -n "$n" ] || usage_die "usage: crown role prompt NAME"
+    d=$(role_dir "$n") || die "no role named $n (crown role list)"
     cat "$d/ROLE.md";;
   check)
     rc=0
     for n in ${1:-$(role_names)}; do check_one "$n" || rc=1; done
     [ $rc = 0 ] && echo "roles: ok"; exit $rc;;
-  *) usage_die "usage: qargi role list|show|prompt|check ...";;
+  *) usage_die "usage: crown role list|show|prompt|check ...";;
 esac

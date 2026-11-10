@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The backlog (qargi backlog, the answer backlog.file): the answer is checked when it is set, list shows the items with their ids (an item without an
+# The backlog (crown backlog, the answer backlog.file): the answer is checked when it is set, list shows the items with their ids (an item without an
 # id as unnumbered, a duplicated id flagged, --json), done is a plan and a token and then moves the item with the evidence and the date to the dated
 # archive beside the file and removes it, and feature finish and release finish name the open items whose id the merged commits mention.
 # Run: tests/test_backlog.sh
@@ -7,10 +7,10 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app QARGI_LEAD=lead-one
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app CROWN_LEAD=lead-one
 mkdir -p "$HOME" "$T/c/projects" "$T/bin" "$T/mem"
 cat > "$T/bin/gh" <<G
 #!/usr/bin/env bash
@@ -67,7 +67,7 @@ out=$(bl list 2>&1); rc=$?
 [ $rc = 1 ] && grep -q "the backlog file $MEM (backlog.file) does not exist" <<<"$out" && ok "list says when the file is missing (exit 1)" || no "missing file rc=$rc: $out"
 jq 'del(.backlog)' "$P" > "$P.new" && mv "$P.new" "$P"
 out=$(bl list 2>&1); rc=$?
-[ $rc = 1 ] && grep -q 'qargi project set app backlog.file PATH' <<<"$out" && ok "list with the answer unset names it (exit 1)" || no "unset rc=$rc: $out"
+[ $rc = 1 ] && grep -q 'crown project set app backlog.file PATH' <<<"$out" && ok "list with the answer unset names it (exit 1)" || no "unset rc=$rc: $out"
 $DA project set app backlog.file "$MEM" >/dev/null 2>&1
 
 # --- 3. list
@@ -86,7 +86,7 @@ bl list extra >/dev/null 2>&1; r1=$?; bl list --evidence x >/dev/null 2>&1; r2=$
 [ "$r1" = 2 ] && [ "$r2" = 2 ] && ok "list takes no id and no evidence (exit 2)" || no "list usage $r1 $r2"
 
 # --- 4. done: the plan changes nothing, and it needs the evidence
-export QARGI_NOW=2026-11-08
+export CROWN_NOW=2026-11-08
 before=$(sum "$MEM"); ARCH=$T/mem/backlog-archive-2026-11.md
 out=$(bldone add-cache 2>&1); rc=$?
 [ $rc = 2 ] && grep -q 'done needs --evidence' <<<"$out" && ok "done without evidence is a usage error" || no "no evidence rc=$rc: $out"
@@ -101,9 +101,9 @@ jq -e '.verb == "backlog done" and (.token | test("^[0-9a-f]+$")) and (.plan | c
 out=$(bldone add-cache --evidence "merged in feature/cache, suite green" --plan "$t" 2>&1); [ -n "$(tok <<<"$out")" ] && [ "$(sum "$MEM")" = "$before" ] && ok "a token without the approval is the plan again" || no "token alone: $out"
 out=$(bldone add-cache --evidence "merged in feature/cache, suite green" --plan 000000000000 --approved go 2>&1); rc=$?
 [ $rc != 0 ] && grep -q 'the plan changed or --plan is missing' <<<"$out" && [ "$(sum "$MEM")" = "$before" ] && [ ! -e "$ARCH" ] && ok "a wrong token is refused and nothing changes" || no "wrong token rc=$rc: $out"
-out=$(QARGI_NESTED=1 bldone add-cache --evidence "merged in feature/cache, suite green" --approved go 2>&1); rc=$?
+out=$(CROWN_NESTED=1 bldone add-cache --evidence "merged in feature/cache, suite green" --approved go 2>&1); rc=$?
 [ $rc != 0 ] && grep -q 'the plan changed or --plan is missing' <<<"$out" && [ "$(sum "$MEM")" = "$before" ] && [ ! -e "$ARCH" ] && ok "done with no token under the nested variable is refused, the backlog and archive did not change" || no "nested done, no token rc=$rc: $out"
-out=$(QARGI_NESTED=1 bldone add-cache --evidence "merged in feature/cache, suite green" --plan 000000000000 --approved go 2>&1); rc=$?
+out=$(CROWN_NESTED=1 bldone add-cache --evidence "merged in feature/cache, suite green" --plan 000000000000 --approved go 2>&1); rc=$?
 [ $rc != 0 ] && grep -q 'the plan changed or --plan is missing' <<<"$out" && [ "$(sum "$MEM")" = "$before" ] && [ ! -e "$ARCH" ] && ok "and a wrong token is refused under the nested variable too" || no "nested done, wrong token rc=$rc: $out"
 out=$(bldone add-cache --evidence "another set of words" --plan "$t" --approved go 2>&1); rc=$?
 [ $rc != 0 ] && [ "$(sum "$MEM")" = "$before" ] && ok "the token is of the evidence too" || no "other evidence rc=$rc: $out"
@@ -131,20 +131,20 @@ exp=$(printf '# Backlog\n\n## Now\n\n- [add-cache] Cache the lookups\n- plain it
 [ "$(cat "$MEM"; echo _)" = "$exp" ] && ok "the item goes with its continuation and nested bullet, and one blank line is left where it stood" || no "after fix-names: $(cat "$MEM")"
 grep -q '^### 2026-11-08: fix-names$' "$ARCH" && grep -q '^  second line of the item$' "$ARCH" && grep -q '^  - a nested bullet that belongs to it$' "$ARCH" && [ "$(grep -c '^### ' "$ARCH")" = 2 ] \
   && [ "$(grep -c '^# backlog archive' "$ARCH")" = 1 ] && ok "a second done appends to the archive of the month" || no "archive 2: $(cat "$ARCH")"
-export QARGI_NOW=2026-12-02
+export CROWN_NOW=2026-12-02
 out=$(bldone star-item --evidence "line one
 line two" 2>&1); t=$(tok <<<"$out")
 bldone star-item --evidence "line one
 line two" --plan "$t" --approved go >/dev/null 2>&1
 [ "$(cat "$T/mem/backlog-archive-2026-12.md")" = "$(printf '# backlog archive 2026-12\n\n### 2026-12-02: star-item\n\n* [star-item] a starred item\n\nEvidence: line one\n  line two')" ] && ok "another month is another archive file (a multi-line evidence is indented)" || no "december: $(cat "$T/mem/backlog-archive-2026-12.md")"
 ! grep -q 'star-item' "$MEM" && [ -e "$T/mem/backlog-archive-2026-11.md" ] && [ "$(grep -c '^### ' "$ARCH")" = 2 ] && ok "the November archive was not touched by it" || no "november"
-unset QARGI_NOW
+unset CROWN_NOW
 [ -z "$(find "$T/mem" -mindepth 1 ! -name 'backlog*')" ] && ok "no temporary file is left beside the backlog" || no "left over: $(find "$T/mem" -mindepth 1)"
 # a relative path is taken from the repository; ~/ from the home directory
 mkdir -p "$R/docs"; printf -- '- [rel-item] in the repository\n' > "$R/docs/backlog.md"; $DA project set app backlog.file docs/backlog.md >/dev/null 2>&1
 bl list 2>&1 | grep -q '^  rel-item  in the repository$' && ok "a relative path is taken from the repository" || no "relative"
 printf -- '- [home-item] under home\n' > "$HOME/bl.md"
-# shellcheck disable=SC2088  # the answer holds the tilde as typed; qargi expands it
+# shellcheck disable=SC2088  # the answer holds the tilde as typed; crown expands it
 $DA project set app backlog.file '~/bl.md' >/dev/null 2>&1
 bl list 2>&1 | grep -q '^  home-item  under home$' && ok "a path under the home directory (tilde slash) is taken from it" || no "home"
 rm -rf "$R/docs"

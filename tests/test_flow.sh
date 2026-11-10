@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# The git-flow verbs (qargi feature, qargi release) on a throwaway repository with a bare origin and a fake gh.
+# The git-flow verbs (crown feature, crown release) on a throwaway repository with a bare origin and a fake gh.
 # Run: tests/test_flow.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app
 mkdir -p "$HOME" "$T/c/projects" "$T/bin"
 # a fake gh: logs the call; 'pr checks' passes unless $T/ci says fail
 cat > "$T/bin/gh" <<G
@@ -51,11 +51,11 @@ out=$($F finish search 2>&1); t=$(tok <<<"$out")
 grep -q "brings 6 commit(s) into develop" <<<"$out" && grep -q "task t1" <<<"$out" && grep -q "files changed: 3 files changed" <<<"$out" && grep -q "    t3.txt" <<<"$out" && ok "the finish plan lists the commits and files being merged" || no "plan content: $out"
 [ -n "$t" ] && [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && ok "the finish plan changes nothing" || no "plan: $out"
 $F finish search --plan 000000000000 --approved go >/dev/null 2>&1 && no "a wrong token was accepted" || ok "a wrong plan token is refused"
-# a caller that is itself approved (QARGI_NESTED) has not approved this plan: no token and a wrong token are refused all the same, and develop does not move
-out=$(QARGI_NESTED=1 $F finish search --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && ok "feature finish with no token under QARGI_NESTED is refused, develop did not move" || no "nested finish, no token: rc=$rc $out"
-out=$(QARGI_NESTED=1 $F finish search --plan 000000000000 --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && ok "and a wrong token is refused under QARGI_NESTED too" || no "nested finish, wrong token: rc=$rc $out"
+# a caller that is itself approved (CROWN_NESTED) has not approved this plan: no token and a wrong token are refused all the same, and develop does not move
+out=$(CROWN_NESTED=1 $F finish search --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && ok "feature finish with no token under CROWN_NESTED is refused, develop did not move" || no "nested finish, no token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $F finish search --plan 000000000000 --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(git -C "$R" rev-parse develop)" = "$dev0" ] && ok "and a wrong token is refused under CROWN_NESTED too" || no "nested finish, wrong token: rc=$rc $out"
 git -C "$R" checkout -q develop
 $F finish search --plan "$t" --approved go >/dev/null 2>&1 && no "develop was moved under a working tree" || ok "a branch checked out in the main checkout is not moved"
 git -C "$R" checkout -q parked
@@ -102,7 +102,7 @@ for n in g1 g2; do w=$(mktemp -d "$T/w.XXXXXX"); git -C "$R" worktree add -q "$w
 $F verify g1 >/dev/null 2>&1; $F verify g2 >/dev/null 2>&1; t=$($F finish g1 | tok); $F finish g1 --plan "$t" --approved go >/dev/null 2>&1
 dg=$(git -C "$R" rev-parse develop); gg=$(git -C "$R" rev-parse feature/g2)
 out=$($F finish g2 2>&1); rc=$?
-[ $rc = 1 ] && grep -q "^  shared-g.txt$" <<<"$out" && ! grep -q "own-g" <<<"$out" && grep -q "qargi feature sync g2 first" <<<"$out" && ok "finish of a feature behind develop that shares a changed file refuses (exit 1), lists that file and says to sync first" || no "overlap refusal rc=$rc: $out"
+[ $rc = 1 ] && grep -q "^  shared-g.txt$" <<<"$out" && ! grep -q "own-g" <<<"$out" && grep -q "crown feature sync g2 first" <<<"$out" && ok "finish of a feature behind develop that shares a changed file refuses (exit 1), lists that file and says to sync first" || no "overlap refusal rc=$rc: $out"
 t=$(tok <<<"$out"); [ -z "$t" ] && [ "$(git -C "$R" rev-parse develop)" = "$dg" ] && [ "$(git -C "$R" rev-parse feature/g2)" = "$gg" ] && ok "and no plan is made and nothing moved" || no "overlap refusal changed something"
 git -C "$R" branch -D feature/g2 >/dev/null 2>&1
 
@@ -152,7 +152,7 @@ rstart 0.2.0 >/dev/null 2>&1 && no "a tag that exists was reused" || ok "a relea
 # --- a hotfix goes into the open release branch when there is one; the version conflict the model warns about is resolved
 $REL verify 0.3.0 >/dev/null 2>&1; rstart 0.3.0 --allow-empty-notes >/dev/null 2>&1
 out=$($REL start 0.2.1 --hotfix --allow-empty-notes 2>&1)
-grep -q "create hotfix/0.2.1 from master" <<<"$out" && grep -q -- "qargi release start 0.2.1 --hotfix --allow-empty-notes --plan $(tok <<<"$out") --approved" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/hotfix/0.2.1 >/dev/null && ok "a hotfix start prints its plan from master and its apply line too" || no "hotfix plan: $out"
+grep -q "create hotfix/0.2.1 from master" <<<"$out" && grep -q -- "crown release start 0.2.1 --hotfix --allow-empty-notes --plan $(tok <<<"$out") --approved" <<<"$out" && ! git -C "$R" rev-parse -q --verify refs/heads/hotfix/0.2.1 >/dev/null && ok "a hotfix start prints its plan from master and its apply line too" || no "hotfix plan: $out"
 rstart 0.2.1 --hotfix --allow-empty-notes >/dev/null 2>&1 && [ "$(git -C "$R" rev-parse hotfix/0.2.1~1)" = "$(git -C "$R" rev-parse master)" ] && ok "a hotfix is cut from master" || no "hotfix start"
 w=$(mktemp -d "$T/w.XXXXXX"); git -C "$R" worktree add -q "$w" hotfix/0.2.1; echo fix > "$w/fix.txt"; git -C "$w" add -A; git -C "$w" commit -q -m "the fix"; git -C "$R" worktree remove --force "$w"
 t=$($REL push 0.2.1 --hotfix | tok); $REL push 0.2.1 --hotfix --plan "$t" --approved go >/dev/null 2>&1
@@ -191,7 +191,7 @@ echo 0.1.0 > "$R2/VERSION"; printf '# Changelog\n\n## [Unreleased]\n\n- a change
 git -C "$R2" add -A && git -C "$R2" commit -q -m one && git -C "$R2" branch develop && git -C "$R2" remote add origin "$T/origin2.git" && git -C "$R2" push -q origin master develop
 git -C "$R2" checkout -q -b parked
 jq -n --arg p "$R2" '{schema:1, project:"app2", methodology:"gitflow", repo:{url:"https://github.com/acme/app2", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/app2.json"
-export QARGI_PROJECT=app2
+export CROWN_PROJECT=app2
 $REL verify 0.5.0 >/dev/null 2>&1; rstart 0.5.0 >/dev/null 2>&1; t=$($REL push 0.5.0 | tok); $REL push 0.5.0 --plan "$t" --approved go >/dev/null 2>&1
 printf '#!/bin/sh\necho rejected >&2\nexit 1\n' > "$T/origin2.git/hooks/pre-receive"; chmod +x "$T/origin2.git/hooks/pre-receive"
 m5=$(git -C "$R2" rev-parse master); t=$($REL finish 0.5.0 | tok)
@@ -207,7 +207,7 @@ R3=$T/app3; O3=$T/origin3.git; U3=file://$T/origin3.git; git init -q -b master "
 echo 0.1.0 > "$R3/VERSION"; git -C "$R3" add -A && git -C "$R3" commit -q -m one && git -C "$R3" branch develop && git -C "$R3" remote add origin "$O3" && git -C "$R3" push -q origin master develop
 git -C "$R3" checkout -q -b parked
 jq -n --arg p "$R3" '{schema:1, project:"app3", methodology:"gitflow", repo:{url:"https://github.com/acme/app3", path:$p, long_lived:["master","develop"]}}' > "$T/c/projects/app3.json"
-export QARGI_PROJECT=app3
+export CROWN_PROJECT=app3
 $F start v1 >/dev/null 2>&1
 out=$($F verify v1 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "no test_command" <<<"$out" && ok "feature verify with no test_command refuses with a non-zero exit" || no "feature verify refusal rc=$rc: $out"
@@ -258,12 +258,12 @@ out=$($F start v1 2>&1); rc=$?
 git -C "$R3" fetch -q origin; git -C "$R3" push -q "$U3" --delete feature/theirs
 out=$($F start theirs 2>&1); rc=$?
 [ $rc = 0 ] && git -C "$R3" rev-parse -q --verify refs/heads/feature/theirs >/dev/null && ok "a stale tracking ref of a branch that is gone from origin does not block the start" || no "start after delete rc=$rc: $out"
-# --- the parking branch: the main checkout rests on it, qargi moves develop under it and fast-forwards it
+# --- the parking branch: the main checkout rests on it, crown moves develop under it and fast-forwards it
 R5=$T/app5; O5=$T/origin5.git; git init -q -b master "$R5"; git init -q --bare "$O5"
 echo 0.1.0 > "$R5/VERSION"; git -C "$R5" add -A && git -C "$R5" commit -q -m one && git -C "$R5" branch develop && git -C "$R5" remote add origin "$O5" && git -C "$R5" push -q origin master develop
 git -C "$R5" checkout -q develop
 jq -n --arg p "$R5" '{schema:1, project:"app5", methodology:"gitflow", repo:{url:"https://github.com/acme/app5", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/app5.json"
-export QARGI_PROJECT=app5
+export CROWN_PROJECT=app5
 feat() { # name: a verified feature with one commit
   $F start "$1" >/dev/null 2>&1; local w; w=$(mktemp -d "$T/w.XXXXXX"); git -C "$R5" worktree add -q "$w" "feature/$1"
   echo "$1" > "$w/$1.txt"; git -C "$w" add -A; git -C "$w" commit -q -m "feature $1"; git -C "$R5" worktree remove --force "$w"; $F verify "$1" >/dev/null 2>&1
@@ -302,7 +302,7 @@ R6=$T/app6; O6=$T/origin6.git; git init -q -b master "$R6"; git init -q --bare "
 echo 0.1.0 > "$R6/VERSION"; git -C "$R6" add -A && git -C "$R6" commit -q -m one && git -C "$R6" branch develop && git -C "$R6" remote add origin "$O6" && git -C "$R6" push -q origin master develop
 git -C "$R6" checkout -q -b parked
 jq -n --arg p "$R6" '{schema:1, project:"app6", methodology:"gitflow", repo:{url:"https://github.com/acme/app6", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/app6.json"
-export QARGI_PROJECT=app6
+export CROWN_PROJECT=app6
 setans() { jq "$1" "$T/c/projects/app6.json" > "$T/c/projects/app6.new" && mv "$T/c/projects/app6.new" "$T/c/projects/app6.json"; }
 oref() { git -C "$O6" rev-parse -q --verify "refs/heads/$1" 2>/dev/null; }
 feat6() { # name: a verified feature with one commit
@@ -341,7 +341,7 @@ feat6 q4; t=$($F finish q4 | tok); $F finish q4 --plan "$t" --approved go >/dev/
 R7=$T/app7; git init -q -b master "$R7"; echo 0.1.0 > "$R7/VERSION"; git -C "$R7" add -A && git -C "$R7" commit -q -m one && git -C "$R7" branch develop
 git -C "$R7" checkout -q -b parked
 jq -n --arg p "$R7" '{schema:1, project:"app7", methodology:"gitflow", repo:{url:"https://github.com/acme/app7", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/app7.json"
-export QARGI_PROJECT=app7
+export CROWN_PROJECT=app7
 out=$($F start w0 --worktree 2>&1)
 grep -q "^worktree: $T/s/worktrees/app7/feature/w0\$" <<<"$out" && [ "$(git -C "$T/s/worktrees/app7/feature/w0" branch --show-current)" = feature/w0 ] && ok "feature start --worktree makes the worktree under <state>/worktrees/PROJECT/<branch> by default and prints it" || no "default root: $out"
 git -C "$R7" worktree remove "$T/s/worktrees/app7/feature/w0"; git -C "$R7" branch -q -D feature/w0
@@ -359,7 +359,7 @@ $F verify w1 >/dev/null 2>&1
 out=$($F finish w1 2>&1) && no "finish planned over a dirty worktree" || { grep -q "uncommitted changes" <<<"$out" && ok "and the finish, before any plan" || no "dirty finish: $out"; }
 rm "$WR/feature/w1/wip.txt"
 t=$($F finish w1 | tok); out=$($F finish w1 --plan "$t" --approved go 2>&1); rc=$?
-[ $rc = 0 ] && [ ! -e "$WR/feature/w1" ] && ! git -C "$R7" rev-parse -q --verify refs/heads/feature/w1 >/dev/null && git -C "$R7" worktree prune && [ -z "$(git -C "$R7" worktree list | sed -n '2,$p')" ] && ok "feature finish removes the qargi-made worktree of the branch and deletes the branch" || no "finish worktree rc=$rc: $out"
+[ $rc = 0 ] && [ ! -e "$WR/feature/w1" ] && ! git -C "$R7" rev-parse -q --verify refs/heads/feature/w1 >/dev/null && git -C "$R7" worktree prune && [ -z "$(git -C "$R7" worktree list | sed -n '2,$p')" ] && ok "feature finish removes the crown-made worktree of the branch and deletes the branch" || no "finish worktree rc=$rc: $out"
 git -C "$R7" cat-file -e develop:a.txt && ok "(and the merge landed)" || no "merge missing"
 # a worktree outside the root is flagged by list and status
 $F start w5 >/dev/null 2>&1; git -C "$R7" worktree add -q "$T/elsewhere" feature/w5
@@ -374,7 +374,7 @@ R8=$T/app8; O8=$T/origin8.git; B="$DA branch"; git init -q -b master "$R8"; git 
 echo 0.1.0 > "$R8/VERSION"; git -C "$R8" add -A && git -C "$R8" commit -q -m one && git -C "$R8" branch develop && git -C "$R8" remote add origin "$O8" && git -C "$R8" push -q origin master develop
 git -C "$R8" branch scratch develop; git -C "$R8" checkout -q --orphan docs; git -C "$R8" rm -q -rf .; echo d > "$R8/d.md"; git -C "$R8" add -A; git -C "$R8" commit -q -m docs; git -C "$R8" checkout -q -b parked develop
 jq -n --arg p "$R8" '{schema:1, project:"app8", methodology:"gitflow", repo:{url:"https://github.com/acme/app8", path:$p, long_lived:["master","develop","docs"], detached:["docs"]}, test_command:"true"}' > "$T/c/projects/app8.json"
-export QARGI_PROJECT=app8
+export CROWN_PROJECT=app8
 task8() { # name [base]: agent/NAME with one commit
   git -C "$R8" branch "agent/$1" "${2:-develop}"; local w; w=$(mktemp -d "$T/w.XXXXXX"); git -C "$R8" worktree add -q "$w" "agent/$1"
   echo "$1" > "$w/$1.txt"; git -C "$w" add -A; git -C "$w" commit -q -m "task $1"; git -C "$R8" worktree remove --force "$w"
@@ -389,11 +389,11 @@ WT8=$T/s/worktrees/app8/feature/f1
 [ -d "$WT8" ] && ok "(setup) feature f1 is finished and kept, with its worktree; ta, tb are in it; tc is in the open f3" || no "setup: $(git -C "$R8" worktree list)"
 heads8=$(git -C "$R8" for-each-ref --format='%(refname)' refs/heads | sort | md5sum)
 out=$($B prune 2>&1); t=$(tok <<<"$out")
-grep -q "delete local feature/f1 (.*merged into develop); remove its worktree $WT8" <<<"$out" && grep -q "delete local agent/ta (.*merged into develop)" <<<"$out" && grep -q "delete local agent/tc (.*merged into feature/f3)" <<<"$out" && ok "the plan lists merged feature and agent branches and the worktree qargi made" || no "plan: $out"
+grep -q "delete local feature/f1 (.*merged into develop); remove its worktree $WT8" <<<"$out" && grep -q "delete local agent/ta (.*merged into develop)" <<<"$out" && grep -q "delete local agent/tc (.*merged into feature/f3)" <<<"$out" && ok "the plan lists merged feature and agent branches and the worktree crown made" || no "plan: $out"
 grep -q "delete local agent/site (.*merged into docs)" <<<"$out" && ok "an agent branch merged into a detached branch is in the plan" || no "detached merge: $out"
 ! grep -q "agent/sitex" <<<"$out" && ok "and one cut from it but not merged is not" || no "unmerged detached task: $out"
 ! grep -E "delete .*(agent/open|agent/fresh|feature/f2|feature/f3|scratch|docs|master|develop)( |\$)" <<<"$out" >/dev/null && ok "and not an unmerged branch, a branch at a tip, an open feature, the parking, detached or long-lived branches" || no "over-pruned: $out"
-grep -q "kept agent/tb: checked out in .*/.claude/worktrees/rt, which qargi did not make" <<<"$out" && ok "a branch held by a worktree qargi did not make is kept, with the reason" || no "kept: $out"
+grep -q "kept agent/tb: checked out in .*/.claude/worktrees/rt, which crown did not make" <<<"$out" && ok "a branch held by a worktree crown did not make is kept, with the reason" || no "kept: $out"
 [ "$(git -C "$R8" for-each-ref --format='%(refname)' refs/heads | sort | md5sum)" = "$heads8" ] && [ -d "$WT8" ] && ok "the plan changes nothing" || no "plan changed something"
 $B prune --plan 000000000000 --approved go >/dev/null 2>&1 && no "a wrong token was accepted" || ok "a wrong plan token is refused"
 $B prune --remote --plan "$t" --approved go >/dev/null 2>&1 && no "a token of the local plan applied the remote one" || ok "the token covers --remote"

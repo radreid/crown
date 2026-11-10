@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi env check: is this checkout set up the way the project says, and is the qargi side of it in place.
+"""crown env check: is this checkout set up the way the project says, and is the crown side of it in place.
 
   env.py check [--project P] [--repo DIR] [--timeout SECONDS] [--json]
 
@@ -22,9 +22,9 @@ With no doctor command a built-in minimum runs instead: every submodule of .gitm
 repository has a remote and releases (a VERSION file or a numbered changelog heading); every tool a pin file names is on PATH, answers
 `--version` (`go version`) and, where the pin is a version number, matches its major.minor (a go.mod `go` line and a `>=` range are minimums).
 
-Part 2, the qargi layer, for a stored project and read from the facts qargi already keeps, changing nothing: the checkout's skills, agents
+Part 2, the crown layer, for a stored project and read from the facts crown already keeps, changing nothing: the checkout's skills, agents
 and memory are linked; the project's members are current (STALE, DRIFT and MISSING are missing items); the packs render has no drift
-(qargi packs check; a project never applied reads `not applied`, a note); the memory tiers pass qargi memory check. A part that cannot be
+(crown packs check; a project never applied reads `not applied`, a note); the memory tiers pass crown memory check. A part that cannot be
 checked here (no provider set, no render target) is a note, not a missing item.
 
 The verdict is one line: `ENV OK`, or `ENV INCOMPLETE: N missing (...)`. Exit status 0, 1 (incomplete) or 2 (usage, no such project, no
@@ -40,7 +40,7 @@ import tools as T  # noqa: E402
 
 TIMEOUT = 300
 MAX_TIMEOUT = 3600
-SUB_TIMEOUT = 120                       # a qargi verb run for the qargi layer
+SUB_TIMEOUT = 120                       # a crown verb run for the crown layer
 READ_CAP = 1024 * 1024                  # bytes of the doctor's output that are read
 MAX_LINES = 2000
 SHELL_WORDS = {"&&", "||", ";", "|", "&", ">", ">>", "<", "<<", "2>&1"}
@@ -52,12 +52,12 @@ ALIAS = {"golang": "go", "nodejs": "node", "python3": "python", "py": "python"}
 FALLBACK = {"python": ["python3"]}
 RELEASED = re.compile(r"(?m)^##\s*\[?v?\d+\.\d+")
 SEMVER = re.compile(r"(\d+)\.(\d+)")
-USAGE = "usage: qargi env check [--project P] [--repo DIR] [--timeout SECONDS] [--json]"
+USAGE = "usage: crown env check [--project P] [--repo DIR] [--timeout SECONDS] [--json]"
 
 
 def usage_error(msg=None):
     if msg:
-        print("qargi: " + msg, file=sys.stderr)
+        print("crown: " + msg, file=sys.stderr)
     print(USAGE, file=sys.stderr)
     return 2
 
@@ -299,15 +299,15 @@ def declared_tools(answers, repo):
     return {"rows": rows, "items": items, "notes": notes}
 
 
-# ---- the qargi layer ---------------------------------------------------------------------------------------------------
+# ---- the crown layer ---------------------------------------------------------------------------------------------------
 
 def sub(args, width=160):
-    """(exit, output lines) of a qargi verb run read-only for the qargi layer, each line made safe to print and cut to width characters (a caller
+    """(exit, output lines) of a crown verb run read-only for the crown layer, each line made safe to print and cut to width characters (a caller
     that parses the end of a line asks for more). (Flags of other commands are in single quotes: the help test reads a double-quoted flag as one
     this script parses.)"""
-    qargi = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "qargi")
+    crown = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "crown")
     try:
-        r = subprocess.run([qargi] + args, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=SUB_TIMEOUT)
+        r = subprocess.run([crown] + args, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=SUB_TIMEOUT)
     except subprocess.TimeoutExpired:
         return None, ["timed out after %d s" % SUB_TIMEOUT]
     except OSError as e:
@@ -323,7 +323,7 @@ def quietly(fn, *a, keep=()):
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             return fn(*a)
     except SystemExit:
-        said = (err.getvalue() or out.getvalue()).strip().removeprefix("qargi: ").splitlines()
+        said = (err.getvalue() or out.getvalue()).strip().removeprefix("crown: ").splitlines()
         raise RuntimeError(E.clean(said[-1] if said else "refused", 160))
     except keep:
         raise
@@ -356,15 +356,15 @@ def links(project, repo):
             if facts["state"] == "linked":
                 rows.append(("%s: linked" % res, None))
             else:
-                rows.append(("%s: not linked in this checkout (qargi project link %s --resource %s)" % (res, project, res),
+                rows.append(("%s: not linked in this checkout (crown project link %s --resource %s)" % (res, project, res),
                              "%s are not linked in this checkout" % res))
     finally:
         os.chdir(here)
     return rows
 
 
-def qargi_layer(project, answers, repo):
-    """{rows: [(label, text)], items: [(kind, text)]}: link, members, packs and memory, each read from what qargi already keeps."""
+def crown_layer(project, answers, repo):
+    """{rows: [(label, text)], items: [(kind, text)]}: link, members, packs and memory, each read from what crown already keeps."""
     rows, items = [], []
 
     def row(label, text, missing=None):
@@ -393,7 +393,7 @@ def qargi_layer(project, answers, repo):
             if m:
                 bad.append("%s %s" % (ln.split()[1], m.group(1).replace(", ", "+")))
         row("members", "%d current" % (len(members) - len(bad)) + (", " + "; ".join(bad) if bad else ""),
-            "members not current: " + "; ".join(bad) + " (qargi agent refresh NAME --project %s)" % project if bad else None)
+            "members not current: " + "; ".join(bad) + " (crown agent refresh NAME --project %s)" % project if bad else None)
     target = packs_target(answers, project)
     if target is None:
         row("packs", "not checked: no local runtime with a render target")
@@ -401,12 +401,12 @@ def qargi_layer(project, answers, repo):
         rc, lines = sub(["packs", "check", '--target', target, project])
         findings = [ln for ln in lines if not ln.startswith(("skills a session would load", "note:")) and re.match(r"^(?:drift|finding|problem|FAIL|missing|shadow|tamper|warning)", ln, re.I)] or lines
         if rc == 0 and any(ln.startswith("not applied") for ln in lines):   # no render yet: packs check passes, and there is nothing to have drifted
-            row("packs", "not applied (qargi packs apply --target %s %s)" % (target, project))
+            row("packs", "not applied (crown packs apply --target %s %s)" % (target, project))
         elif rc == 0:
             row("packs", "no drift")
         else:
-            row("packs", "drift (qargi packs check --target %s %s): %s" % (target, project, findings[0] if findings else "exit %s" % rc),
-                "packs drift (qargi packs check --target %s %s)" % (target, project))
+            row("packs", "drift (crown packs check --target %s %s): %s" % (target, project, findings[0] if findings else "exit %s" % rc),
+                "packs drift (crown packs check --target %s %s)" % (target, project))
     rc, lines = sub(["memory", "check", "--project", project])
     if rc == 0:
         row("memory", "tiers pass the canon")
@@ -457,9 +457,9 @@ def resolve(o):
     if project is not None:
         answers = E.answers_of(project)
         if answers is None:
-            return None, "no such project '%s' (qargi project list)" % project
+            return None, "no such project '%s' (crown project list)" % project
     elif repo is None:
-        project = os.environ.get("QARGI_PROJECT") or E.project_for_dir(os.getcwd())
+        project = os.environ.get("CROWN_PROJECT") or E.project_for_dir(os.getcwd())
         answers = E.answers_of(project) if project else None
         project = project if answers is not None else None
     else:
@@ -542,7 +542,7 @@ def check(argv):
         rows += tl["rows"]
         items += tl["items"]
         notes += tl["notes"]
-        layer = qargi_layer(project, answers, repo)
+        layer = crown_layer(project, answers, repo)
         items += layer["items"]
     # an item that matches an accepted failure is expected, whichever part found it
     items = [("expected", t) if k == "missing" and known(t, d["known_failures"]) else (k, t) for k, t in items]
@@ -552,7 +552,7 @@ def check(argv):
     code = 1 if missing else 0
     if o["json"]:
         out = {"project": project, "repo": repo, "verdict": verdict, "exit": code, "missing": missing, "expected": expected, "doctor": doctor_json,
-               "qargi": [{"part": a, "text": b} for a, b in layer["rows"]] if layer else None, "notes": notes}
+               "crown": [{"part": a, "text": b} for a, b in layer["rows"]] if layer else None, "notes": notes}
         print(json.dumps(out, indent=2, sort_keys=True))
     else:
         print("environment check of %s (%s)" % (project or "no stored project", repo))
@@ -569,7 +569,7 @@ def check(argv):
         try:
             record(project, d, repo, verdict, code, len(expected), missing, cmd["command"], not cmd["command"])
         except OSError as e:
-            print("qargi: the result could not be recorded: %s" % (e.strerror or "error"), file=sys.stderr)
+            print("crown: the result could not be recorded: %s" % (e.strerror or "error"), file=sys.stderr)
     return code
 
 

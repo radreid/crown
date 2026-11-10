@@ -7,7 +7,7 @@ import glob, json, os, re, shutil, subprocess, sys, tempfile, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LIB = os.path.join(ROOT, "lib")
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, LIB)
 import commands as C  # noqa: E402
 import help as H  # noqa: E402
@@ -45,7 +45,7 @@ class Sync(unittest.TestCase):
         for m in re.finditer(r"(?m)^  ([a-z_|-]+)\) ", body):
             labels |= set(m.group(1).split("|"))
         labels -= {"-h", "--help", "__complete", "__guard"}
-        self.assertEqual(labels, set(C.COMMANDS), "bin/qargi and lib/commands.py disagree")
+        self.assertEqual(labels, set(C.COMMANDS), "bin/crown and lib/commands.py disagree")
 
     def test_groups_cover_every_command_once(self):
         listed = [c for _, cs in C.GROUPS for c in cs]
@@ -117,24 +117,24 @@ class Render(unittest.TestCase):
 
     def test_topics_name_only_commands_and_verbs_that_exist(self):
         for t, (_, paras) in C.TOPICS.items():
-            for m in re.finditer(r"(?<![\w./~])qargi ([a-z][a-z-]*)(?: ([a-z][a-z-]*))?", " ".join(paras)):
+            for m in re.finditer(r"(?<![\w./~])crown ([a-z][a-z-]*)(?: ([a-z][a-z-]*))?", " ".join(paras)):
                 cmd, verb = m.groups()
-                if cmd == "ships":                      # prose: "the member definition qargi ships"
+                if cmd == "ships":                      # prose: "the member definition crown ships"
                     continue
-                self.assertIn(cmd, C.COMMANDS, "topic %s names qargi %s" % (t, cmd))
+                self.assertIn(cmd, C.COMMANDS, "topic %s names crown %s" % (t, cmd))
                 if verb and verbs(cmd) and verb not in verbs(cmd):
-                    self.fail("topic %s names qargi %s %s, which is not a verb" % (t, cmd, verb))
+                    self.fail("topic %s names crown %s %s, which is not a verb" % (t, cmd, verb))
 
     def test_the_guard_topic_is_listed_renders_and_is_in_the_man_page(self):
         self.assertIn("guard", C.TOPICS)
         title, paras = C.TOPICS["guard"]
         text = " ".join(paras)
         self.assertLessEqual(len(text.split()), 400)
-        for needle in ("QARGI_NESTED", "plan token", "OUT", "local verify", "report", "push", "quotes", "heredoc", "substitution"):
+        for needle in ("CROWN_NESTED", "plan token", "OUT", "local verify", "report", "push", "quotes", "heredoc", "substitution"):
             self.assertIn(needle, text)
         self.assertIn("guard", H.show_overview())
         self.assertIn(title, H.show_topic("guard"))
-        r = subprocess.run([BIN, "help", "guard"], capture_output=True, text=True, stdin=subprocess.DEVNULL, env=dict(os.environ, QARGI_HOME=tempfile.mkdtemp()))
+        r = subprocess.run([BIN, "help", "guard"], capture_output=True, text=True, stdin=subprocess.DEVNULL, env=dict(os.environ, CROWN_HOME=tempfile.mkdtemp()))
         self.assertEqual(r.returncode, 0)
         self.assertIn("local verify", r.stdout)
 
@@ -157,7 +157,7 @@ class Render(unittest.TestCase):
         self.assertFalse(missing, "the guard topic does not name %s (add them to the topic, or to GUARD_TOPIC_EXEMPT with a reason)" % missing)
         for area in ("discover", "import", "upgrade", "release", "cloud", "local", "feature", "memory", "marshal", "provider"):
             self.assertIn(area, words, "the guard topic does not name the area %s" % area)
-        for needle in ("QARGI_LEAD", "QARGI_NESTED", "journal", "plugin"):
+        for needle in ("CROWN_LEAD", "CROWN_NESTED", "journal", "plugin"):
             self.assertIn(needle, text)
         stale = sorted(v for v in self.GUARD_TOPIC_EXEMPT if v in words or v not in refused)
         self.assertFalse(stale, "stale exemptions: %s" % stale)
@@ -175,12 +175,12 @@ class Render(unittest.TestCase):
         self.assertFalse(sorted(named - verbs), "the topic names provider verbs that commands.py does not list")
 
     def test_the_man_page_holds_the_approvals_and_guard_topics_as_man_writes_them(self):
-        page, shipped = H.man(), slurp(os.path.join(ROOT, "man", "qargi.1"))
+        page, shipped = H.man(), slurp(os.path.join(ROOT, "man", "crown.1"))
         self.assertEqual(shipped, page)
         for t in ("approvals", "guard"):                 # the page says "See APPROVALS", and the guard is what the approvals topic points at
             self.assertIn("\n.SH %s\n" % t.upper(), shipped)
             for para in C.TOPICS[t][1]:
-                self.assertIn(H.esc(para), shipped, "the %s topic is not in man/qargi.1 as man() writes it" % t)
+                self.assertIn(H.esc(para), shipped, "the %s topic is not in man/crown.1 as man() writes it" % t)
 
     def test_the_approvals_topic_states_the_rules_the_skills_point_at(self):
         text = " ".join(C.TOPICS["approvals"][1])
@@ -191,7 +191,7 @@ class Render(unittest.TestCase):
         home = tempfile.mkdtemp()                       # never the real home: some commands look at it
         self.addCleanup(shutil.rmtree, home, True)
         def run(*a, env=None):
-            return subprocess.run([BIN, *a], capture_output=True, text=True, env=dict(os.environ, QARGI_HOME=home, **(env or {})), stdin=subprocess.DEVNULL)
+            return subprocess.run([BIN, *a], capture_output=True, text=True, env=dict(os.environ, CROWN_HOME=home, **(env or {})), stdin=subprocess.DEVNULL)
         self.assertEqual(run("help").returncode, 0)
         r = run("lead", "--help")
         self.assertEqual(r.returncode, 0)
@@ -218,10 +218,10 @@ class Render(unittest.TestCase):
 
     def test_man_page_is_current_and_lints(self):
         page = H.man()
-        self.assertEqual(slurp(os.path.join(ROOT, "man", "qargi.1")), page, "regenerate: python3 lib/help.py man > man/qargi.1")
+        self.assertEqual(slurp(os.path.join(ROOT, "man", "crown.1")), page, "regenerate: python3 lib/help.py man > man/crown.1")
         self.assertIn(".SH COMMANDS", page)
         for c in C.COMMANDS:
-            self.assertIn("qargi %s" % c.replace("-", "\\-"), page)
+            self.assertIn("crown %s" % c.replace("-", "\\-"), page)
         if shutil.which("groff"):
             r = subprocess.run(["groff", "-k", "-ww", "-man", "-Tutf8"], input=page, capture_output=True, text=True)
             self.assertEqual(r.stderr, "", "groff warnings")
@@ -233,8 +233,8 @@ class Render(unittest.TestCase):
             shutil.copytree(os.path.join(ROOT, "lib"), os.path.join(t, "lib"), ignore=shutil.ignore_patterns("__pycache__"))
             r = subprocess.run([sys.executable, os.path.join(t, "lib", "help.py"), "man"], capture_output=True, text=True, cwd=t, stdin=subprocess.DEVNULL)
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertTrue(r.stdout.startswith(".TH QARGI 1 "), r.stdout[:80])
-            self.assertIn("The qargi skills, loaded by the lead's session", r.stdout)
+            self.assertTrue(r.stdout.startswith(".TH CROWN 1 "), r.stdout[:80])
+            self.assertIn("The crown skills, loaded by the lead's session", r.stdout)
         finally:
             shutil.rmtree(t)
 
@@ -254,9 +254,9 @@ class Env(unittest.TestCase):
         put(os.path.join(self.t, "c", "instances.json"), {"alpha-build": {}, "alpha-write": {}})
         put(os.path.join(self.t, "s", "sessions.json"), {"sesn_1": {}})
         self.put = put
-        self.old = {k: os.environ.get(k) for k in ("QARGI_CONF", "QARGI_STATE", "QARGI_PROJECT")}
-        os.environ["QARGI_CONF"], os.environ["QARGI_STATE"] = os.path.join(self.t, "c"), os.path.join(self.t, "s")
-        os.environ.pop("QARGI_PROJECT", None)
+        self.old = {k: os.environ.get(k) for k in ("CROWN_CONF", "CROWN_STATE", "CROWN_PROJECT")}
+        os.environ["CROWN_CONF"], os.environ["CROWN_STATE"] = os.path.join(self.t, "c"), os.path.join(self.t, "s")
+        os.environ.pop("CROWN_PROJECT", None)
         self.cwd = os.getcwd()
 
     def tearDown(self):
@@ -287,12 +287,12 @@ class Complete(Env):
         self.assertEqual(H.complete(["nosuch", ""]), [])
 
     def test_bash_function(self):
-        script = os.path.join(ROOT, "completions", "qargi.bash")
+        script = os.path.join(ROOT, "completions", "crown.bash")
         env = dict(os.environ, PATH=os.path.join(ROOT, "bin") + os.pathsep + os.environ["PATH"])
-        r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(qargi lead gr); COMP_CWORD=2; _qargi; echo "${COMPREPLY[*]}"' % script],
+        r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(crown lead gr); COMP_CWORD=2; _crown; echo "${COMPREPLY[*]}"' % script],
                            capture_output=True, text=True, env=env)
         self.assertEqual(r.stdout.strip(), "grant", r.stderr)
-        r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(qargi instances show ""); COMP_CWORD=3; _qargi; echo "${COMPREPLY[*]}"' % script],
+        r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(crown instances show ""); COMP_CWORD=3; _crown; echo "${COMPREPLY[*]}"' % script],
                            capture_output=True, text=True, env=env)
         self.assertEqual(r.stdout.split(), ["alpha-build", "alpha-write"], r.stderr)
 
@@ -311,23 +311,23 @@ class Shells(Env):
 
     @unittest.skipUnless(shutil.which("zsh"), "zsh is not installed")
     def test_zsh(self):
-        script = os.path.join(ROOT, "completions", "_qargi")
+        script = os.path.join(ROOT, "completions", "_crown")
         stub = ('_describe() { shift 3; print -l -- "${(@P)1}"; }; _files() { print "FILES $*"; }; f() { source %s }; ' % script)
-        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(qargi lead ""); CURRENT=3; f')
+        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(crown lead ""); CURRENT=3; f')
         self.assertEqual([l.split(":")[0] for l in r.stdout.split("\n") if l], ["grant", "status", "revoke"], r.stderr)
-        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(qargi instances show ""); CURRENT=4; f')
+        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(crown instances show ""); CURRENT=4; f')
         self.assertEqual([l.split(":")[0] for l in r.stdout.split("\n") if l], ["alpha-build", "alpha-write"], r.stderr)
-        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(qargi review check ""); CURRENT=4; f')
+        r = self.run_shell(["zsh", "-f", "-c"], stub + 'words=(crown review check ""); CURRENT=4; f')
         self.assertEqual(r.stdout.strip(), "FILES -/")
         r = self.run_shell(["zsh", "-n"], script)
         self.assertEqual(r.returncode, 0, r.stderr)
 
     @unittest.skipUnless(shutil.which("fish"), "fish is not installed")
     def test_fish(self):
-        script = os.path.join(ROOT, "completions", "qargi.fish")
-        r = self.run_shell(["fish", "-c"], 'source %s; complete -C "qargi lead "' % script)
+        script = os.path.join(ROOT, "completions", "crown.fish")
+        r = self.run_shell(["fish", "-c"], 'source %s; complete -C "crown lead "' % script)
         self.assertEqual(sorted(l.split("\t")[0] for l in r.stdout.split("\n") if l), ["grant", "revoke", "status"], r.stderr)
-        r = self.run_shell(["fish", "-c"], 'source %s; complete -C "qargi team brief alpha "' % script)
+        r = self.run_shell(["fish", "-c"], 'source %s; complete -C "crown team brief alpha "' % script)
         self.assertEqual(r.stdout.strip(), "code-docs", r.stderr)
         r = self.run_shell(["fish", "-n"], script)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -434,10 +434,10 @@ class Rich(Env):
         self.assertEqual(H.complete(["help", "instances", "show", ""]), [])
 
     def test_bash_puts_option_equals_value_back_together(self):
-        script = os.path.join(ROOT, "completions", "qargi.bash")
+        script = os.path.join(ROOT, "completions", "crown.bash")
         env = dict(os.environ, PATH=os.path.join(ROOT, "bin") + os.pathsep + os.environ["PATH"])
         for words, cword, want in (("instances init --effort = hi", 5, "high"), ("instances init --effort =", 4, "low medium high xhigh max")):
-            r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(qargi %s); COMP_CWORD=%d; _qargi; echo "${COMPREPLY[*]}"' % (script, words, cword)],
+            r = subprocess.run(["bash", "-c", 'source "%s"; COMP_WORDS=(crown %s); COMP_CWORD=%d; _crown; echo "${COMPREPLY[*]}"' % (script, words, cword)],
                                capture_output=True, text=True, env=env)
             self.assertEqual(r.stdout.strip(), want, r.stderr)
 
@@ -492,7 +492,7 @@ class Infer(Env):
 
     def test_environment_names_the_project(self):
         os.chdir(self.t)
-        os.environ["QARGI_PROJECT"] = "beta"
+        os.environ["CROWN_PROJECT"] = "beta"
         self.assertEqual(H.resolve(["lead", "status"]), ["lead", "status", "beta"])
 
     def test_the_command_line_uses_it(self):

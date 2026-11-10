@@ -2,7 +2,7 @@
 # Write a memory tier (memory.sh dispatches here):
 #   tierwrite.sh init TIER [--project P] [--plan TOKEN --approved "..."]
 #   tierwrite.sh move PATH --from TIER --to TIER [--project P] [--plan TOKEN --approved "..."]
-# TIER is repo, project, shared or system for init (the cloud tier is created by qargi provision); move also takes cloud.
+# TIER is repo, project, shared or system for init (the cloud tier is created by crown provision); move also takes cloud.
 # Without --approved this prints the plan and its token and changes nothing. The write happens only for the plan the
 # token names, and every tier is checked against the notes the plan read before the first change (lib/tierplan.py).
 # Nothing is deleted and nothing is committed: a move archives the source note, init into the repo tier only writes files.
@@ -10,11 +10,11 @@
 
 here=$(dirname "$(readlink -f "$0")")
 
-usage() { echo "usage: qargi memory init TIER | move PATH --from TIER --to TIER   [--project P] [--plan TOKEN --approved \"...\"]" >&2; exit 2; }
+usage() { echo "usage: crown memory init TIER | move PATH --from TIER --to TIER   [--project P] [--plan TOKEN --approved \"...\"]" >&2; exit 2; }
 
 v=${1:-}; shift || true
 case $v in init|move) ;; *) usage;; esac
-unset QARGI_NESTED   # a caller that is itself approved has not approved this plan: the token is always needed
+unset CROWN_NESTED   # a caller that is itself approved has not approved this plan: the token is always needed
 ARG1='' FROM='' TO='' PROJECT='' PLAN_ARG='' APPROVED=''
 export PLAN_ARG
 while [ $# -gt 0 ]; do
@@ -36,7 +36,7 @@ else
 fi
 
 # a cloud tier at either end is reached with ant (a test's fixture replaces it)
-if [ -z "${QARGI_CANON_FIXTURE_DIR:-}" ] && { [ "$FROM" = cloud ] || [ "$TO" = cloud ]; }; then ant_ok; fi
+if [ -z "${CROWN_CANON_FIXTURE_DIR:-}" ] && { [ "$FROM" = cloud ] || [ "$TO" = cloud ]; }; then ant_ok; fi
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 args=(--out "$tmp/plan.json")
@@ -57,7 +57,7 @@ fi
 [ -n "$tok" ] || die "no plan token could be computed; nothing was changed"
 [ -n "$PLAN_ARG" ] || die "$v needs --plan $tok (the token of the plan shown above) with --approved; nothing was changed"
 need_plan "$tok"
-if [ -z "${QARGI_CANON_FIXTURE_DIR:-}" ] && [ "$(jq -r .needs_ant "$tmp/plan.json")" = true ]; then ant_ok; fi
+if [ -z "${CROWN_CANON_FIXTURE_DIR:-}" ] && [ "$(jq -r .needs_ant "$tmp/plan.json")" = true ]; then ant_ok; fi
 # what was approved goes to the audit log: token, tiers and every step; a second line says it was applied
 detail=$(jq -nc --arg v "$v" --arg arg "$ARG1" --arg from "$FROM" --arg to "$TO" --arg tok "$tok" --slurpfile plan "$tmp/plan.json" \
   '{verb:$v, arg:$arg, from:$from, to:$to, token:$tok,

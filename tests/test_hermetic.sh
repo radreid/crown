@@ -35,32 +35,32 @@ EOF
 mkdir -p "$T/checkout"
 
 # 1. a TMPDIR that is gone: the test does not run
-rm -rf "$T/qargi-run.gone00"
-out=$(cd "$T/checkout" && TMPDIR=$T/qargi-run.gone00 bash "$T/probe.sh" 2>&1); rc=$?
-[ "$rc" = 1 ] && grep -q 'TMPDIR=.*qargi-run.gone00 is not a writable directory' <<<"$out" && [ ! -e "$T/went-on" ] && [ ! -e "$T/checkout/.git" ] \
+rm -rf "$T/crown-run.gone00"
+out=$(cd "$T/checkout" && TMPDIR=$T/crown-run.gone00 bash "$T/probe.sh" 2>&1); rc=$?
+[ "$rc" = 1 ] && grep -q 'TMPDIR=.*crown-run.gone00 is not a writable directory' <<<"$out" && [ ! -e "$T/went-on" ] && [ ! -e "$T/checkout/.git" ] \
   && ok "a TMPDIR that does not exist: the test stops at once (exit 1) and writes nothing" || no "missing TMPDIR: rc=$rc $out"
 rm -f "$T/trap-ran" "$T/went-on"
 
 # 2. the TMPDIR is removed while the test runs: the next mktemp stops the test, its EXIT trap runs, git never runs in the checkout
-mkdir -p "$T/qargi-run.wipe00"
-out=$(cd "$T/checkout" && TMPDIR=$T/qargi-run.wipe00 bash "$T/probe.sh" wipe 2>&1); rc=$?
+mkdir -p "$T/crown-run.wipe00"
+out=$(cd "$T/checkout" && TMPDIR=$T/crown-run.wipe00 bash "$T/probe.sh" wipe 2>&1); rc=$?
 [ "$rc" != 0 ] && grep -q 'hermetic test: mktemp .* failed' <<<"$out" && [ ! -e "$T/went-on" ] && [ ! -e "$T/checkout/.git" ] \
   && ok "TMPDIR removed under a running test: the failed mktemp stops it (exit $rc), nothing is done in the checkout" || no "wiped TMPDIR: rc=$rc went-on=$([ -e "$T/went-on" ] && echo yes) checkout-git=$([ -e "$T/checkout/.git" ] && echo yes) $out"
 [ -e "$T/trap-ran" ] && ok "the stopped test's EXIT trap still runs (its cleanup)" || no "the EXIT trap did not run: $out"
 rm -f "$T/trap-ran" "$T/went-on"
 
 # 3. a normal run leaves its TMPDIR (named like a run's) and what lies beside it alone, and removes only what it made
-mkdir -p "$T/qargi-run.keep00" "$T/qargi-run.other0"; : > "$T/qargi-run.keep00/precious"; : > "$T/qargi-run.other0/precious"
-out=$(cd "$T/checkout" && TMPDIR=$T/qargi-run.keep00 bash "$T/probe.sh" 2>&1); rc=$?
-left=$(find "$T/qargi-run.keep00" -mindepth 1 | sed "s|^$T/||" | sort | tr '\n' ' ')
-[ "$rc" = 0 ] && [ -e "$T/went-on" ] && [ "$left" = "qargi-run.keep00/precious " ] && [ -f "$T/qargi-run.other0/precious" ] && [ ! -e "$T/checkout/.git" ] \
+mkdir -p "$T/crown-run.keep00" "$T/crown-run.other0"; : > "$T/crown-run.keep00/precious"; : > "$T/crown-run.other0/precious"
+out=$(cd "$T/checkout" && TMPDIR=$T/crown-run.keep00 bash "$T/probe.sh" 2>&1); rc=$?
+left=$(find "$T/crown-run.keep00" -mindepth 1 | sed "s|^$T/||" | sort | tr '\n' ' ')
+[ "$rc" = 0 ] && [ -e "$T/went-on" ] && [ "$left" = "crown-run.keep00/precious " ] && [ -f "$T/crown-run.other0/precious" ] && [ ! -e "$T/checkout/.git" ] \
   && ok "a normal run: its TMPDIR and the directory beside it are untouched, its own directories are gone" || no "normal run: rc=$rc left=$left $out"
 
 # 4. the Python tests: hermetic.py refuses a TMPDIR that is gone instead of falling back to /tmp
-out=$(cd / && TMPDIR=$T/qargi-run.gone00 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import hermetic' "$SRC/tests" 2>&1); rc=$?
-[ "$rc" != 0 ] && grep -q 'TMPDIR=.*qargi-run.gone00 is not a writable directory' <<<"$out" && ok "hermetic.py: a TMPDIR that is gone stops the test" || no "hermetic.py missing TMPDIR: rc=$rc $out"
-out=$(cd / && TMPDIR=$T/qargi-run.keep00 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import hermetic; print(hermetic.ROOT)' "$SRC/tests" 2>&1); rc=$?
-[ "$rc" = 0 ] && [ "${out#"$T"/qargi-run.keep00/}" != "$out" ] && ok "hermetic.py: a usable TMPDIR is where its directory goes" || no "hermetic.py TMPDIR: rc=$rc $out"
+out=$(cd / && TMPDIR=$T/crown-run.gone00 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import hermetic' "$SRC/tests" 2>&1); rc=$?
+[ "$rc" != 0 ] && grep -q 'TMPDIR=.*crown-run.gone00 is not a writable directory' <<<"$out" && ok "hermetic.py: a TMPDIR that is gone stops the test" || no "hermetic.py missing TMPDIR: rc=$rc $out"
+out=$(cd / && TMPDIR=$T/crown-run.keep00 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import hermetic; print(hermetic.ROOT)' "$SRC/tests" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ "${out#"$T"/crown-run.keep00/}" != "$out" ] && ok "hermetic.py: a usable TMPDIR is where its directory goes" || no "hermetic.py TMPDIR: rc=$rc $out"
 
 
 # 5. the environment of a hermetic shell test: one directory holds HOME, TMPDIR, config and state; git reads no host configuration; the
@@ -71,11 +71,11 @@ set -u
 . "$SRC/tests/hermetic.sh"
 printf 'home=%s tmp=%s tz=%s lang=%s umask=%s gcg=%s nosys=%s branch=%s py=%s%s term=%s\n' "\$HOME" "\$TMPDIR" "\$TZ" "\$LANG" "\$(umask)" \
   "\$GIT_CONFIG_GLOBAL" "\$GIT_CONFIG_NOSYSTEM" "\$(git config init.defaultBranch)" "\$PYTHONNOUSERSITE" "\$PYTHONDONTWRITEBYTECODE" "\$TERM"
-printf 'leak=%s%s%s%s%s\n' "\${GIT_DIR-} " "\${SSH_AUTH_SOCK-} " "\${PYTHONPATH-} " "\${QARGI_PROJECT-}" "\${ANTHROPIC_API_KEY-}"
+printf 'leak=%s%s%s%s%s\n' "\${GIT_DIR-} " "\${SSH_AUTH_SOCK-} " "\${PYTHONPATH-} " "\${CROWN_PROJECT-}" "\${ANTHROPIC_API_KEY-}"
 printf 'root=%s\n' "\$HERMETIC"
 EOF
 mkdir -p "$T/outer"
-out=$(cd "$T/outer" && env TMPDIR="$T/outer" GIT_DIR=/nowhere SSH_AUTH_SOCK=/nowhere PYTHONPATH=/nowhere ANTHROPIC_API_KEY=k QARGI_PROJECT=leaky TZ=Asia/Tokyo LC_ALL=de_DE.UTF-8 bash "$T/env.sh" 2>&1)
+out=$(cd "$T/outer" && env TMPDIR="$T/outer" GIT_DIR=/nowhere SSH_AUTH_SOCK=/nowhere PYTHONPATH=/nowhere ANTHROPIC_API_KEY=k CROWN_PROJECT=leaky TZ=Asia/Tokyo LC_ALL=de_DE.UTF-8 bash "$T/env.sh" 2>&1)
 root=$(sed -n 's/^root=//p' <<<"$out")
 case $root in "$T"/outer/*) in_outer=1;; *) in_outer=;; esac
 grep -q "^home=$root/home tmp=$root/tmp tz=UTC lang=C\.UTF-8 umask=0022 gcg=/dev/null nosys=1 branch=master py=11 term=dumb\$" <<<"$out" \

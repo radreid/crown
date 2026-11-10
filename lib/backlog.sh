@@ -14,7 +14,7 @@
 
 verb=${1:-}; shift || true
 PROJ='' PLAN_ARG='' APPROVED='' JSON='' EVIDENCE='' EVSET='' ID=''
-USAGE="usage: qargi backlog list [--json] [--project P] | done ID --evidence TEXT [--project P] [--plan T --approved WORDS]"
+USAGE="usage: crown backlog list [--json] [--project P] | done ID --evidence TEXT [--project P] [--plan T --approved WORDS]"
 while [ $# -gt 0 ]; do
   case $1 in
     --project) need_val "$1" $#; PROJ=$2; shift 2;; --plan) need_val "$1" $#; PLAN_ARG=$2; shift 2;; --approved) need_val "$1" $#; APPROVED=$2; shift 2;;
@@ -43,8 +43,8 @@ case $verb in
     plan=$(python3 -I "$BL" plan "$BF" "$ID" "$EVIDENCE") || exit 1
     tok=$(python3 -I "$BL" token "$BF" "$ID" "$EVIDENCE") || exit 1
     printf '%s\n' "$plan"
-    if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: qargi backlog done $ID --evidence \"...\" --plan $tok --approved \"...\")"; exit 0; fi
-    QARGI_NESTED='' need_plan "$tok"   # a caller that is itself approved has not approved this plan: the token is always needed
+    if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: crown backlog done $ID --evidence \"...\" --plan $tok --approved \"...\")"; exit 0; fi
+    CROWN_NESTED='' need_plan "$tok"   # a caller that is itself approved has not approved this plan: the token is always needed
     python3 -I "$BL" apply "$BF" "$ID" "$EVIDENCE" || exit 1
     audit_log "backlog:done" "$PROJ $ID";;
 esac

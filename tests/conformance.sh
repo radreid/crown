@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The conformance suite of a provider adapter, for the runtimes this repository ships (claude-code, claude-platform, the fixtures
-# under tests/providers/). The suite itself is lib/conformance/run.sh, which ships with the tool because `qargi provider check` runs
+# under tests/providers/). The suite itself is lib/conformance/run.sh, which ships with the tool because `crown provider check` runs
 # it on the adapter of a library pack; this wrapper keeps the arguments, the output and the exit status of the command the
 # tests and CONTRIBUTING use.
 #

@@ -8,7 +8,7 @@ import hashlib, json, os, random, re, subprocess, sys, tempfile, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LIB = os.path.join(ROOT, "lib")
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 SEED = os.path.join(ROOT, "provision", "canon-seed")
 sys.path.insert(0, LIB)
 import canon as C  # noqa: E402
@@ -161,7 +161,7 @@ class Contract(Stores):
 
     def test_paths_are_checked(self):
         for bad in ("a.md", "/", "/a/", "/a//b", "/a/../b", "/a/./b", "/a\\b", "/a\nb",
-                    "/shared/.qargi-xyz", "/.git/config", "/shared/.draft.md", "/a/.hidden/b.md", "/a/b.md ", "/a /b.md", "/a/b.md\t"):
+                    "/shared/.crown-xyz", "/.git/config", "/shared/.draft.md", "/a/.hidden/b.md", "/a/b.md ", "/a /b.md", "/a/b.md\t"):
             with self.assertRaises(B.StoreError, msg=bad):
                 B.check_path(bad)
         for good in ("/a.md", "/Shared/\u00e9t\u00e9.md", "/a b/c d.md", "/x/y.tar.gz", "/_archive/2026-10-29/a.md"):
@@ -170,7 +170,7 @@ class Contract(Stores):
     def test_what_is_listed_is_what_can_be_stored(self):
         root = os.path.join(self.tmp.name, "d")
         os.makedirs(os.path.join(root, "shared"))
-        for name in ("ok.md", ".qargi-tmp", "trailing.md "):
+        for name in ("ok.md", ".crown-tmp", "trailing.md "):
             with open(os.path.join(root, "shared", name), "w") as f:
                 f.write("x")
         b = B.DirBackend(root)
@@ -521,11 +521,11 @@ class Provenance(unittest.TestCase):
         self.assertNotEqual(P.copied("A", "/n.md", base), P.copied("A", "/n.md", none))
 
     def test_trailers_written_by_the_released_code_restore_as_they_did(self):
-        # literal text as 0.1.x-era qargi wrote it: no flag, the digest of the note as it was
+        # literal text as 0.1.x-era crown wrote it: no flag, the digest of the note as it was
         orig = "# N\n\nKind: rule\n"
-        old = "# N\nSources: origin not recorded (qargi memory); copied from src:/n.md@%s\n\nKind: rule\n" % B.digest(orig)[:12]
+        old = "# N\nSources: origin not recorded (crown memory); copied from src:/n.md@%s\n\nKind: rule\n" % B.digest(orig)[:12]
         self.assertEqual((P.core(old), P.origin(old)), (orig, ("copied", "/n.md")))
-        arch = "# N\r\nSources: origin not recorded (qargi memory); archived from /n.md@%s on 2026-10-29\r\n\r\nKind: rule\r\n" % B.digest(orig.replace("\n", "\r\n"))[:12]
+        arch = "# N\r\nSources: origin not recorded (crown memory); archived from /n.md@%s on 2026-10-29\r\n\r\nKind: rule\r\n" % B.digest(orig.replace("\n", "\r\n"))[:12]
         self.assertEqual((P.core(arch), P.origin(arch)), (orig.replace("\n", "\r\n"), ("archived", "/n.md")))
         own = "# N\n\nSources: maintainer\n"
         oldown = "# N\n\nSources: maintainer; copied from src:/n.md@%s\n" % B.digest(own)[:12]
@@ -1103,8 +1103,8 @@ class Cloud(FakeAnt):
 
 
 class Cli(FakeAnt):
-    def qargi(self, *args, env=None):
-        e = dict(self.env, QARGI_CONF=os.path.join(self.tmp.name, "conf"), QARGI_STATE=os.path.join(self.tmp.name, "state"), **(env or {}))
+    def crown(self, *args, env=None):
+        e = dict(self.env, CROWN_CONF=os.path.join(self.tmp.name, "conf"), CROWN_STATE=os.path.join(self.tmp.name, "state"), **(env or {}))
         return subprocess.run([BIN, "memory"] + list(args), capture_output=True, text=True, env=e, cwd=self.tmp.name, stdin=subprocess.DEVNULL)
 
     def tree(self, root):
@@ -1125,23 +1125,23 @@ class Cli(FakeAnt):
         b.create("/roles/build/a.md", "# A\n\nKind: setup\n")
         b.create("/shared/b.md", "# B\n")
         before = self.tree(src)
-        r = self.qargi("split", src, dst, "--role", "build", "--archive")
+        r = self.crown("split", src, dst, "--role", "build", "--archive")
         tok = self.token(r)
         self.assertIn("nothing was changed", r.stdout)
         self.assertEqual((self.tree(src), os.path.exists(dst)), (before, False))   # a dry run is the default
-        r = self.qargi("split", src, dst, "--role", "build", "--archive", "--approved", "go on")
+        r = self.crown("split", src, dst, "--role", "build", "--archive", "--approved", "go on")
         self.assertNotEqual(r.returncode, 0)                                      # no token, no change
-        r = self.qargi("split", src, dst, "--role", "build", "--archive", "--plan", "0" * 12, "--approved", "go on")
+        r = self.crown("split", src, dst, "--role", "build", "--archive", "--plan", "0" * 12, "--approved", "go on")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual((self.tree(src), os.path.exists(dst)), (before, False))
-        self.assertNotEqual(self.token(self.qargi("split", src, dst, "--role", "write", "--prefix", "/shared")), tok)   # another plan, another token
-        self.assertNotEqual(self.token(self.qargi("split", src, dst, "--role", "build")), tok)   # not archiving is another plan
+        self.assertNotEqual(self.token(self.crown("split", src, dst, "--role", "write", "--prefix", "/shared")), tok)   # another plan, another token
+        self.assertNotEqual(self.token(self.crown("split", src, dst, "--role", "build")), tok)   # not archiving is another plan
         b.update("/shared/b.md", "# B edited\n")                                  # an unrelated note changes: the plan holds
-        self.assertEqual(self.token(self.qargi("split", src, dst, "--role", "build", "--archive")), tok)
+        self.assertEqual(self.token(self.crown("split", src, dst, "--role", "build", "--archive")), tok)
         b.update("/roles/build/a.md", "# A edited\n")                             # a note the plan read changes: the token moves
-        self.assertNotEqual(self.token(self.qargi("split", src, dst, "--role", "build", "--archive")), tok)
-        tok = self.token(self.qargi("split", src, dst, "--role", "build", "--archive"))
-        r = self.qargi("split", src, dst, "--role", "build", "--archive", "--plan", tok, "--approved", "split the build notes out")
+        self.assertNotEqual(self.token(self.crown("split", src, dst, "--role", "build", "--archive")), tok)
+        tok = self.token(self.crown("split", src, dst, "--role", "build", "--archive"))
+        r = self.crown("split", src, dst, "--role", "build", "--archive", "--plan", tok, "--approved", "split the build notes out")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(sorted(self.tree(dst)), ["roles/build/a.md"])
         self.assertTrue(any(k.startswith("_archive") for k in self.tree(src)))
@@ -1154,7 +1154,7 @@ class Cli(FakeAnt):
         self.assertEqual([(x["store"], x["op"], x["path"]) for x in detail["steps"]],
                          [("target", "create", "/roles/build/a.md"), ("source", "archive", "/roles/build/a.md")])
         self.assertEqual(audit[1]["detail"], tok)
-        r = self.qargi("split", src, dst, "--role", "build", "--archive")           # planning again after the apply: nothing left
+        r = self.crown("split", src, dst, "--role", "build", "--archive")           # planning again after the apply: nothing left
         self.assertIn("nothing to do", r.stdout)
 
     def test_copy_merge_and_refusals(self):
@@ -1162,22 +1162,22 @@ class Cli(FakeAnt):
         B.DirBackend(a).create("/shared/x.md", "# mine\n")
         B.DirBackend(b).create("/shared/x.md", "# theirs\n")
         B.DirBackend(b).create("/shared/y.md", "# y\n")
-        tok = self.token(self.qargi("merge", b, a))
-        r = self.qargi("merge", b, a, "--plan", tok, "--approved", "merge them")
+        tok = self.token(self.crown("merge", b, a))
+        r = self.crown("merge", b, a, "--plan", tok, "--approved", "merge them")
         self.assertEqual(r.returncode, 0, r.stderr)
         got = self.tree(a)
         self.assertEqual(got["shared/x.md"], "# mine\n")
         self.assertEqual(len([k for k in got if k.startswith("_conflicts")]), 1)
         self.assertEqual(self.tree(b), {"shared/x.md": "# theirs\n", "shared/y.md": "# y\n"})
-        self.assertNotEqual(self.qargi("split", a, b).returncode, 0)               # a selector is required
-        self.assertNotEqual(self.qargi("copy", a, a).returncode, 0)                # not onto itself
-        self.assertNotEqual(self.qargi("merge", b, a, "--role", "build").returncode, 0)
-        self.assertNotEqual(self.qargi("split", a, b, "--role", "build", "--policy", "keep").returncode, 0)
+        self.assertNotEqual(self.crown("split", a, b).returncode, 0)               # a selector is required
+        self.assertNotEqual(self.crown("copy", a, a).returncode, 0)                # not onto itself
+        self.assertNotEqual(self.crown("merge", b, a, "--role", "build").returncode, 0)
+        self.assertNotEqual(self.crown("split", a, b, "--role", "build", "--policy", "keep").returncode, 0)
         c = os.path.join(self.tmp.name, "c")
-        r = self.qargi("copy", b, c, "--prefix", "/shared/y.md")
+        r = self.crown("copy", b, c, "--prefix", "/shared/y.md")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse(os.path.exists(c))
-        self.qargi("copy", b, c, "--prefix", "/shared/y.md", "--plan", self.token(r), "--approved", "copy y")
+        self.crown("copy", b, c, "--prefix", "/shared/y.md", "--plan", self.token(r), "--approved", "copy y")
         self.assertEqual(sorted(self.tree(c)), ["shared/y.md"])
 
     def test_a_dump_and_a_cloud_store_are_sources_a_dump_is_never_a_target(self):
@@ -1187,19 +1187,19 @@ class Cli(FakeAnt):
         c.create("/shared/c.md", "# C\n")
         into = os.path.join(self.tmp.name, "into")
         for src in (dump, "memstore_X"):
-            r = self.qargi("merge", src, into)
-            self.qargi("merge", src, into, "--plan", self.token(r), "--approved", "pull it in")
+            r = self.crown("merge", src, into)
+            self.crown("merge", src, into, "--plan", self.token(r), "--approved", "pull it in")
         self.assertEqual(sorted(self.tree(into)), ["shared/a.md", "shared/c.md"])
         self.assertNotRegex(self.log(), r"\b(delete|remove)\b")
         self.assertEqual(self.snap(c), {"/shared/c.md": "# C\n"})                   # the cloud store was only read
         before = (self.tree(into), self.tree(os.path.dirname(dump))["dump.jsonl"])
         for verb, extra in (("merge", []), ("copy", ["--prefix", "/shared"]), ("split", ["--prefix", "/shared"])):
             for args in ((into, dump), ("memstore_X", dump)):
-                r = self.qargi(verb, *args, *extra)
+                r = self.crown(verb, *args, *extra)
                 self.assertNotEqual(r.returncode, 0, verb)
                 self.assertIn("read-only", r.stderr)
                 self.assertNotIn("plan token", r.stdout)
-        r = self.qargi("split", dump, into, "--prefix", "/shared", "--archive")      # archiving writes to the source: also refused
+        r = self.crown("split", dump, into, "--prefix", "/shared", "--archive")      # archiving writes to the source: also refused
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual((self.tree(into), self.tree(os.path.dirname(dump))["dump.jsonl"]), before)
 
@@ -1209,11 +1209,11 @@ class Cli(FakeAnt):
             for i, p in enumerate(["/shared/.draft.md", "/shared/ok.md"]):
                 f.write(json.dumps({"type": "memory", "id": "m%d" % i, "path": p, "content": "# x\n"}) + "\n")
         into = os.path.join(self.tmp.name, "into")
-        r = self.qargi("copy", dump, into)
+        r = self.crown("copy", dump, into)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("/shared/.draft.md", r.stderr)
         self.assertFalse(os.path.exists(into))
-        r = self.qargi("copy", dump, into, "--prefix", "/shared/ok.md")
+        r = self.crown("copy", dump, into, "--prefix", "/shared/ok.md")
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def gate_case(self, verb, extra):
@@ -1223,16 +1223,16 @@ class Cli(FakeAnt):
         B.DirBackend(b).create("/shared/z.md", "# z\n")
         args = [verb, a, b] + extra
         before = (self.tree(a), self.tree(b))
-        tok = self.token(self.qargi(*args))
+        tok = self.token(self.crown(*args))
         for bad in (["--approved", "go"], ["--plan", "", "--approved", "go"], ["--plan", "0" * 12, "--approved", "go"], ["--plan", tok[:-1] + ("0" if tok[-1] != "0" else "1"), "--approved", "go"]):
-            self.assertNotEqual(self.qargi(*args, *bad).returncode, 0, bad)
+            self.assertNotEqual(self.crown(*args, *bad).returncode, 0, bad)
             self.assertEqual((self.tree(a), self.tree(b)), before, bad)
-        r = self.qargi(*args, "--approved", "go", env={"QARGI_NESTED": "1"})       # a nested call is not an approval of this plan
+        r = self.crown(*args, "--approved", "go", env={"CROWN_NESTED": "1"})       # a nested call is not an approval of this plan
         self.assertNotEqual(r.returncode, 0)
-        r = self.qargi(*args, "--plan", "0" * 12, "--approved", "go", env={"QARGI_NESTED": "1"})
+        r = self.crown(*args, "--plan", "0" * 12, "--approved", "go", env={"CROWN_NESTED": "1"})
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual((self.tree(a), self.tree(b)), before)
-        r = self.qargi(*args, "--plan", tok, "--approved", "go", env={"QARGI_NESTED": "1"})
+        r = self.crown(*args, "--plan", tok, "--approved", "go", env={"CROWN_NESTED": "1"})
         self.assertEqual(r.returncode, 0, r.stderr)                                  # with the right token it applies, and it is not logged as nested
         self.assertNotEqual((self.tree(a), self.tree(b)), before)
         with open(os.path.join(self.tmp.name, "state", "audit.log")) as f:

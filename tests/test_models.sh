@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Default models and efforts: lib/model-defaults.json, qargi agent add and qargi agent models. Run: tests/test_models.sh
+# Default models and efforts: lib/model-defaults.json, crown agent add and crown agent models. Run: tests/test_models.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi; TABLE=$PWD/lib/model-defaults.json
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown; TABLE=$PWD/lib/model-defaults.json
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s
 mkdir -p "$HOME" "$T/c/projects"
 # there is no default provider: the provider is a project's models.provider, and a member belongs to a project. pbase is the project in effect
 git init -q "$T/repop"
 jq -n --arg p "$T/repop" '{schema:1,project:"pbase",repo:{url:"https://github.com/example/pbase",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/pbase.json"
-export QARGI_PROJECT=pbase
+export CROWN_PROJECT=pbase
 A=$T/repop/.claude/agents
 
 PROV=$PWD/lib/providers
@@ -108,8 +108,8 @@ $DA agent add res2 --project pbase --roles review --model claude-fable-5-1 --eff
 # problems are flagged rows, never an error
 W=$T/w; mkdir -p "$W/home" "$W/c/projects"; git init -q "$W/repow"
 jq -n --arg p "$W/repow" '{schema:1,project:"wbase",repo:{url:"https://github.com/example/wbase",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$W/c/projects/wbase.json"
-wd() { HOME=$W/home QARGI_CONF=$W/c QARGI_STATE=$W/s QARGI_PROJECT=wbase "$DA" "$@"; }
-wm() { HOME=$W/home QARGI_CONF=$W/c QARGI_STATE=$W/s QARGI_PROJECT=wbase "$DA" agent models "$@"; }
+wd() { HOME=$W/home CROWN_CONF=$W/c CROWN_STATE=$W/s CROWN_PROJECT=wbase "$DA" "$@"; }
+wm() { HOME=$W/home CROWN_CONF=$W/c CROWN_STATE=$W/s CROWN_PROJECT=wbase "$DA" agent models "$@"; }
 out=$(wm 2>&1); rc=$?
 { [ $rc = 0 ] && grep -q 'no reviewer: review profiles cannot dispatch' <<<"$out" && grep -E '^ *reviewer ' <<<"$out" | grep -q 'no reviewer'; } && ok "models: a missing base is flagged (no reviewer)" || no "missing base: rc=$rc $out"
 wm --json | jq -e '[.warnings[] | select(.message | test("no reviewer: review profiles cannot dispatch"))] | length == 1' >/dev/null && ok "models --json: the same problem in warnings[]" || no "warnings json"
@@ -156,7 +156,7 @@ $DA project template alpha | jq -e '.roles | all(.[]; .model == null) and (.buil
 $DA project template alpha | jq -e '.models.provider == ""' >/dev/null && ! $DA project template alpha | grep -qi claude && ok "project template names no provider and no vendor" || no "template provider"
 
 # models needs a project (--project, else the one in effect: the provider is the project's); its help must not promise a listing of every project
-out=$(QARGI_PROJECT='' $DA agent models 2>&1); rc=$?
+out=$(CROWN_PROJECT='' $DA agent models 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q 'project' <<<"$out"; } && ok "models with no project in effect: exit 2, and says why" || no "models without a project: rc=$rc $out"
 hp=$($DA help agent models 2>&1)
 ! grep -qi 'every project' <<<"$hp" && ! grep -q 'PROJECT/NAME' <<<"$hp" && ok "and its help does not describe a listing of every project" || no "models help promises a listing of every project"

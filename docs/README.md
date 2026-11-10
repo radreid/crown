@@ -1,13 +1,13 @@
-# qargi documentation
+# crown documentation
 
 **A gathering place for agent work: dispatch, review, remember.**
 
-*Qargi* is the Iñupiaq word for the traditional community house, where a village
+*Crown* is the Iñupiaq word for the traditional community house, where a village
 gathered to make and mend its tools, decide together and hand knowledge on. Here the
 work of agents gathers in the same way: tasks go out, patches come back for review,
 and what was learned is kept in memory.
 
-Qargi is a set of Claude Code skills and a CLI that dispatch one-off, task-scoped
+Crown is a set of Claude Code skills and a CLI that dispatch one-off, task-scoped
 development tasks to sandboxed agents and take the work back as reviewable patches. An agent
 works on one task in its own clone and never pushes; the dispatching session
 verifies the result and applies it.
@@ -37,4 +37,4 @@ request.
 | [Reference](reference/README.md) | Help, the manual page, completion, command conventions |
 | [Development](development/README.md) | Setting up a checkout, tests, contributing |
 
-The task-oriented guides are on the documentation site, <https://qargi.rettware.com/>.
+The task-oriented guides live in the sections above, in this repository.

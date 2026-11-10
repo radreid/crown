@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The render engine, lib/render.py: qargi's emitters and parse-back readers for five formats, the declarative `map`
+"""The render engine, lib/render.py: crown's emitters and parse-back readers for five formats, the declarative `map`
 renderer and the `command` renderer. Hermetic: every file is made in a temporary directory.
 Run: python3 tests/test_render.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
@@ -366,7 +366,7 @@ DEF = {
     "tier": "balanced",
     "effort": "high",
     "tools": ["bash", "read", "edit"],
-    "barrier": {"guard_command": "qargi __guard --provider p"},
+    "barrier": {"guard_command": "crown __guard --provider p"},
     "body": "You are a member.\n\nWork.\n",
 }
 TOOL_MAP = {"bash": "Bash", "read": "Read", "edit": "Edit", "monitor": "Monitor"}
@@ -410,7 +410,7 @@ hooks:
     - matcher: "Bash|Edit"
       hooks:
         - type: command
-          command: qargi __guard --provider p
+          command: crown __guard --provider p
           timeout: 20
 ---
 
@@ -574,7 +574,7 @@ class MapRenderer(unittest.TestCase):
         self.assertEqual(one("AbC", "lower"), "abc")
         self.assertEqual(one("AbC", "upper"), "ABC")
         self.assertEqual(one("  x ", "strip"), "x")
-        self.assertEqual(one("x", {"prefix": "qargi-"}), "qargi-x")
+        self.assertEqual(one("x", {"prefix": "crown-"}), "crown-x")
         self.assertEqual(one("x", {"suffix": ".md"}), "x.md")
         self.assertEqual(one("x", {"map": {"x": "y"}}), "y")
         self.assertEqual(one(["A", "B"], "lower"), ["a", "b"])                       # elementwise on a list
@@ -615,7 +615,7 @@ class MapRenderer(unittest.TestCase):
         self.assertEqual(val("{missing|name}"), "build-1")                          # first non-empty
         self.assertEqual(val("{description|name}", defn(description="")), "build-1")
         self.assertEqual(val("{{name}} {name}"), "{name} build-1")
-        self.assertEqual(val("{barrier.guard_command}"), "qargi __guard --provider p")
+        self.assertEqual(val("{barrier.guard_command}"), "crown __guard --provider p")
         for bad in ("{nope}", "{nope|also}", "{barrier}x", "a { b", "a } b", "{}", "{a b}", "{name"):
             with self.subTest(bad=bad):
                 self.refuses("", s=spec(format="toml", fields=[{"value": bad, "to": "k"}], body=None))
@@ -747,7 +747,7 @@ class CommandRenderer(CommandBase):
 
     def test_the_environment_is_a_fixed_small_set_and_the_cwd_a_temporary_directory(self):
         body = "import json, os\nprint(json.dumps({'env': sorted(os.environ), 'cwd': os.getcwd(), 'home': os.environ['HOME'], 'path': os.environ['PATH']}))\n"
-        with mock.patch.dict(os.environ, {"QARGI_SECRET": "x", "ANTHROPIC_API_KEY": "k", "PATH": "/nonexistent", "PYTHONPATH": "/x", "LD_PRELOAD": "/x"}):
+        with mock.patch.dict(os.environ, {"CROWN_SECRET": "x", "ANTHROPIC_API_KEY": "k", "PATH": "/nonexistent", "PYTHONPATH": "/x", "LD_PRELOAD": "/x"}):
             got = json.loads(self.run_(body)["content"])
         self.assertEqual(got["env"], sorted(R.CHILD_ENV_KEYS))
         self.assertNotEqual(got["path"], "/nonexistent")

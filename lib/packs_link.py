@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Link a project's repository to the render of its packs for the project's provider.
 
-`qargi packs apply --target T PROJECT` renders the project's skills under <state>/render/PROJECT/PROVIDER/<skills dir>, where T is the
+`crown packs apply --target T PROJECT` renders the project's skills under <state>/render/PROJECT/PROVIDER/<skills dir>, where T is the
 render target and <skills dir> the project skills directory of the provider's layout (lib/providers/NAME.json, read through
 lib/provider.py; nothing here names a provider). Loading them needed the provider's launch command. `packs link` instead makes
 CHECKOUT/<skills dir> a symbolic link to that directory, so a session opened in the checkout loads the packs by itself;
@@ -17,7 +17,7 @@ is refused with exit status 3.
   packs_link.py plan  link|unlink INPUTS TOKENFILE   print the plan and write the plan token (none when there is nothing to do)
   packs_link.py apply link|unlink INPUTS TOKEN       re-plan, refuse if the plan changed, then change the file system
 
-A member's run (a directory `qargi local prepare` made, at or above the working directory) never applies: only the lead's session
+A member's run (a directory `crown local prepare` made, at or above the working directory) never applies: only the lead's session
 changes what a checkout loads. The state directory comes from the environment (paths.state(), as the shell's DA_STATE) and the
 checkout and provider must be the ones in the project's stored answers (paths.conf()); the inputs file cannot name others.
 
@@ -85,11 +85,11 @@ class SkillsLink(linker.Link):
         self.inp = inp
         rel = skills_dir(inp)
         super().__init__("skills", inp["project"], inp.get("checkout") or "", rel, render_path(inp), "dir-symlink", inp["state"],
-                         dict(WORDS, unlink="qargi packs unlink %s" % inp["project"]))
+                         dict(WORDS, unlink="crown packs unlink %s" % inp["project"]))
 
     def source_missing(self):
         target = provider.layout(self.inp["provider"], project=self.project)["render_target"]
-        how = "run qargi packs apply --target %s %s first" % (target, self.project) if target else "qargi does not make one for this provider"
+        how = "run crown packs apply --target %s %s first" % (target, self.project) if target else "crown does not make one for this provider"
         die("there is no render of %s yet: %s" % (self.project, how))
 
     def inspect_real(self, path):
@@ -117,8 +117,8 @@ class SkillsLink(linker.Link):
             if st == "new" and not NAME_RE.fullmatch(name):
                 say("             skipped: unusual name (no offer is printed for it)")
             elif st == "new":
-                say("             to keep it: qargi skill import %s" % q(os.path.join(link, name)))
-                say("                         qargi skill link %s --scope project --project %s" % (q(name), q(p)))
+                say("             to keep it: crown skill import %s" % q(os.path.join(link, name)))
+                say("                         crown skill link %s --scope project --project %s" % (q(name), q(p)))
         if facts.get("others"):
             say("    other entries moved with it: %s" % ", ".join(clean(o) for o in facts["others"]))
 
@@ -134,7 +134,7 @@ def main():
             inp = bind(json.load(fh))
         (linker.cmd_plan if sys.argv[1] == "plan" else linker.cmd_apply)(sys.argv[2], SkillsLink(inp), sys.argv[4])
     except provider.Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         sys.exit(3)
     except provider.ProviderError as e:
         die(str(e))

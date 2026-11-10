@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""The shared refs backend of the marshal: git plumbing for refs/qargi/ on the project's remote.
+"""The shared refs backend of the marshal: git plumbing for refs/crown/ on the project's remote.
 
-One commit per update, on refs/qargi/features/<name>; its tree holds the single file record.json. A finished feature moves to
-refs/qargi/done/<name> in the same atomic push that deletes features/<name>. The repository's own refs/qargi/* is the cache of
-the remote's (fetched with +refs/qargi/*:refs/qargi/* --prune; a plain git fetch never brings it). Nothing here touches the
-working tree or the index: only objects and refs under refs/qargi/ are written.
+One commit per update, on refs/crown/features/<name>; its tree holds the single file record.json. A finished feature moves to
+refs/crown/done/<name> in the same atomic push that deletes features/<name>. The repository's own refs/crown/* is the cache of
+the remote's (fetched with +refs/crown/*:refs/crown/* --prune; a plain git fetch never brings it). Nothing here touches the
+working tree or the index: only objects and refs under refs/crown/ are written.
 
   refresh(repo, remote)        fetch the cache -> (ok, why)
   read(repo, check, verify)    the valid records of the cache -> (features, done, ignored); a ref or record that is not
@@ -15,7 +15,7 @@ working tree or the index: only objects and refs under refs/qargi/ are written.
                                is in the message) and may ignore it too
   write(repo, rec, parent, ..., sign) a commit holding rec as record.json -> its oid; with sign (a Signer) the record carries
                                sig_v and signer and the armored signature of lib/marshal_sign.py is the body of the commit message
-  marshal_push(repo, remote, updates, atomic) the ONLY pusher: refs under refs/qargi/features|done only, always with a
+  marshal_push(repo, remote, updates, atomic) the ONLY pusher: refs under refs/crown/features|done only, always with a
                                --force-with-lease=REF:EXPECT (40 zeros: the ref must not exist), GIT_TERMINAL_PROMPT=0 and a
                                timeout -> ("ok" | "rejected" | "unreachable", detail)
   finish(repo, remote, name, rec, features_oid, done_oid) the ONE atomic push that deletes features/<name> and creates
@@ -23,7 +23,7 @@ working tree or the index: only objects and refs under refs/qargi/ are written.
   observed(state, project, current) how long each oid has been unchanged on THIS machine's monotonic clock; a lead's wall
                                clock is never compared with another machine's
 
-Environment: QARGI_REMOTE_TIMEOUT seconds for a fetch or push (default 10); QARGI_MARSHAL_MONO the monotonic clock in seconds
+Environment: CROWN_REMOTE_TIMEOUT seconds for a fetch or push (default 10); CROWN_MARSHAL_MONO the monotonic clock in seconds
 (tests inject it).
 
 Command line (marshal.sh and the tests; python3 -I, standard library only):
@@ -35,17 +35,17 @@ Command line (marshal.sh and the tests; python3 -I, standard library only):
 import argparse, json, os, re, signal, subprocess, sys, time
 
 ZERO = "0" * 40
-PUSH_RE = re.compile(r"refs/qargi/(features|done)/[a-z0-9]+(-[a-z0-9]+)*")
+PUSH_RE = re.compile(r"refs/crown/(features|done)/[a-z0-9]+(-[a-z0-9]+)*")
 NAME_RE = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 OID_RE = re.compile(r"[0-9a-f]{40}([0-9a-f]{24})?")
 REMOTE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 MAX_RECORD = 64 * 1024
-FETCH_SPEC = "+refs/qargi/*:refs/qargi/*"
+FETCH_SPEC = "+refs/crown/*:refs/crown/*"
 
 
 def ref_ok(ref):
-    """True for a ref marshal_push may push: refs/qargi/features/NAME or refs/qargi/done/NAME, nothing else."""
+    """True for a ref marshal_push may push: refs/crown/features/NAME or refs/crown/done/NAME, nothing else."""
     return isinstance(ref, str) and len(ref) < 200 and PUSH_RE.fullmatch(ref) is not None
 
 
@@ -63,17 +63,17 @@ def clean(s):
 
 def timeout_secs():
     try:
-        t = float(os.environ.get("QARGI_REMOTE_TIMEOUT", "10"))
+        t = float(os.environ.get("CROWN_REMOTE_TIMEOUT", "10"))
     except ValueError:
         return 10.0
     return t if t > 0 else 10.0
 
 
 def in_member_run(path=None):
-    """True when path (default: the current directory) is at or below a directory `qargi local prepare` made (it holds the
+    """True when path (default: the current directory) is at or below a directory `crown local prepare` made (it holds the
     files ability and refs.before): that is a member's run. Same rule as lib/guard.py run_dir. Without a path the environment counts too: the variable
-    QARGI_MEMBER_RUN (put there when the member is started, and kept by the guard from being set or unset) marks a member that has changed to another directory."""
-    if path is None and os.environ.get("QARGI_MEMBER_RUN"):
+    CROWN_MEMBER_RUN (put there when the member is started, and kept by the guard from being set or unset) marks a member that has changed to another directory."""
+    if path is None and os.environ.get("CROWN_MEMBER_RUN"):
         return True
     p = os.path.realpath(path or os.getcwd())
     while p and p != os.path.dirname(p):
@@ -125,7 +125,7 @@ def first_line(s):
 
 
 def refresh(repo, remote):
-    """Fetch the remote's refs/qargi/ into the repository's own (and drop the ones the remote no longer has).
+    """Fetch the remote's refs/crown/ into the repository's own (and drop the ones the remote no longer has).
     -> (True, "") or (False, why): the remote was not checked. FETCH_HEAD of the repository is left alone (a lead's own pull or merge
     reads it)."""
     if not remote_ok(remote):
@@ -227,7 +227,7 @@ def read(repo, check=None, verify=None, heads=None):
     verify(kind, name, oid, rec, parents, message) -> a reason or None adds the signature rules (kind is features or done).
     heads, when given, is filled with {ref: oid} for every ref of the cache, valid or not."""
     feats, done, ignored = {}, {}, []
-    rc, out, _, _ = run_git(repo, ["for-each-ref", "--format=%(objectname) %(objecttype) %(refname)", "refs/qargi/features", "refs/qargi/done"], 30)
+    rc, out, _, _ = run_git(repo, ["for-each-ref", "--format=%(objectname) %(objecttype) %(refname)", "refs/crown/features", "refs/crown/done"], 30)
     if rc != 0:
         return feats, done, ignored
     for ln in out.decode("utf-8", "replace").splitlines():
@@ -235,7 +235,7 @@ def read(repo, check=None, verify=None, heads=None):
         if len(parts) != 3:
             continue
         oid, typ, ref = parts
-        kind, _, name = ref[len("refs/qargi/"):].partition("/")
+        kind, _, name = ref[len("refs/crown/"):].partition("/")
         if kind not in ("features", "done"):
             continue
         if heads is not None:
@@ -331,8 +331,8 @@ def write(repo, rec, parent, message, sign=None, kind="features"):
     if rc != 0:
         raise OSError("git mktree failed: " + first_line(err))
     tree = out.decode().strip()
-    ident = {"GIT_AUTHOR_NAME": "qargi marshal", "GIT_AUTHOR_EMAIL": "marshal@qargi.invalid",
-             "GIT_COMMITTER_NAME": "qargi marshal", "GIT_COMMITTER_EMAIL": "marshal@qargi.invalid"}
+    ident = {"GIT_AUTHOR_NAME": "crown marshal", "GIT_AUTHOR_EMAIL": "marshal@crown.invalid",
+             "GIT_COMMITTER_NAME": "crown marshal", "GIT_COMMITTER_EMAIL": "marshal@crown.invalid"}
     rc, out, err, _ = run_git(repo, ["-c", "commit.gpgsign=false", "commit-tree", "-m", message] + (["-p", parent] if parent else []) + [tree], 30, None, ident)
     if rc != 0:
         raise OSError("git commit-tree failed: " + first_line(err))
@@ -372,20 +372,20 @@ def finish(repo, remote, name, rec, features_oid, done_oid, sign=None, parent=No
     if sign is not None:
         rec = dict(rec, features_oid=parent or features_oid or None)
     commit = write(repo, rec, None if sign is not None else (parent or features_oid), "marshal: finish %s" % name, sign, "done")
-    ups = [(commit, "refs/qargi/done/" + name, done_oid or ZERO)]
+    ups = [(commit, "refs/crown/done/" + name, done_oid or ZERO)]
     if features_oid:
-        ups.append(("", "refs/qargi/features/" + name, features_oid))
+        ups.append(("", "refs/crown/features/" + name, features_oid))
     st, why = marshal_push(repo, remote, ups, atomic=True)
     if st == "ok":
-        update_cache(repo, "refs/qargi/features/" + name, None)
-        update_cache(repo, "refs/qargi/done/" + name, commit)
+        update_cache(repo, "refs/crown/features/" + name, None)
+        update_cache(repo, "refs/crown/done/" + name, commit)
     return st, why, commit
 
 
 # ---- the clock: how long has this oid been unchanged, as THIS machine sees it ----------------------------------------
 
 def mono():
-    v = os.environ.get("QARGI_MARSHAL_MONO")
+    v = os.environ.get("CROWN_MARSHAL_MONO")
     if v:
         try:
             return float(v)
@@ -509,15 +509,15 @@ def main(argv):
     a = p.parse_intermixed_args(argv)   # the optional verb may follow the options (Python before 3.13 needs this)
     if a.cmd == "member-check":
         if in_member_run():
-            print("qargi: marshal %s is not available in a member run: a member never changes the marshal, enables or disables it or pushes; the lead does" % clean(a.verb), file=sys.stderr)
+            print("crown: marshal %s is not available in a member run: a member never changes the marshal, enables or disables it or pushes; the lead does" % clean(a.verb), file=sys.stderr)
             return 2
         return 0
     if not a.state or not re.fullmatch(r"[A-Za-z0-9._-]+", a.project):
-        print("qargi: %s needs --state and a valid --project" % a.cmd, file=sys.stderr)
+        print("crown: %s needs --state and a valid --project" % a.cmd, file=sys.stderr)
         return 2
     if a.cmd == "switch-write":
         if not remote_ok(a.remote) or not a.words.strip():
-            print("qargi: switch-write needs a remote name and the words", file=sys.stderr)
+            print("crown: switch-write needs a remote name and the words", file=sys.stderr)
             return 2
         switch_write(a.state, a.project, a.remote, a.words, a.integrity)
         return 0

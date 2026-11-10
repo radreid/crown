@@ -13,13 +13,13 @@
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push"}
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "git push origin main", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push to a named remote"}
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "cd src && git push", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push after a cd"}
-{"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "/nonexistent/qargi-conformance"}, "expect": "deny", "why": "git push in a directory that does not exist"}
+{"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "/nonexistent/crown-conformance"}, "expect": "deny", "why": "git push in a directory that does not exist"}
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "gh pr list", "cwd": "{CLONE}"}, "expect": "deny", "why": "gh reaches the hosting service"}
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Bash", "command": "ssh host ls", "cwd": "{CLONE}"}, "expect": "deny", "why": "ssh reaches a host"}
 {"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push"}
 {"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "git push origin main", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push to a named remote"}
 {"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "cd src && git push", "cwd": "{CLONE}"}, "expect": "deny", "why": "git push after a cd"}
-{"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "/nonexistent/qargi-conformance"}, "expect": "deny", "why": "git push in a directory that does not exist"}
+{"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "git push", "cwd": "/nonexistent/crown-conformance"}, "expect": "deny", "why": "git push in a directory that does not exist"}
 {"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "gh pr list", "cwd": "{CLONE}"}, "expect": "deny", "why": "gh reaches the hosting service"}
 {"surface": "local", "class": "write", "tool_call": {"tool": "Bash", "command": "ssh host ls", "cwd": "{CLONE}"}, "expect": "deny", "why": "ssh reaches a host"}
 {"surface": "local", "class": "read-only", "tool_call": {"tool": "Write", "path": "{RUN}/ability", "cwd": "{OUT}"}, "expect": "deny", "why": "write to RUN/ability"}

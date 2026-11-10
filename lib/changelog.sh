@@ -10,7 +10,7 @@
 #       and the exit status is 1 when a number is duplicated. feature sync and feature finish run the check when the answer is true.
 . "$(dirname "$0")/lib.sh"
 
-USAGE="usage: qargi changelog renumber [--project P] [--check]"
+USAGE="usage: crown changelog renumber [--project P] [--check]"
 verb=${1:-}; shift || true
 PROJ='' CHECK=''
 while [ $# -gt 0 ]; do

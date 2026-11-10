@@ -6,9 +6,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
+export CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
 mkdir -p "$T/c" "$T/s" "$T/bin" "$FAKE"
 cat > "$T/bin/ant" <<'EOS'
 #!/usr/bin/env bash
@@ -71,14 +71,14 @@ $DA status sesn_d >/dev/null 2>&1
 [ "$(trk sesn_d .stop_reason)" = null ] && ok "a running session has no stop reason (an earlier one is cleared)" || no "running: $(trk sesn_d .stop_reason)"
 grep -q "sessions:events list --session-id sesn_d" "$FAKE/ant.log" && no "events were listed for a running session" || ok "events are only read for an idle session"
 
-# the interrupt: end_turn also follows qargi stop, so stop records it
+# the interrupt: end_turn also follows crown stop, so stop records it
 cp "$FAKE/events.sesn_a" "$FAKE/events.sesn_e"
 $DA stop sesn_e >/dev/null 2>&1; $DA status sesn_e >/dev/null 2>&1
 [ "$(trk sesn_e .stop_reason)" = end_turn ] && [ "$(trk sesn_e .interrupt_sent_at)" != null ] && ok "stop records interrupt_sent_at next to the end_turn it causes" || no "interrupt: $(trk sesn_e '.stop_reason, .interrupt_sent_at')"
 grep -q "user.interrupt" "$FAKE/sent.log" && ok "stop still sends the interrupt" || no "interrupt not sent"
 [ "$(trk sesn_a .interrupt_sent_at)" = null ] && ok "a session nobody stopped has no interrupt mark" || no "mark on another session"
 out=$($DA report 2>&1)
-echo "$out" | grep -q "stopped by qargi (interrupt sent, end_turn): 1" && echo "$out" | grep -q "awaiting review (finished, end_turn): 1" && ok "report separates the stopped session from the finished one" || no "report: $out"
+echo "$out" | grep -q "stopped by crown (interrupt sent, end_turn): 1" && echo "$out" | grep -q "awaiting review (finished, end_turn): 1" && ok "report separates the stopped session from the finished one" || no "report: $out"
 echo "$out" | grep -q "stopped needing input: requires_action 1" && ok "report shows the session that stopped needing input" || no "report needs input"
 $DA send alpha-build "next task" --label again --asked "t" --session sesn_e >/dev/null 2>&1
 [ "$(trk sesn_e .status)" = running ] && [ "$(trk sesn_e .interrupt_sent_at)" = null ] && ok "sending a new task clears the interrupt mark" || no "send: $(trk sesn_e '.status, .interrupt_sent_at')"
@@ -96,6 +96,6 @@ p1=$!
 timeout 90 "$DA" watch sesn_v 60 > "$T/v.out" 2>&1 &
 p2=$!
 wait "$p1"; wait "$p2"
-[ "$(cat "$T/w.out")" = "QARGI WATCH sesn_w idle end_turn" ] && ok "watch reports the stop reason read from the events" || no "watch end_turn: $(cat "$T/w.out")"
-[ "$(cat "$T/v.out")" = "QARGI WATCH sesn_v budget_reached budget_reached" ] && ok "watch reports budget_reached, which the session object never carried" || no "watch budget: $(cat "$T/v.out")"
+[ "$(cat "$T/w.out")" = "CROWN WATCH sesn_w idle end_turn" ] && ok "watch reports the stop reason read from the events" || no "watch end_turn: $(cat "$T/w.out")"
+[ "$(cat "$T/v.out")" = "CROWN WATCH sesn_v budget_reached budget_reached" ] && ok "watch reports budget_reached, which the session object never carried" || no "watch budget: $(cat "$T/v.out")"
 rm -rf "$T"; exit $fail

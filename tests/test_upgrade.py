@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""qargi upgrade against a local origin and a stub install.sh. Offline; temporary state. Run: python3 tests/test_upgrade.py"""
+"""crown upgrade against a local origin and a stub install.sh. Offline; temporary state. Run: python3 tests/test_upgrade.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
-INSTALL = '#!/bin/sh\necho "$@" >> "$QARGI_TEST_MARK"\n'
+INSTALL = '#!/bin/sh\necho "$@" >> "$CROWN_TEST_MARK"\n'
 
 
 def git(cwd, *a):
@@ -27,7 +27,7 @@ class T(unittest.TestCase):
             json.dump({"tool_root": self.tool}, f)
         with open(os.path.join(self.conf, "agents.json"), "w") as f:
             json.dump({"schema": 2, "projects": {"alpha": {"forge": {}}, "beta": {"forge": {}, "scribe": {}}}}, f)
-        self.env = dict(os.environ, HOME=self.t, QARGI_CONF=self.conf, QARGI_STATE=self.state, QARGI_SUDO="", QARGI_TEST_MARK=self.mark)
+        self.env = dict(os.environ, HOME=self.t, CROWN_CONF=self.conf, CROWN_STATE=self.state, CROWN_SUDO="", CROWN_TEST_MARK=self.mark)
 
     def commit(self, version, msg):
         with open(os.path.join(self.origin, "VERSION"), "w") as f:
@@ -65,11 +65,11 @@ class T(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.head(), git(self.origin, "rev-parse", "HEAD"))
         self.assertIn("--user", open(self.mark).read())              # install.sh --user ran
-        for cmd in ("qargi agent refresh forge --project alpha", "qargi agent refresh forge --project beta", "qargi agent refresh scribe --project beta"):
+        for cmd in ("crown agent refresh forge --project alpha", "crown agent refresh forge --project beta", "crown agent refresh scribe --project beta"):
             self.assertIn(cmd, r.stdout)          # a name two projects hold is refreshed once for each
 
     def old_home(self, body):
-        """A hermetic home (QARGI_HOME, nothing else named) whose config holds the installed-tool record and an agents.json of the given text."""
+        """A hermetic home (CROWN_HOME, nothing else named) whose config holds the installed-tool record and an agents.json of the given text."""
         home = os.path.join(self.t, "h")
         conf = os.path.join(home, "config")
         os.makedirs(conf)
@@ -78,8 +78,8 @@ class T(unittest.TestCase):
         path = os.path.join(conf, "agents.json")
         with open(path, "w") as f:
             f.write(body)
-        self.env = {k: v for k, v in dict(os.environ, HOME=self.t, QARGI_HOME=home, QARGI_SUDO="", QARGI_TEST_MARK=self.mark).items()
-                    if k not in ("QARGI_CONF", "QARGI_STATE")}
+        self.env = {k: v for k, v in dict(os.environ, HOME=self.t, CROWN_HOME=home, CROWN_SUDO="", CROWN_TEST_MARK=self.mark).items()
+                    if k not in ("CROWN_CONF", "CROWN_STATE")}
         return path
 
     def test_old_members_file_is_warned_about(self):
@@ -102,7 +102,7 @@ class T(unittest.TestCase):
         r = self.q("--branch", "develop", "--plan", tok, "--approved", "go")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("every agent verb refuses", r.stdout + r.stderr)  # and after the upgrade, where the refresh list would have been
-        self.assertNotIn("qargi agent refresh", r.stdout)
+        self.assertNotIn("crown agent refresh", r.stdout)
         self.assertEqual(open(path).read(), old)
 
     def test_current_members_file_is_not_warned_about(self):
@@ -154,7 +154,7 @@ class T(unittest.TestCase):
         self.assertIn("no installed tool", r.stderr)
 
     def test_guard_refuses_members(self):
-        for cmd in ("qargi upgrade --branch develop", "bash lib/upgrade.sh --tag v1"):
+        for cmd in ("crown upgrade --branch develop", "bash lib/upgrade.sh --tag v1"):
             r = subprocess.run([BIN, "__guard"], input=json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": self.t}),
                                capture_output=True, text=True, env=self.env)
             self.assertEqual(r.returncode, 2, cmd + r.stderr)

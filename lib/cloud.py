@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""qargi cloud: which `ant` profile and workspace each project uses. The binding is the optional `cloud` answer of a project
-({"profile": "qargi", "workspace_id": "wrkspc_..."}), stored with the other answers. The dispatcher (bin/qargi) reads it and
+"""crown cloud: which `ant` profile and workspace each project uses. The binding is the optional `cloud` answer of a project
+({"profile": "crown", "workspace_id": "wrkspc_..."}), stored with the other answers. The dispatcher (bin/crown) reads it and
 exports ANTHROPIC_PROFILE for the command it runs, so every `ant` call, shell or Python, uses the project's profile; before a
 cloud call lib.sh checks that the profile still reaches the workspace named here. A project without a binding is unchanged:
 `ant` uses its active profile.
 
-qargi stores and checks bindings. It never reads, copies or writes a token: the login is yours (`qargi cloud login`
+crown stores and checks bindings. It never reads, copies or writes a token: the login is yours (`crown cloud login`
 runs `ant auth login` on your terminal, and only there).
 
 Usage: cloud.py list
@@ -23,12 +23,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths as P  # noqa: E402
 
 PROFILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$")
-ANT_NO_BROWSER = "-" * 2 + "no" + "-browser"        # ant's flag, not qargi's (the help check reads quoted flags as qargi's)
+ANT_NO_BROWSER = "-" * 2 + "no" + "-browser"        # ant's flag, not crown's (the help check reads quoted flags as crown's)
 WORKSPACE = re.compile(r"^wrkspc_[A-Za-z0-9]{10,}$")
 
 
 def die(msg, code=1):
-    print("qargi: %s" % msg, file=sys.stderr)
+    print("crown: %s" % msg, file=sys.stderr)
     sys.exit(code)
 
 
@@ -46,7 +46,7 @@ def load(project):
         with open(pfile(project)) as f:
             return json.load(f)
     except OSError:
-        die("no stored answers for %s (qargi project list)" % project)
+        die("no stored answers for %s (crown project list)" % project)
     except ValueError as e:
         die("the answers of %s are not valid JSON: %s" % (project, e))
 
@@ -72,9 +72,9 @@ def role_names():
 
 
 def project_of(words):
-    """The project a command is about: QARGI_PROJECT, else a stored project or an instance PROJECT-ROLE named in the words,
+    """The project a command is about: CROWN_PROJECT, else a stored project or an instance PROJECT-ROLE named in the words,
     else the one whose repository contains the current directory."""
-    env = os.environ.get("QARGI_PROJECT")
+    env = os.environ.get("CROWN_PROJECT")
     if env:
         return env
     have = projects()
@@ -134,7 +134,7 @@ def check(project, quiet=False):
     if have is None:
         msg = "cannot read the ant profiles (is ant installed?)"
     elif b["profile"] not in have:
-        msg = "profile %s does not exist: qargi cloud login %s" % (b["profile"], project)
+        msg = "profile %s does not exist: crown cloud login %s" % (b["profile"], project)
     else:
         w, conf, login = workspaces_of(b["profile"])
         if login and conf and login != conf:
@@ -143,7 +143,7 @@ def check(project, quiet=False):
             if not quiet:
                 print("%s: profile %s reaches %s" % (project, b["profile"], w))
             return 0
-        msg = "profile %s reaches %s, not %s: qargi cloud login %s" % (b["profile"], w or "no workspace", b["workspace_id"], project)
+        msg = "profile %s reaches %s, not %s: crown cloud login %s" % (b["profile"], w or "no workspace", b["workspace_id"], project)
     print("%s: %s" % (project, msg), file=sys.stderr)
     return 1
 
@@ -174,13 +174,13 @@ def main(argv):
             b = binding(p)
             print("%-16s %s" % (p, ("profile %s -> %s" % (b["profile"], b["workspace_id"])) if b else "no binding (ant's active profile)"))
         if not projects():
-            print("no projects stored yet: qargi help project")
+            print("no projects stored yet: crown help project")
         return 0
     if verb in ("show", "check", "login", "unset", "set"):
         opts, pos, i = {}, [], 0
         while i < len(rest):
             if rest[i] in ("--profile", "--workspace-id") and verb != "set":
-                die("--profile and --workspace-id belong to `qargi cloud set`", 2)
+                die("--profile and --workspace-id belong to `crown cloud set`", 2)
             if rest[i] in ("--profile", "--workspace-id") and i + 1 < len(rest):
                 opts[rest[i]] = rest[i + 1]
                 i += 2
@@ -190,7 +190,7 @@ def main(argv):
                 pos.append(rest[i])
                 i += 1
         if len(pos) > 1 or (len(pos) == 0 and verb not in ("show", "check")):
-            die("usage: qargi cloud %s PROJECT%s" % (verb, " --profile NAME --workspace-id ID" if verb == "set" else ""), 2)
+            die("usage: crown cloud %s PROJECT%s" % (verb, " --profile NAME --workspace-id ID" if verb == "set" else ""), 2)
         proj = pos[0] if pos else project_of([])
         if not proj:
             die("which project? Give its name or run this inside its repository", 2)
@@ -210,24 +210,24 @@ def main(argv):
         if verb == "set":
             prof, ws = opts.get("--profile"), opts.get("--workspace-id")
             if not prof or not ws:
-                die("usage: qargi cloud set PROJECT --profile NAME --workspace-id ID", 2)
+                die("usage: crown cloud set PROJECT --profile NAME --workspace-id ID", 2)
             if not PROFILE.match(prof):
                 die("--profile: letters, digits, - and _ (at most 40)", 2)
             if not WORKSPACE.match(ws):
                 die("--workspace-id: a workspace id such as wrkspc_01AbC... (Console, Settings, Workspaces)", 2)
             doc["cloud"] = {"profile": prof, "workspace_id": ws}
             write(proj, doc)
-            print("%s: profile %s, workspace %s (qargi cloud check %s; qargi cloud login %s if the profile is new)" % (proj, prof, ws, proj, proj))
+            print("%s: profile %s, workspace %s (crown cloud check %s; crown cloud login %s if the profile is new)" % (proj, prof, ws, proj, proj))
             return 0
         if verb == "login":
             b = binding(proj)
             if not b:
-                die("%s has no cloud binding: qargi cloud set %s --profile NAME --workspace-id ID" % (proj, proj))
+                die("%s has no cloud binding: crown cloud set %s --profile NAME --workspace-id ID" % (proj, proj))
             if not (sys.stdin.isatty() and sys.stdout.isatty()):
-                die("login needs your own terminal: run `qargi cloud login %s` yourself (a member or a script cannot)" % proj)
+                die("login needs your own terminal: run `crown cloud login %s` yourself (a member or a script cannot)" % proj)
             import subprocess
             return subprocess.call(["ant", "auth", "login", "--profile", b["profile"], "--workspace-id", b["workspace_id"], ANT_NO_BROWSER])
-    die("usage: qargi cloud list|show|set|unset|check|login ...", 2)
+    die("usage: crown cloud list|show|set|unset|check|login ...", 2)
 
 
 if __name__ == "__main__":

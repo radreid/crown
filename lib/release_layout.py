@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""How a project lays out what a release updates (the part of `qargi release` that tolerates other layouts than qargi's own).
+"""How a project lays out what a release updates (the part of `crown release` that tolerates other layouts than crown's own).
 
 Answers, under `release` in the project's answers file (every one optional; the defaults are the Keep a Changelog layout with a VERSION file):
   release.version_file         the file that holds only the version, relative to the repository (default VERSION); `none`: the project has
@@ -8,7 +8,7 @@ Answers, under `release` in the project's answers file (every one optional; the 
                                "## {version} (unreleased)" is then renamed by the release, not kept
   release.changelog.released   the heading of a released section (default "## [{version}] - {date}"); {version} is required, {date} is optional
   release.changelog.numbered   true when the items under the unreleased heading are numbered ("12. text" or "- 12. text"; default false): feature sync and
-                               feature finish then check them for duplicates (lib/changelog_numbers.py, qargi changelog renumber)
+                               feature finish then check them for duplicates (lib/changelog_numbers.py, crown changelog renumber)
   release.version_files        other files that carry the version (a list of paths relative to the repository; default none): `release start` lists the
                                ones that do not yet contain VERSION, `release status` and `release verify` show the same check on the release branch
   release.man_pages            the manual pages whose .TH date and version the release sets (default: the man/*.1 files of the repository)
@@ -83,7 +83,7 @@ def problems(rel):
                 if p:
                     out.append(p)
             if "numbered" in c and not isinstance(c["numbered"], bool):
-                out.append("release.changelog.numbered: true or false (true: the items under the unreleased heading are numbered; see qargi changelog)")
+                out.append("release.changelog.numbered: true or false (true: the items under the unreleased heading are numbered; see crown changelog)")
             if "released" in c:
                 p = template_problem("release.changelog.released", c["released"], ("version", "date"), DEFAULT_RELEASED, ("version",))
                 if p:
@@ -156,11 +156,11 @@ def cmd_changelog(argv):
     t = open(path, encoding="utf-8").read()
     m = find_unreleased(t, unrel)
     if not m:
-        sys.exit("qargi: %s has no '%s' section to release. Fix: add one with the changes of this release, then start again."
+        sys.exit("crown: %s has no '%s' section to release. Fix: add one with the changes of this release, then start again."
                  % (os.path.basename(path), unrel))
     body = t[m.end():][:section_end(t[m.end():], level(unrel))]
     if not allow and not [l for l in body.split("\n") if l.strip() and not l.startswith("#")]:
-        sys.exit("qargi: %s has nothing under '%s'. Fix: record the changes of this release there (or pass --allow-empty-notes to release without notes), then start again."
+        sys.exit("crown: %s has nothing under '%s'. Fix: record the changes of this release there (or pass --allow-empty-notes to release without notes), then start again."
                  % (os.path.basename(path), unrel))
     released = rel.replace("{version}", ver).replace("{date}", date)
     head = m.group(0).rstrip("\n")
@@ -227,7 +227,7 @@ def cmd_notes_missing(argv):
 
 
 def refuse(name, why):
-    sys.exit("qargi: %s: %s. Fix: make its .TH line read .TH NAME SECTION \"DATE\" \"NAME VERSION\", then start the release again." % (name, why))
+    sys.exit("crown: %s: %s. Fix: make its .TH line read .TH NAME SECTION \"DATE\" \"NAME VERSION\", then start the release again." % (name, why))
 
 
 def cmd_manpage(argv):
@@ -305,7 +305,7 @@ def main(argv):
         return cmd_notes_missing(rest)
     if cmd == "has-version" and len(rest) == 2:
         return cmd_has_version(rest)
-    print("qargi: release_layout.py: unknown command or wrong arguments: %s" % cmd, file=sys.stderr)
+    print("crown: release_layout.py: unknown command or wrong arguments: %s" % cmd, file=sys.stderr)
     return 2
 
 

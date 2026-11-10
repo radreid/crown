@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints the body of one version's section of a changelog: the lines after the heading of VERSION up to the next heading of the same level or above.
-# Used by the release workflow and by the publish verb of `qargi release` for the notes of a GitHub release. Exit 1 when the section is missing or empty.
+# Used by the release workflow and by the publish verb of `crown release` for the notes of a GitHub release. Exit 1 when the section is missing or empty.
 #   changelog_section.sh VERSION [FILE [HEADING]]      (FILE defaults to CHANGELOG.md)
 # HEADING is the template of a released section's heading (the answer release.changelog.released), for example "## {version} ({date})":
 # the heading of VERSION is the line that begins with the template up to {date}, {version} replaced. Without it the heading is

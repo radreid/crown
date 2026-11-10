@@ -114,7 +114,7 @@ class DocsTree(unittest.TestCase):
     def test_readme_is_a_front_page(self):
         n = len(read(os.path.join(ROOT, "README.md")).rstrip("\n").split("\n"))
         self.assertLessEqual(n, README_MAX_LINES, "README.md has %d lines; the detail belongs in docs/" % n)
-        self.assertIn("https://qargi.rettware.com/", read(os.path.join(ROOT, "README.md")))
+        self.assertIn("[docs/README.md](docs/README.md)", read(os.path.join(ROOT, "README.md")))
 
     def test_documentation_table(self):
         rows = table_rows(os.path.join(ROOT, "README.md"))
@@ -134,14 +134,14 @@ class DocsTree(unittest.TestCase):
 
 
     def test_quick_start_names_real_commands(self):
-        """Every `qargi COMMAND VERB` line of a code block of README.md is a command and verb of lib/commands.py."""
+        """Every `crown COMMAND VERB` line of a code block of README.md is a command and verb of lib/commands.py."""
         seen, fence = [], False
         for line in read(os.path.join(ROOT, "README.md")).split("\n"):
             if FENCE.match(line):
                 fence = not fence
-            elif fence and line.startswith("qargi "):
+            elif fence and line.startswith("crown "):
                 seen.append(line.split("#")[0].split())
-        self.assertTrue(seen, "no qargi command in a code block of README.md")
+        self.assertTrue(seen, "no crown command in a code block of README.md")
         for words in seen:
             self.assertTrue(words[1] in C.COMMANDS, "not a command: " + " ".join(words))
             verbs = C.COMMANDS[words[1]].get("verbs")
@@ -183,7 +183,7 @@ class Checker(unittest.TestCase):
     def test_slug(self):
         self.assertEqual(slug("Cloud (ant) profiles per project"), "cloud-ant-profiles-per-project")
         self.assertEqual(slug("Help, manual page and completion"), "help-manual-page-and-completion")
-        self.assertEqual(slug("The `qargi` verb [x](y.md)"), "the-qargi-verb-x")
+        self.assertEqual(slug("The `crown` verb [x](y.md)"), "the-crown-verb-x")
 
 
 if __name__ == "__main__":

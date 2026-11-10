@@ -1,20 +1,20 @@
 # shellcheck shell=bash
 # Sourced by every shell test, right after `set -u`. Makes the test independent of the caller. The environment is the caller's with an
 # allowlist applied as explicit exports and unsets (a full `env -i` would drop what the tests need to find their tools, the PATH
-# search for git, jq and python3 and the shell's own variables, and every test would then have to rebuild it): no ANTHROPIC_* or QARGI_*
-# variable gets through; HOME, TMPDIR, qargi's config and state are fresh directories under one temporary directory (HERMETIC); the
+# search for git, jq and python3 and the shell's own variables, and every test would then have to rebuild it): no ANTHROPIC_* or CROWN_*
+# variable gets through; HOME, TMPDIR, crown's config and state are fresh directories under one temporary directory (HERMETIC); the
 # first `ant` and `claude` on PATH are stubs that fail, so a test that did not bring its own fake cannot reach the real tools; the
 # locale, time zone and umask are fixed (LANG=C.UTF-8, TZ=UTC, umask 022); git reads no configuration of the host or the user
 # (GIT_CONFIG_GLOBAL=/dev/null, GIT_CONFIG_NOSYSTEM=1) and has a default branch name from the environment (no identity: a test that commits sets
 # its own, in the repository or in GIT_AUTHOR_*, as it did when HOME was a fresh directory); no
 # GIT_DIR, GIT_WORK_TREE, SSH_AUTH_SOCK, SSH_ASKPASS, PYTHONPATH or PYTHONSTARTUP; python writes no bytecode into the source tree and
 # reads no user site; output has no colour, 80 columns, a dumb terminal. A test overrides any of this after sourcing (most set their
-# own QARGI_CONF, QARGI_STATE, HOME and a fake ant). The temporary directory is removed when the test exits. tests/hermetic.py is the
+# own CROWN_CONF, CROWN_STATE, HOME and a fake ant). The temporary directory is removed when the test exits. tests/hermetic.py is the
 # same environment for the python tests.
 # A test stops when mktemp fails (exit status 1, or 143 when the call is inside $(...)): the directory it makes its files in is gone
 # (TMPDIR removed under it, as logind does to /dev/shm when the user's last session ends and RemoveIPC is on). Without the stop,
 # T=$(mktemp -d) and w=$(mktemp -d "$T/w.XXXXXX") come back empty and the test goes on in /, in $HOME or in the checkout it runs from.
-for _v in $(compgen -e); do case $_v in ANTHROPIC_*|QARGI_*) unset "$_v";; esac; done
+for _v in $(compgen -e); do case $_v in ANTHROPIC_*|CROWN_*) unset "$_v";; esac; done
 unset _v
 mktemp() {
   command mktemp "$@" && return 0
@@ -31,7 +31,7 @@ for _t in ant claude; do
   chmod 755 "$HERMETIC/bin/$_t"
 done
 unset _t
-export HOME=$HERMETIC/home QARGI_CONF=$HERMETIC/conf QARGI_STATE=$HERMETIC/state PATH=$HERMETIC/bin:$PATH
+export HOME=$HERMETIC/home CROWN_CONF=$HERMETIC/conf CROWN_STATE=$HERMETIC/state PATH=$HERMETIC/bin:$PATH
 export XDG_CONFIG_HOME=$HERMETIC/home/.config XDG_STATE_HOME=$HERMETIC/home/.local/state
 # what the test and the verbs it runs make with mktemp goes into the test's own temporary directory (HERMETIC), removed with it; the
 # directory of the caller (HERMETIC's parent) is left as it was

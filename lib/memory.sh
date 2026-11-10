@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Manage the structure of a qargi recipes memory store.
+# Manage the structure of a crown recipes memory store.
 #   memory.sh lint STORE_ID [--kind recipes|reference]   read-only structure and content check
 #   memory.sh get STORE_ID /path.md                       read one note
 #   memory.sh split FROM TO (--prefix PATH | --role R | --note-kind K) [--archive] [--plan TOKEN --approved "..."]
 #   memory.sh copy  FROM TO [selector] [--policy conflicts|keep] [--plan TOKEN --approved "..."]
 #   memory.sh merge FROM TO [--policy conflicts|keep] [--plan TOKEN --approved "..."]
-# Checks stores in the pre-canon layout; canon stores are handed to `qargi canon check`
+# Checks stores in the pre-canon layout; canon stores are handed to `crown canon check`
 # (structure, note format, indexes and hygiene). split, copy and merge work between two stores, each a
 # directory, a .jsonl dump or a memstore_ id; memplan.py plans them and nothing is deleted (see lib/memplan.py).
 . "$(dirname "$0")/lib.sh"
@@ -16,7 +16,7 @@ here=$(dirname "$(readlink -f "$0")")
 # the plan the token names, and every store is checked against the notes the plan read before the first change.
 store_verbs() {
   v=$1; shift
-  unset QARGI_NESTED   # a caller that is itself approved has not approved this plan: the token is always needed
+  unset CROWN_NESTED   # a caller that is itself approved has not approved this plan: the token is always needed
   [ $# -ge 2 ] || usage_die "usage: memory.sh $v FROM TO [options]"
   FROM=$1 TO=$2; shift 2
   PREFIX=() ROLE='' NKIND='' ARCHIVE='' POLICY=conflicts PLAN_ARG='' APPROVED=''
@@ -83,10 +83,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $store in memstore_*) ;; *) usage_die "usage: memory.sh lint|get memstore_ID [/path.md], or split|merge|copy FROM TO";; esac
-[ -n "${QARGI_MEMORY_FIXTURE:-}" ] || ant_ok
+[ -n "${CROWN_MEMORY_FIXTURE:-}" ] || ant_ok
 
 mem_list() {
-  if [ -n "${QARGI_MEMORY_FIXTURE:-}" ]; then cat "$QARGI_MEMORY_FIXTURE"; return; fi   # tests
+  if [ -n "${CROWN_MEMORY_FIXTURE:-}" ]; then cat "$CROWN_MEMORY_FIXTURE"; return; fi   # tests
   ant beta:memory-stores:memories list --memory-store-id "$store" --path-prefix / \
     --view "$1" --max-items -1 2>/dev/null | jq -c 'select(.type=="memory")'
 }
@@ -98,7 +98,7 @@ create() { # path file
 
 case $verb in
   lint)
-    if [ -z "${QARGI_MEMORY_FIXTURE:-}" ]; then
+    if [ -z "${CROWN_MEMORY_FIXTURE:-}" ]; then
       ctmp=$(mktemp); mem_list full | jq -c '{type, id, path, content}' > "$ctmp"
       if jq -e 'select(.path=="/CANON.md")' "$ctmp" >/dev/null 2>&1; then
         marker=$(jq -r 'select(.path=="/CANON.md")|.content' "$ctmp")
@@ -118,7 +118,7 @@ fails, warns = [], []
 F = lambda p, s: fails.append("FAIL %s: %s" % (p, s))
 W = lambda p, s: warns.append("WARN %s: %s" % (p, s))
 readme = mems.get("/README.md")
-if readme is None: F("/README.md", "missing (run: qargi canon plan)")
+if readme is None: F("/README.md", "missing (run: crown canon plan)")
 secrets = [r"sk-ant-[A-Za-z0-9_-]{8,}", r"gh[pousr]_[A-Za-z0-9]{20,}", r"github_pat_[A-Za-z0-9_]{20,}", r"AKIA[0-9A-Z]{16}", r"-----BEGIN [A-Z ]*PRIVATE KEY", r"(?i)(password|passwd|secret|token)\s*[:=]\s*\S{8,}"]
 for p, c in sorted(mems.items()):
     for pat in secrets:
@@ -152,7 +152,7 @@ today = datetime.datetime.now(datetime.timezone.utc).date()
 
 readme = mems.get("/README.md")
 if readme is None:
-    F("/README.md", "missing (run: qargi canon plan)")
+    F("/README.md", "missing (run: crown canon plan)")
 else:
     if len(readme) > 3000: F("/README.md", "%d chars, limit 3000; move detail into INDEX.md" % len(readme))
 if "/_template.md" not in mems: W("/_template.md", "missing")
@@ -224,5 +224,5 @@ print("\n".join(out) if out else "clean: %d memories" % len(mems))
 print("%d fail, %d warn, %d memories" % (len(fails), len(warns), len(mems)))
 sys.exit(1 if fails else 0)
 ';;
-  *) usage_die "usage: memory.sh lint memstore_ID (stores are created and seeded by qargi canon)";;
+  *) usage_die "usage: memory.sh lint memstore_ID (stores are created and seeded by crown canon)";;
 esac

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# qargi agent for ROLE --surface cloud --project PROJ: which cloud instance runs a profile, from the instance registry. The base
+# crown agent for ROLE --surface cloud --project PROJ: which cloud instance runs a profile, from the instance registry. The base
 # instance (<project>-worker or <project>-reviewer) takes the session's model and effort as overrides, so it is used only when the
 # provider's per_dispatch_model_override (and per_dispatch_effort_override, when an effort is asked) is verified yes; otherwise the verb
 # refuses (exit 2), and a project with no base gets exit 1: an instance of one role (<project>-build ...) is never chosen for you, it is
@@ -14,8 +14,8 @@ SRC=$PWD
 T=$(mktemp -d); fail=0
 mkdir -p "$T/tmp"; export TMPDIR=$T/tmp   # the exec-copy check below looks here, wherever the caller's TMPDIR points
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c/projects" "$T/s"
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 
@@ -28,7 +28,7 @@ copy_tool "$SRC" "$SHIPT"
 # the checkout once had the cloud overrides unverified; the copy keeps that state so the refusal stays tested
 jq '.capabilities.per_dispatch_model_override.verified_on = null
   | .capabilities.per_dispatch_effort_override.verified_on = null' "$SRC/lib/providers/claude-platform.json" > "$T/cp.json" && mv "$T/cp.json" "$SHIPT/lib/providers/claude-platform.json"
-SHIP=$SHIPT/bin/qargi; YES=$TOOL/bin/qargi
+SHIP=$SHIPT/bin/crown; YES=$TOOL/bin/crown
 jq '.capabilities.per_dispatch_model_override.verified_on = "2026-10-31"
   | .capabilities.per_dispatch_effort_override.verified_on = "2026-10-31"' "$SRC/lib/providers/claude-platform.json" > "$T/cp.json" && mv "$T/cp.json" "$TOOL/lib/providers/claude-platform.json"
 # shellcheck source=fakeprov.sh
@@ -76,7 +76,7 @@ jq '.profiles = {pm:{base:"worker",model:"claude-opus-5-5"}, scout:{base:"review
 
 # --- shipped: the override capability is unverified, so the base cannot be used and no instance of the role is chosen instead
 e=$("$SHIP" agent for build --surface cloud --project alpha 2>&1); rc=$?
-{ [ $rc = 2 ] && grep -q 'alpha-worker' <<<"$e" && grep -q 'per_dispatch_model_override' <<<"$e" && ! grep -q 'alpha-build' <<<"$e" && grep -q 'qargi send NAME' <<<"$e"; } \
+{ [ $rc = 2 ] && grep -q 'alpha-worker' <<<"$e" && grep -q 'per_dispatch_model_override' <<<"$e" && ! grep -q 'alpha-build' <<<"$e" && grep -q 'crown send NAME' <<<"$e"; } \
   && ok "unverified: exit 2 naming the base and the capability; the role instance alpha-build is not chosen" || no "unverified build: rc=$rc $e"
 e=$("$SHIP" agent for review --surface cloud --project alpha --json 2>&1); rc=$?
 { [ $rc = 2 ] && grep -q 'alpha-reviewer' <<<"$e" && ! grep -q 'alpha-review[^e]' <<<"$e"; } && ok "unverified: review is refused the same way (the reviewer base)" || no "unverified review: rc=$rc $e"
@@ -128,7 +128,7 @@ P.record_verification("ovext", {c: {"hash": h, "by": "attest", "at": "2026-11-02
 PY
 [ "$(cl "$SHIP" build --project zeta)" = "zeta-worker fake-cloud-m h build" ] && ok "verified extension: the base runs for the project that enabled it, on the model and effort the library adapter resolved" || no "extension verified: $(cl "$SHIP" build --project zeta)"
 "$SHIP" agent for build --surface cloud --project eta >/dev/null 2>&1; [ $? = 2 ] && ok "and a project that did not enable it is still refused" || no "eta after verification: $(cl "$SHIP" build --project eta)"
-leftover=''; for d in "$TMPDIR"/qargi-exec.*; do [ ! -e "$d" ] || leftover=$d; done
+leftover=''; for d in "$TMPDIR"/crown-exec.*; do [ ! -e "$d" ] || leftover=$d; done
 [ -z "$leftover" ] && ok "the adapter ran as a private copy that was removed" || no "an exec copy was left: $leftover"
 
 # --- opt-in profiles
@@ -142,7 +142,7 @@ e=$("$YES" agent for review --profile researcher --surface cloud --project alpha
 e=$("$YES" agent for build --surface cloud --project delta 2>&1); rc=$?
 { [ $rc = 1 ] && grep -q 'delta' <<<"$e" && grep -q 'registered' <<<"$e"; } && ok "no cloud instance (a local one does not count): exit 1 with a clear message" || no "delta: rc=$rc $e"
 e=$("$YES" agent for build --surface cloud --project nosuchproject 2>&1); rc=$?
-{ [ $rc = 2 ] && [ "$e" = "qargi: no such project 'nosuchproject'" ]; } && ok "a project that is not stored: exit 2 and it says so (there is no provider to look up)" || no "nosuchproject: rc=$rc $e"
+{ [ $rc = 2 ] && [ "$e" = "crown: no such project 'nosuchproject'" ]; } && ok "a project that is not stored: exit 2 and it says so (there is no provider to look up)" || no "nosuchproject: rc=$rc $e"
 e=$("$YES" agent for review --surface cloud --project beta 2>&1); rc=$?; { [ $rc = 1 ] && grep -q 'beta-reviewer' <<<"$e"; } && ok "a project with only the review instance: exit 1 naming the reviewer base" || no "beta review: rc=$rc $e"
 echo '{}' > "$T/c/instances.json"; "$YES" agent for build --surface cloud --project alpha >/dev/null 2>&1; [ $? = 1 ] && ok "an empty registry: exit 1, none invented" || no "empty registry"
 [ "$(cat "$T/c/instances.json")" = '{}' ] && ok "and the registry is left as it was" || no "registry changed"
@@ -152,7 +152,7 @@ echo '{}' > "$T/c/instances.json"; "$YES" agent for build --surface cloud --proj
 "$YES" agent for build --surface cloud >/dev/null 2>&1; [ $? != 0 ] && ok "cloud needs a project (none is inferred outside one)" || no "cloud without project"
 
 # --- local is unchanged: absent and --surface local give the same bytes, members and all
-export QARGI_PROJECT=alpha   # a member belongs to a project, and the project's models.provider renders it: alpha gets a checkout
+export CROWN_PROJECT=alpha   # a member belongs to a project, and the project's models.provider renders it: alpha gets a checkout
 git init -q "$T/repoa"; jq --arg p "$T/repoa" '.repo.path = $p' "$T/c/projects/alpha.json" > "$T/a.json" && mv "$T/a.json" "$T/c/projects/alpha.json"
 $YES agent add worker --project alpha >/dev/null 2>&1; $YES agent add reviewer --project alpha >/dev/null 2>&1
 for args in "build" "test" "review" "review --profile auditor" "build --profile review" "build --profile nosuch" "build --json"; do

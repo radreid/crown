@@ -1,6 +1,6 @@
 ---
 title: Your first project
-description: Set up a project called acme with qargi, store its answers, add a member and dispatch a first task, checking each step before you rely on it.
+description: Set up a project called acme with crown, store its answers, add a member and dispatch a first task, checking each step before you rely on it.
 doctype: tutorial
 nav: First project
 ---
@@ -11,19 +11,19 @@ This page sets up a project named `acme`. Every name below is an example.
 Print an answers file, edit it, then store it.
 
 ```bash
-qargi project template acme > acme.json
-qargi project init acme --answers acme.json
+crown project template acme > acme.json
+crown project init acme --answers acme.json
 ```
 
-The answers live outside the repository. Read `qargi help files` for where.
+The answers live outside the repository. Read `crown help files` for where.
 
 ## Add a member
 
 A member is a local agent you name. It works in its own clone and never pushes.
 
 ```bash
-qargi agent add forge --roles build,test
-qargi agent for build
+crown agent add forge --roles build,test
+crown agent for build
 ```
 
 | Ability | What it does |
@@ -33,7 +33,7 @@ qargi agent for build
 
 ## Check what comes back
 
-1. Run `qargi review check ./run`.
+1. Run `crown review check ./run`.
 2. Read the patches one by one.
 3. Apply them on a scratch branch, never on a long-lived one.
    - The lead decides what is merged.

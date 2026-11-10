@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# `qargi review check`: a series of change-specific patches passes; monolithic or unexplained
+# `crown review check`: a series of change-specific patches passes; monolithic or unexplained
 # ones do not. Run: tests/test_review.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 git init -q -b main "$T/r"; cd "$T/r" || exit 1
 git config user.name t; git config user.email t@example.net
@@ -72,8 +72,8 @@ out=$($DA review check "$T/rep" 2>&1); [ $? = 0 ] && echo "$out" | grep -q "repo
 printf '# Review\n\nlooks fine\n' > "$T/rep/review--report.md"
 $DA review check "$T/rep" >/dev/null 2>&1; [ $? = 1 ] && ok "a prefixed report without a Findings section is refused" || no "prefixed report without findings"
 rm -f "$T/rep/review--report.md"
-# --- qargi review apply: a collected, checked run becomes a task branch of the real repository
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T/shm QARGI_PROJECT=app
+# --- crown review apply: a collected, checked run becomes a task branch of the real repository
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T/shm CROWN_PROJECT=app
 mkdir -p "$HOME" "$T/c/projects" "$T/shm" "$T/scr"
 A=$T/app; git init -q -b master "$A"; git -C "$A" config user.name lead; git -C "$A" config user.email lead@example.net
 mkdir -p "$A/internal" "$A/docs" "$A/man"; echo a > "$A/internal/a.go"; echo a > "$A/docs/a.md"; echo a > "$A/man/a.1"
@@ -118,7 +118,7 @@ R5=$(newrun broken); sed -i 's/^ a$/ zzz/' "$R5"/out/patches/0002-*.patch
 out=$($DA review apply "$R5" 2>&1); rc=$?
 [ $rc != 0 ] && echo "$out" | grep -q "0002-" && ! git -C "$A" rev-parse -q --verify agent/broken >/dev/null && [ "$(git -C "$A" worktree list | wc -l)" = 1 ] && [ -z "$(find "$T/s" -maxdepth 1 -name "apply-wt.*")" ] \
   && ok "a patch that does not apply names the patch and leaves no branch or worktree" || no "non-applying: rc=$rc $out"
-# the run is found in the registry by its real path (the help's own example is `qargi review apply ./run`), and its repository is the registry's
+# the run is found in the registry by its real path (the help's own example is `crown review apply ./run`), and its repository is the registry's
 git -C "$A" commit -q --allow-empty -m "moved on"   # the checked-out branch is no longer the run's base
 R6=$(newrun rel)
 out=$(cd "$T/scr" && $DA review apply "./$(basename "$R6")/" 2>&1); rc=$?
@@ -140,7 +140,7 @@ out=$($DA review apply "$R9" 2>&1); rc=$?
 R10=$(newrun spacey); mv "$R10"/out/patches/0001-*.patch "$R10/out/patches/0001-has a space.patch"; mv "$R10"/out/patches/0002-*.patch "$R10/out/patches/0002-it's  here.patch"
 out=$($DA review apply "$R10" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$(git -C "$A" rev-list --count "$dev..agent/spacey")" = 2 ] && echo "$out" | grep -q "applied 2 patch(es)"; } && ok "patch files whose names hold spaces are applied, as two patches" || no "spacey names: rc=$rc $out"
-# --- review prune is gone (qargi branch prune replaces it): the verb and the --yes option are unknown, and no branch is touched
+# --- review prune is gone (crown branch prune replaces it): the verb and the --yes option are unknown, and no branch is touched
 git -C "$A" branch agent/merged-dev develop
 h1=$(heads)
 out=$($DA review prune 2>&1); rc=$?
@@ -159,7 +159,7 @@ for bad in "--from-saved" "--from-saved ../x" "--from-saved $IS $RS"; do
   # shellcheck disable=SC2086
   out=$($DA review apply $bad 2>&1); rc=$?; [ $rc = 2 ] && ok "review apply $bad is a usage error" || no "usage '$bad': rc=$rc $out"
 done
-out=$($DA review apply --from-saved qargi.nosuch 2>&1); rc=$?
+out=$($DA review apply --from-saved crown.nosuch 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "no saved copy" <<<"$out" && ok "an id with no saved copy is refused" || no "no copy: rc=$rc $out"
 out=$($DA review apply --from-saved "$IS" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$(git -C "$A" rev-list --count "$dev..agent/saved1")" = 2 ] && grep -q "applied 2 patch(es)" <<<"$out" && read -r ab at _ < "$SS/applied" \
@@ -261,8 +261,8 @@ for bad in '.git={author:"no email"}' '.git={author:3}' '.review={keep_author:"y
   $DA local clean "$R24" --discard >/dev/null 2>&1 || rm -rf "$R24"
 done
 cp "$AF0" "$AF"
-# --- the declared take-in scrub: review.scrub (a command run in a temporary checkout of the applied series, with the range in QARGI_SCRUB_BASE and
-# QARGI_SCRUB_TIP) and review.trailer_policy reject; both are the run's own copy (taken at prepare); no answer, no change
+# --- the declared take-in scrub: review.scrub (a command run in a temporary checkout of the applied series, with the range in CROWN_SCRUB_BASE and
+# CROWN_SCRUB_TIP) and review.trailer_policy reject; both are the run's own copy (taken at prepare); no answer, no change
 refs_all() { git -C "$A" for-each-ref --format='%(refname) %(objectname)'; git -C "$A" worktree list; find "$T/s" -maxdepth 1 -name 'scrub-wt.*' | wc -l; }
 scrubs() { grep -c '^scrub:' <<<"$1" || true; }
 setans() { jq "$1" "$AF0" > "$AF.new" && mv "$AF.new" "$AF"; }   # the stored answers: the original with one change
@@ -270,7 +270,7 @@ R30=$(newrun noscrub); out=$($DA review check "$R30/out" 2>&1); rc=$?
 { [ $rc = 0 ] && ! grep -q '^scrub:' <<<"$out"; } && ok "no review.scrub and no trailer policy: nothing more is checked or printed" || no "no scrub: rc=$rc $out"
 R31=$(newrun scrubnone)
 # the answer is taken at prepare: this one is set before, a different one after is not believed
-SC='test "$QARGI_SCRUB_BASE" = "'$dev'" && test "$(git rev-list --count "$QARGI_SCRUB_BASE..$QARGI_SCRUB_TIP")" = 2 && test "$(git rev-parse HEAD)" = "$QARGI_SCRUB_TIP" && test "$(wc -l < internal/a.go)" = 2 && test "$(git -C "'$A'" rev-parse -q --verify refs/heads/agent/scrubok || echo none)" = none'
+SC='test "$CROWN_SCRUB_BASE" = "'$dev'" && test "$(git rev-list --count "$CROWN_SCRUB_BASE..$CROWN_SCRUB_TIP")" = 2 && test "$(git rev-parse HEAD)" = "$CROWN_SCRUB_TIP" && test "$(wc -l < internal/a.go)" = 2 && test "$(git -C "'$A'" rev-parse -q --verify refs/heads/agent/scrubok || echo none)" = none'
 jq --arg c "$SC" '.review.scrub = $c' "$AF0" > "$AF.new" && mv "$AF.new" "$AF"
 R32=$(newrun scrubok); r0=$(refs_all)
 setans '.review.scrub = "echo late scrub; exit 1"'
@@ -298,7 +298,7 @@ setans '.review.scrub = "exit 4"'; R34=$(newrun scrubsilent)
 out=$($DA review check "$R34/out" 2>&1); rc=$?
 { [ $rc = 1 ] && grep -qx 'scrub: FAIL exit 4, no output' <<<"$out"; } && ok "a failing scrub with no output still says why" || no "silent scrub: rc=$rc $out"
 # a list of words is run without a shell; the range is in the environment
-setans '.review.scrub = ["sh", "-c", "test -n \"$QARGI_SCRUB_BASE\" && test -n \"$QARGI_SCRUB_TIP\" && test \"$0\" = \"a b\"", "a b"]'; R35=$(newrun scrublist)
+setans '.review.scrub = ["sh", "-c", "test -n \"$CROWN_SCRUB_BASE\" && test -n \"$CROWN_SCRUB_TIP\" && test \"$0\" = \"a b\"", "a b"]'; R35=$(newrun scrublist)
 out=$($DA review check "$R35/out" 2>&1); rc=$?
 { [ $rc = 0 ] && grep -qx 'scrub: ok' <<<"$out"; } && ok "review.scrub as a list of words runs too" || no "scrub list: rc=$rc $out"
 # a series that fails the check is not scrubbed, and the line says so
@@ -334,12 +334,12 @@ out=$($DA review check "$T/rep2" 2>&1); rc=$?
 # a member's own check (the member mark in its environment) neither runs the command nor makes the checkout, and does not fail for it
 MK=$T/scrub-ran; setans '.review.scrub = "touch '"$MK"'; exit 1"'
 R41=$(newrun membercheck)
-out=$(QARGI_MEMBER_RUN=$R41 $DA review check "$R41/out" 2>&1); rc=$?
+out=$(CROWN_MEMBER_RUN=$R41 $DA review check "$R41/out" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$(scrubs "$out")" = 1 ] && grep -qx "scrub: not run (a member's check; the lead's check runs it)" <<<"$out" && [ ! -e "$MK" ]; } \
   && ok "a member's check does not run the scrub, says so and does not fail" || no "member check: rc=$rc $out"
 setans '.review.scrub = "touch '"$MK"'; exit 1" | .review.trailer_policy = "reject"'
 R42=$(newrun membertrail); r0=$(refs_all)
-out=$(QARGI_MEMBER_RUN=$R42 $DA review check "$R42/out" 2>&1); rc=$?
+out=$(CROWN_MEMBER_RUN=$R42 $DA review check "$R42/out" 2>&1); rc=$?
 { [ $rc = 0 ] && grep -qx "scrub: not run (a member's check; the lead's check runs it)" <<<"$out" && [ ! -e "$MK" ] && [ "$(refs_all)" = "$r0" ]; } \
   && ok "and neither does a member's check make the checkout for a trailer policy" || no "member check, policy: rc=$rc $out"
 out=$($DA review check "$R42/out" 2>&1); rc=$?
@@ -386,7 +386,7 @@ out=$($DA review apply "$R54" 2>&1); rc=$?
   && ok "a series changed after a passing check into one the scrub refuses: apply refuses, nothing changed" || no "apply poison: rc=$rc runs=$(runs) $out"
 # a member's apply never runs the lead's scrub
 : > "$CNT"; R55=$(newrun applymember)
-out=$(QARGI_MEMBER_RUN=$R55 $DA review apply "$R55" 2>&1); rc=$?
+out=$(CROWN_MEMBER_RUN=$R55 $DA review apply "$R55" 2>&1); rc=$?
 { [ $rc = 0 ] && [ "$(runs)" = 0 ] && grep -qx "scrub: not run (a member's apply; the lead's apply runs it)" <<<"$out"; } \
   && ok "a member's apply does not run the scrub and says so" || no "member apply: rc=$rc runs=$(runs) $out"
 # The patches are copied once: a member process that changes a patch while the scrub runs (here the scrub command does it, as it runs after the copy) changes what the

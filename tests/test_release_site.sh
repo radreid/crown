@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # The documentation site of a release: the site answers, `release finish` naming the next step, the site line of `release status`,
-# and `qargi release site VERSION`, which builds the tag's site with lib/site.py and commits it on the detached site branch through a
+# and `crown release site VERSION`, which builds the tag's site with lib/site.py and commits it on the detached site branch through a
 # temporary worktree, behind a plan token, and never pushes. The repository and its origin are temporary; nothing is contacted.
 # Run: tests/test_release_site.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$ROOT/bin/qargi
+T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$ROOT/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects"
 REL="$DA release"
 
@@ -44,14 +44,14 @@ git -C "$R" commit -q -am two
 git -C "$R" checkout -q --orphan gh-pages && git -C "$R" rm -rq --cached . && git -C "$R" clean -fdxq
 mkdir -p "$R/site"; cp -r "$ROOT/tests/fixtures/site/pages" "$ROOT/tests/fixtures/site/static" "$ROOT/tests/fixtures/site/site.json" "$R/site/"
 echo "hand pages and site configuration" > "$R/README.md"
-mkdir -p "$R/_site/old"; echo "a build an earlier qargi committed" > "$R/_site/index.html"; echo old > "$R/_site/old/page.html"   # what the site branch carried before the fix
+mkdir -p "$R/_site/old"; echo "a build an earlier crown committed" > "$R/_site/index.html"; echo old > "$R/_site/old/page.html"   # what the site branch carried before the fix
 git -C "$R" add -A && git -C "$R" commit -q -m "Site: the hand pages"
 git -C "$R" checkout -q -f -b scratch develop
 P0=$(git -C "$R" rev-parse gh-pages)
 ans() { jq -n --arg p "$R" --argjson site "$1" '{schema:1, project:"sitepub", methodology:"gitflow", test_command:"true", site:$site,
   repo:{url:"https://github.com/acme/sitepub", path:$p, long_lived:["master","develop","gh-pages"], detached:["gh-pages"]}}' > "$T/c/projects/sitepub.json"; }
 ans '{"enabled": true}'
-export QARGI_PROJECT=sitepub
+export CROWN_PROJECT=sitepub
 cd "$T" || exit 1   # the lead works outside any run directory
 
 # --- release finish ends with the next step, from the methodology's after_release data
@@ -61,10 +61,10 @@ rstart() { local p t; p=$($REL start "$@" 2>&1); t=$(tok <<<"$p"); [ -n "$t" ] |
 $REL verify 0.6.0 >/dev/null 2>&1 && rstart 0.6.0 --date 2026-04-01 >/dev/null 2>&1 && $REL verify 0.6.0 >/dev/null 2>&1 || no "release 0.6.0 could not start: $($REL status 0.6.0 2>&1)"
 t=$($REL finish 0.6.0 2>&1 | tok)
 out=$($REL finish 0.6.0 --plan "$t" --approved go 2>&1); rc=$?
-[ $rc = 0 ] && git -C "$R" rev-parse -q --verify refs/tags/0.6.0 >/dev/null && [ "$(tail -n 1 <<<"$out")" = "next: qargi release site 0.6.0" ] \
-  && ok "release finish ends with: next: qargi release site 0.6.0" || no "finish: rc=$rc $out"
+[ $rc = 0 ] && git -C "$R" rev-parse -q --verify refs/tags/0.6.0 >/dev/null && [ "$(tail -n 1 <<<"$out")" = "next: crown release site 0.6.0" ] \
+  && ok "release finish ends with: next: crown release site 0.6.0" || no "finish: rc=$rc $out"
 [ "$(git -C "$R" rev-parse gh-pages)" = "$P0" ] && ok "release finish leaves the site branch alone" || no "finish moved gh-pages"
-python3 -I "$ROOT/lib/release_site.py" next "$T/c/projects/sitepub.json" gitflow 1.2.3 | grep -qx "next: qargi release site 1.2.3" && ok "the next line comes from the methodology data" || no "next from data"
+python3 -I "$ROOT/lib/release_site.py" next "$T/c/projects/sitepub.json" gitflow 1.2.3 | grep -qx "next: crown release site 1.2.3" && ok "the next line comes from the methodology data" || no "next from data"
 jq '.site.enabled=false' "$T/c/projects/sitepub.json" > "$T/off.json"
 [ -z "$(python3 -I "$ROOT/lib/release_site.py" next "$T/off.json" gitflow 1.2.3)" ] && ok "without site.enabled there is no next line" || no "next with the site off"
 
@@ -90,7 +90,7 @@ out=$($REL site 0.9.0 2>&1) && no "a missing tag was built" || { grep -q "no tag
 mkdir -p "$T/run/clone"; : > "$T/run/ability"; : > "$T/run/refs.before"
 out=$(cd "$T/run/clone" && $REL site 0.6.0 2>&1); rc=$?
 [ $rc = 2 ] && grep -q "not available in a member run" <<<"$out" && ok "refused (exit 2) in a member run" || no "member: rc=$rc $out"
-out=$(QARGI_NESTED=1 $REL site 0.6.0 --plan "$t" --approved go 2>&1); rc=$?
+out=$(CROWN_NESTED=1 $REL site 0.6.0 --plan "$t" --approved go 2>&1); rc=$?
 [ $rc = 2 ] && [ "$(git -C "$R" rev-parse gh-pages)" = "$P0" ] && ok "refused (exit 2) in a nested call" || no "nested: rc=$rc $out"
 
 # --- release site: refused while the site branch is checked out
@@ -106,7 +106,7 @@ P1=$(git -C "$R" rev-parse gh-pages)
 [ -z "$(git -C "$R" ls-tree -r --name-only gh-pages | grep '^_site/' || true)" ] && git -C "$R" cat-file -e "$P0:_site/index.html" \
   && ok "the built site is not committed: no _site/ on gh-pages, and the one the branch carried is removed" || no "_site/ on gh-pages: $(git -C "$R" ls-tree -r --name-only gh-pages | grep '^_site/')"
 [ "$(git -C "$R" diff --name-only "$P1^" "$P1" | grep -v '^_site/')" = "site/site.json" ] && ok "the commit changes site/site.json (and removes _site/) and nothing else" || no "files of the commit: $(git -C "$R" diff --name-only "$P1^" "$P1")"
-[ "$(git -C "$R" show gh-pages:site/site.json | jq -r .release)" = 0.6.0 ] && [ "$(git -C "$R" show gh-pages:site/site.json | jq -r .url)" = "https://docs.example.org/qargi/" ] \
+[ "$(git -C "$R" show gh-pages:site/site.json | jq -r .release)" = 0.6.0 ] && [ "$(git -C "$R" show gh-pages:site/site.json | jq -r .url)" = "https://docs.example.org/crown/" ] \
   && ok "site.json records release 0.6.0 and keeps its other answers" || no "site.json: $(git -C "$R" show gh-pages:site/site.json)"
 grep -q "^push it with: git -C .* push origin gh-pages" "$T/o" && no "a push command without an origin" || { grep -q "nothing was pushed" "$T/o" && grep -q "no origin remote" "$T/o" && ok "nothing is pushed; without origin it says so" || no "apply output: $(cat "$T/o")"; }
 [ "$(git -C "$R" branch --show-current)" = scratch ] && [ -z "$(git -C "$R" status --porcelain)" ] && [ ! -e "$R/_site" ] && [ "$(wts)" = 1 ] \
@@ -134,7 +134,7 @@ grep -q "^push it with: git -C $R push origin gh-pages\$" "$T/o" && [ "$(git -C 
 grep -q "^preview it before you push: " "$T/o" && ok "it tells the lead to preview the built site before pushing it" || no "no preview hint before the push"
 P2=$(git -C "$R" rev-parse gh-pages)
 git -C "$R" checkout -q gh-pages
-printf -- '---\ntitle: Broken\ndescription: A page that names a command the release does not have, so that the build of the site refuses it.\n---\n\n## 1. Run\n\n```bash\nqargi nosuchverb\n```\n' > "$R/site/pages/broken.md"
+printf -- '---\ntitle: Broken\ndescription: A page that names a command the release does not have, so that the build of the site refuses it.\n---\n\n## 1. Run\n\n```bash\ncrown nosuchverb\n```\n' > "$R/site/pages/broken.md"
 git -C "$R" add -A && git -C "$R" commit -q -m "Site: a broken page" && git -C "$R" checkout -q scratch
 P3=$(git -C "$R" rev-parse gh-pages)
 out=$($REL site 0.6.0 2>&1); rc=$?

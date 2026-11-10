@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plans for writing a memory tier: `qargi memory init TIER` and `qargi memory move PATH --from T --to T`.
+"""Plans for writing a memory tier: `crown memory init TIER` and `crown memory move PATH --from T --to T`.
 
   tierplan.py plan-init TIER [--project P] [--today D] --out FILE
   tierplan.py plan-move PATH --from T --to T [--project P] [--today D] --out FILE
@@ -17,7 +17,7 @@ move copies notes from one tier to another and archives the originals (/_archive
 rows too. A note lives in one tier, so the plan refuses a path that any other tier holds. A stale plan (a tier
 changed after it was made) refuses with "plan again" before anything is written.
 
-Exit codes: 0 done (also "nothing to do"), 1 refusal or failure, 2 usage. Messages go to stderr as `qargi: ...`
+Exit codes: 0 done (also "nothing to do"), 1 refusal or failure, 2 usage. Messages go to stderr as `crown: ...`
 except what show prints and the "already initialised" line."""
 import argparse, json, os, re, subprocess, sys
 
@@ -29,7 +29,7 @@ import membackend as B  # noqa: E402
 import memplan as M  # noqa: E402
 import tiers as T  # noqa: E402
 
-NOT_CANON = "not empty and not a canon-%d store; use qargi canon plan or another path" % C.LATEST
+NOT_CANON = "not empty and not a canon-%d store; use crown canon plan or another path" % C.LATEST
 PLACEHOLDER = "| (none yet) | | |"
 PRIVATE = ("project", "shared", "system")          # tiers that are the user's own directories: created with umask 077
 
@@ -39,7 +39,7 @@ class Refused(Exception):
 
 
 def say(msg):
-    print("qargi: " + msg, file=sys.stderr)
+    print("crown: " + msg, file=sys.stderr)
 
 
 def seed_dir():
@@ -76,7 +76,7 @@ def checkout_of(a, tier):
     """For the repo tier: (checkout path, location relative to it); a Refused when it cannot be written safely."""
     repo = (a.get("repo") or {}).get("path") or ""
     if not repo:
-        raise Refused("the repo tier needs repo.path in the project's answers (qargi project set P repo.path DIR)")
+        raise Refused("the repo tier needs repo.path in the project's answers (crown project set P repo.path DIR)")
     repo = os.path.expanduser(repo)
     try:
         r = subprocess.run(["git", "-C", repo, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True, timeout=10)
@@ -92,7 +92,7 @@ def checkout_of(a, tier):
 
 
 def repo_warning(repo, rel):
-    return ("WARNING: this writes into the repository checkout %s at %s; qargi never commits it: review and commit it "
+    return ("WARNING: this writes into the repository checkout %s at %s; crown never commits it: review and commit it "
             "yourself, or ignore it in git." % (repo, rel))
 
 
@@ -119,9 +119,9 @@ def ref_of(t):
 
 
 def open_ref(ref, write):
-    """A backend from a plan's store reference: a directory, or a memstore_ id (QARGI_CANON_FIXTURE_DIR replaces the cloud)."""
+    """A backend from a plan's store reference: a directory, or a memstore_ id (CROWN_CANON_FIXTURE_DIR replaces the cloud)."""
     if ref.startswith("memstore_"):
-        fd = os.environ.get("QARGI_CANON_FIXTURE_DIR")
+        fd = os.environ.get("CROWN_CANON_FIXTURE_DIR")
         if fd:
             fx = os.path.join(fd, ref + ".jsonl")
             if os.path.isfile(fx):
@@ -134,7 +134,7 @@ def open_ref(ref, write):
 
 def plan_init(tier_name, project_arg, today):
     if tier_name == "cloud":
-        raise Refused("the cloud tier is created by qargi provision")
+        raise Refused("the cloud tier is created by crown provision")
     project, a = load_answers(project_arg)
     t = tier_named(a, project, tier_name)
     loc = t["location"]
@@ -254,10 +254,10 @@ def plan_move(path, frm, to, project_arg, today):
         if st == "unreachable":
             raise Refused("tier %s is unreachable (%s)" % (name, why))
         if st in ("missing", "empty"):
-            raise Refused("tier %s is missing: %s" % (name, "the cloud tier is created by qargi provision" if t["kind"] == "cloud"
-                                                      else "qargi memory init %s" % name))
+            raise Refused("tier %s is missing: %s" % (name, "the cloud tier is created by crown provision" if t["kind"] == "cloud"
+                                                      else "crown memory init %s" % name))
         if st != "canon":
-            raise Refused("tier %s is not a canon-%d store: qargi memory check" % (name, C.LATEST))
+            raise Refused("tier %s is not a canon-%d store: crown memory check" % (name, C.LATEST))
         states[name] = lst
     src, dst = states[frm], states[to]
     sel = select_notes(src, path)
@@ -276,7 +276,7 @@ def plan_move(path, frm, to, project_arg, today):
                 continue
         for p in sel:
             if lst and p in lst:
-                refused.append("refused: %s is also in tier %s; resolve it first (qargi memory check)" % (p, name))
+                refused.append("refused: %s is also in tier %s; resolve it first (crown memory check)" % (p, name))
     if refused:
         raise Refused("\n".join(refused))
     repo = rel = None

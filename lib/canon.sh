@@ -8,7 +8,7 @@
 #   canon.sh audit   PROJECT [--kind K]        who wrote under which role folder (read-only)
 #   canon.sh promote PROJECT --kind K --path /roles/R/... --approved "<go-ahead>"
 #
-# PROJECT's stores come from its stored answers (qargi project init). Without
+# PROJECT's stores come from its stored answers (crown project init). Without
 # --kind, both stores are handled. `plan` and `check` change nothing.
 . "$(dirname "$0")/lib.sh"
 
@@ -33,7 +33,7 @@ done
 export PLAN_ARG
 valid_project "$PROJECT" || usage_die "usage: canon.sh check|plan|apply|promote PROJECT ..."
 PCFG=$DA_CONF/projects/$PROJECT.json
-[ -f "$PCFG" ] || die "no stored answers for $PROJECT: run /qargi-project first"
+[ -f "$PCFG" ] || die "no stored answers for $PROJECT: run /crown-project first"
 ROLES=$(jq -r '([.roles | keys[]] + (if ((.teams // {}) | length) > 0 then ["lead"] else [] end)) | join(",")' "$PCFG")
 TODAY=$(date -u +%F)
 case $KIND in ''|memory|reference) ;; *) die "--kind memory|reference";; esac

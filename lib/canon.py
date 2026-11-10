@@ -62,7 +62,7 @@ def setup_paths(roles):
 
 def detect(kind, mems, roles=None):
     """-> (state, why). state is LATEST (conforms), "empty" (no memories, or only the first files of a set-up that was
-    interrupted before it wrote the marker: it is set up from the seed) or "unknown" (a marker this qargi does not read,
+    interrupted before it wrote the marker: it is set up from the seed) or "unknown" (a marker this crown does not read,
     or no marker). Layouts older than canon 2 are not migrated. Without `roles` a store with no marker is empty only
     when it holds no memories."""
     if "/CANON.md" in mems:
@@ -74,8 +74,8 @@ def detect(kind, mems, roles=None):
         if n == LATEST:
             return LATEST, "marker"
         if n > LATEST:
-            return "unknown", "written by a newer qargi (canon %d); this one knows %d" % (n, LATEST)
-        return "unknown", "canon version %d is older than the %d this qargi reads, and it no longer migrates it" % (n, LATEST)
+            return "unknown", "written by a newer crown (canon %d); this one knows %d" % (n, LATEST)
+        return "unknown", "canon version %d is older than the %d this crown reads, and it no longer migrates it" % (n, LATEST)
     if not mems:
         return "empty", "empty store: it is set up from the seed"
     order = setup_paths(roles) if roles else []
@@ -377,7 +377,7 @@ def cmd_check(a):
     F = lambda p, s: fails.append("FAIL %s: %s" % (p, s))
     W = lambda p, s: warns.append("WARN %s: %s" % (p, s))
     if ver != LATEST:
-        F("/CANON.md", "store is %s (%s); the canon is at version %d: run `qargi canon plan`" % (ver, why, LATEST))
+        F("/CANON.md", "store is %s (%s); the canon is at version %d: run `crown canon plan`" % (ver, why, LATEST))
     else:
         d = parse_marker(mems["/CANON.md"]["content"])
         if d.get("kind") != a.kind: F("/CANON.md", "kind is %s, expected %s" % (d.get("kind"), a.kind))
@@ -398,11 +398,11 @@ def cmd_check(a):
                     F(p, "a role folder for a role the project does not use (%s)" % (parts[1] if len(parts) > 1 else "?"))
             elif parts[0] == "shared":
                 pass
-            elif parts[0] == "_archive":   # optional: notes qargi memory split moved aside; each says where from in Sources:
+            elif parts[0] == "_archive":   # optional: notes crown memory split moved aside; each says where from in Sources:
                 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # run as python3 -I: the lib directory is not on the path
                 import memplan             # here, not at the top: memplan imports this module
                 if memplan.origin(mems[p]["content"])[0] != "archived":
-                    W(p, "an archived note without the `archived from` segment qargi puts on its Sources: line; where did it come from?")
+                    W(p, "an archived note without the `archived from` segment crown puts on its Sources: line; where did it come from?")
             elif parts[0] == "_conflicts":
                 W(p, "unresolved conflict: merge it or delete it")
             else:

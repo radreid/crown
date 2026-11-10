@@ -7,9 +7,9 @@ cd "$(dirname "$0")/.." || exit 1
 . tests/hermetic.sh
 T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s" "$T/bin"
+export CROWN_CONF=$T/c CROWN_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s" "$T/bin"
 printf '#!/usr/bin/env bash\ncase "$1" in auth) exit 0;; *) echo "{}";; esac\n' > "$T/bin/ant"; chmod 755 "$T/bin/ant"; export PATH=$T/bin:$PATH
-DA=./bin/qargi
+DA=./bin/crown
 proj() { jq -n --arg p "$1" '{schema:1,project:$p,repo:{url:"https://github.com/example/x",path:"",long_lived:["main"]},
   roles:{build:{base:"@dispatcher",push:{mode:"none"},model:"claude-sonnet-5-5",effort:"high",apt:[],skills:[]},
          write:{base:"gh-pages",push:{mode:"none"},model:"claude-opus-5-5",effort:"medium",apt:[],skills:["pdf"]}},
@@ -159,23 +159,23 @@ $DA packs apply alpha-write --asked "test" --plan "$tok" --approved "test" >/dev
 u=$(cat "$T/update.args" 2>/dev/null)
 grep -q -- '--skill' <<<"$u" && grep -q '"type":"custom"' <<<"$u" && grep -q 'skill_alpha-write' <<<"$u" && grep -q '"skill_id":"pdf"' <<<"$u" && ok "the agent gets its anthropic and custom skills" || no "skills in the update: $u"
 
-# --- QARGI_NESTED does not stand in for the plan token of a skill-changing verb
+# --- CROWN_NESTED does not stand in for the plan token of a skill-changing verb
 mkdir -p "$T/src/good"; printf -- '---\nname: good\ndescription: Use when testing the nested rule.\n---\nbody\n' > "$T/src/good/SKILL.md"
 good_tok=$($DA skill import "$T/src/good" --compatible any | sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p')
 [ -n "$good_tok" ] || no "no token for the nested test import"
-QARGI_NESTED=1 $DA skill import "$T/src/good" --compatible any --approved "an agent says so" >/dev/null 2>&1 && no "a nested import skipped the token" || ok "a nested import without the token is refused"
-QARGI_NESTED=1 $DA skill import "$T/src/good" --compatible any --plan 000000000000 --approved x >/dev/null 2>&1 && no "a nested import took a wrong token" || ok "a nested import with a wrong token is refused"
+CROWN_NESTED=1 $DA skill import "$T/src/good" --compatible any --approved "an agent says so" >/dev/null 2>&1 && no "a nested import skipped the token" || ok "a nested import without the token is refused"
+CROWN_NESTED=1 $DA skill import "$T/src/good" --compatible any --plan 000000000000 --approved x >/dev/null 2>&1 && no "a nested import took a wrong token" || ok "a nested import with a wrong token is refused"
 [ ! -e "$T/c/packs/skills/good" ] && ok "nothing was stored by the refused nested imports" || no "a refused import stored the skill"
-QARGI_NESTED=1 $DA skill import "$T/src/good" --compatible any --plan "$good_tok" --approved "a person read the review" >/dev/null 2>&1 && [ -d "$T/c/packs/skills/good" ] && ok "a nested import with the right token works (the token is what counts)" || no "nested import with the token"
+CROWN_NESTED=1 $DA skill import "$T/src/good" --compatible any --plan "$good_tok" --approved "a person read the review" >/dev/null 2>&1 && [ -d "$T/c/packs/skills/good" ] && ok "a nested import with the right token works (the token is what counts)" || no "nested import with the token"
 tail -1 "$T/s/audit.log" | jq -e '.verb=="skill-import" and .nested==false' >/dev/null && ok "the audit line does not claim the call was nested" || no "audit nested flag: $(tail -1 "$T/s/audit.log")"
 echo "more" >> "$T/c/packs/skills/good/SKILL.md"
-QARGI_NESTED=1 $DA skill seal good --approved "x" >/dev/null 2>&1 && no "a nested seal skipped the token" || ok "a nested seal without the token is refused"
+CROWN_NESTED=1 $DA skill seal good --approved "x" >/dev/null 2>&1 && no "a nested seal skipped the token" || ok "a nested seal without the token is refused"
 mkdir -p "$T/nosum"; printf '#!/usr/bin/env bash\nexit 0\n' > "$T/nosum/sha256sum"; chmod 755 "$T/nosum/sha256sum"
 out=$(PATH=$T/nosum:$PATH $DA skill seal good --plan '' --approved "x" 2>&1) && no "an empty token was accepted" || { grep -q "no plan token" <<<"$out" && ok "an empty expected token is an error, not a match for an empty --plan" || no "empty token message: $out"; }
-QARGI_NESTED=1 $DA tool import "$T/t.json" --compatible any --name issues2 --approved "x" >/dev/null 2>&1 && no "a nested tool import skipped the token" || ok "a nested tool import without the token is refused"
-QARGI_NESTED=1 $DA packs apply alpha-write --asked "test" --approved x >/dev/null 2>&1 && no "a nested packs apply skipped the token" || ok "a nested packs apply without the token is refused"
+CROWN_NESTED=1 $DA tool import "$T/t.json" --compatible any --name issues2 --approved "x" >/dev/null 2>&1 && no "a nested tool import skipped the token" || ok "a nested tool import without the token is refused"
+CROWN_NESTED=1 $DA packs apply alpha-write --asked "test" --approved x >/dev/null 2>&1 && no "a nested packs apply skipped the token" || ok "a nested packs apply without the token is refused"
 rm -f "$T/update.args"
-QARGI_NESTED=1 $DA packs apply alpha-write --asked "test" --approved x >/dev/null 2>&1; [ ! -e "$T/update.args" ] && ok "and it did not touch the agent" || no "agent updated by a nested apply"
+CROWN_NESTED=1 $DA packs apply alpha-write --asked "test" --approved x >/dev/null 2>&1; [ ! -e "$T/update.args" ] && ok "and it did not touch the agent" || no "agent updated by a nested apply"
 grep -q 'mcp_toolset' <<<"$u" && grep -q 'agent_toolset_20260401' <<<"$u" && ok "the agent keeps its toolset and gains the MCP tool" || no "tools in the update"
 grep -q '"name":"web_fetch","enabled":false' <<<"$u" && grep -q '"name":"web_search","enabled":false' <<<"$u" && ! grep -q '"name":"edit"' <<<"$u" && ok "apply switches the web tools off for a write role and keeps edit" || no "tool configs in the update: $u"
 # --- load: what a role has enabled, read at call time
@@ -286,13 +286,13 @@ jq '.models.provider = "fam"' "$T/c/projects/mp.json" > "$T/mp.tmp" && cp "$T/mp
 jq 'del(.models)' "$T/c/projects/mp.json" > "$T/mp.tmp" && cp "$T/mp.tmp" "$T/c/projects/mp.json"
 out=$($DA skill effective mp build); [ "$(grep -v '^skipped ' <<<"$out" | paste -sd, -)" = "m-any" ] && grep -q "^skipped skill m-fam: project mp names no provider to match against (it declares fam)" <<<"$out" && ok "a project with no provider gets only the packs for any, and the rest are noted" || no "no provider: $out"
 $DA packs render mp build "$T/om2" >/dev/null 2>&1; [ "$(paste -sd, "$T/om2/custom_skills.txt")" = "m-any" ] && ok "the render of a project with no provider holds only the packs for any" || no "render without provider"
-# --- a pack copied out of the library carries qargi's own record (a top-level .pack.json): import ignores it, does not copy it and says so
+# --- a pack copied out of the library carries crown's own record (a top-level .pack.json): import ignores it, does not copy it and says so
 proj cpj
 mkp cpy any; $DA skill link cpy --scope project --project cpj >/dev/null
 rm -rf "$T/src/cpy"; cp -r "$T/c/packs/skills/cpy" "$T/src/cpy"; [ -f "$T/src/cpy/.pack.json" ] || no "setup: the copy has no record"
 # under a new name
 out=$($DA skill import "$T/src/cpy" --name cpy2 --compatible any 2>&1); rc=$?
-{ [ $rc = 0 ] && grep -q "^note: the source's top-level .pack.json is qargi's own record" <<<"$out" && grep -q "^plan token" <<<"$out"; } && ok "importing a pack copied out of the library says that its record is ignored" || no "copy import review (rc=$rc): $out"
+{ [ $rc = 0 ] && grep -q "^note: the source's top-level .pack.json is crown's own record" <<<"$out" && grep -q "^plan token" <<<"$out"; } && ok "importing a pack copied out of the library says that its record is ignored" || no "copy import review (rc=$rc): $out"
 ctok=$(sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p' <<<"$out")
 $DA skill import "$T/src/cpy" --name cpy2 --compatible any --plan "$ctok" --approved x >/dev/null 2>&1 && ok "and it is stored under the new name" || no "copy import under a new name"
 [ ! -e "$T/c/packs/skills/cpy2/refs/.pack.json" ] && [ "$(rec skill source cpy2)" = "\"$T/src/cpy\"" ] && [ "$(rec skill sha256 cpy2)" = "$(rec skill sha256 cpy)" ] && ok "the new pack has a record of its own (this source, the hash of the same content)" || no "cpy2 record: $(cat "$T/c/packs/skills/cpy2/.pack.json")"
@@ -307,7 +307,7 @@ $DA skill import "$T/src/cpy" --compatible any --plan "$ctok" --approved x >/dev
 mkdir -p "$T/src/cpy/refs"; echo '{}' > "$T/src/cpy/refs/.pack.json"
 rm -rf "$T/c/packs/skills/cpy3"
 out=$($DA skill import "$T/src/cpy" --name cpy3 --compatible any 2>&1); rc=$?
-{ [ $rc = 1 ] && grep -q "^FAIL: .pack.json is qargi's own record" <<<"$out" && grep -q "refs/.pack.json" <<<"$out" && ! grep -q '^plan token' <<<"$out" && [ ! -e "$T/c/packs/skills/cpy3" ]; } && ok "a nested .pack.json is a finding that refuses the import" || no "nested record import (rc=$rc): $out"
+{ [ $rc = 1 ] && grep -q "^FAIL: .pack.json is crown's own record" <<<"$out" && grep -q "refs/.pack.json" <<<"$out" && ! grep -q '^plan token' <<<"$out" && [ ! -e "$T/c/packs/skills/cpy3" ]; } && ok "a nested .pack.json is a finding that refuses the import" || no "nested record import (rc=$rc): $out"
 $DA skill link cpy --scope project --project cpj >/dev/null
 mkdir -p "$T/c/packs/skills/cpy/refs"; echo '{}' > "$T/c/packs/skills/cpy/refs/.pack.json"
 $DA skill check cpj build 2>&1 | grep -q "FAIL skill:cpy: content changed since it was approved" && ok "a nested .pack.json added to an approved pack is drift (the content hash counts it)" || no "nested record drift: $($DA skill check cpj build 2>&1)"
@@ -316,7 +316,7 @@ $DA skill check cpj build 2>&1 | grep -q "^ok   skill:cpy$" && ok "without it th
 
 # --- check on a project that no pack reaches says so (a library of its own: the main one has a pack linked at the user scope)
 mkdir -p "$T/c2/projects" "$T/s2"; proj nolink; mv "$T/c/projects/nolink.json" "$T/c2/projects/nolink.json"
-out=$(QARGI_CONF=$T/c2 QARGI_STATE=$T/s2 $DA skill check nolink build 2>&1)
+out=$(CROWN_CONF=$T/c2 CROWN_STATE=$T/s2 $DA skill check nolink build 2>&1)
 [ "$out" = "no pack is linked to any role of nolink" ] && ok "skill check names the project when no pack is linked to any of its roles" || no "nolink check: $out"
 $DA skill check cpj build 2>&1 | grep -q "no pack is linked" && no "the line appears for a project with packs" || ok "and not for a project that has packs"
 exit $fail

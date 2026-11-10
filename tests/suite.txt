@@ -25,8 +25,8 @@ full | par | 432 | 72 | bash tests/test_conformance_selftest.sh
 full | par | 300 | 34 | python3 tests/test_tierplan.py | lib/tierplan.py
 fast | par | 300 | 18 | bash tests/test_tier_hook.sh
 full | par | 300 | 14 | bash tests/test_tier_packet.sh
-fast | par | 300 | 3 | python3 tests/test_help.py | lib/commands.py lib/help.py man/qargi.1 completions/*
-full | par | 360 | 60 | python3 tests/test_startup.py | bin/qargi lib/help.py lib/commands.py lib/cloud.py lib/paths.py
+fast | par | 300 | 3 | python3 tests/test_help.py | lib/commands.py lib/help.py man/crown.1 completions/*
+full | par | 360 | 60 | python3 tests/test_startup.py | bin/crown lib/help.py lib/commands.py lib/cloud.py lib/paths.py
 full | par | 300 | 80 | python3 tests/test_site.py | lib/site.py lib/site_md.py lib/site/*
 full | par | 300 | 26 | python3 tests/test_membackend.py | lib/membackend.py
 full | par | 300 | 30 | python3 tests/test_transfer.py | lib/transfer.py
@@ -116,8 +116,8 @@ fast | par | 300 | 11 | bash tests/test_gitflow_detached.sh
 fast | par | 300 | 17 | bash tests/test_runner.sh | tests/run.sh tests/suite.txt
 fast | par | 300 | 10 | python3 tests/test_ci.py | .github/* tests/run.sh tests/suite.txt tests/durations.txt
 fast | par | 300 | 3 | python3 tests/test_docs_links.py | README.md CONTRIBUTING.md docs/*
-full | serial | 300 | 150 | shellcheck -x -S warning lib/*.sh lib/conformance/*.sh bin/qargi install.sh tests/*.sh
-fast | par | 300 | 14 | bash tests/test_json_plans.sh | bin/qargi lib/jsonplan.py lib/help.py lib/commands.py
+full | serial | 300 | 150 | shellcheck -x -S warning lib/*.sh lib/conformance/*.sh bin/crown install.sh tests/*.sh
+fast | par | 300 | 14 | bash tests/test_json_plans.sh | bin/crown lib/jsonplan.py lib/help.py lib/commands.py
 fast | par | 300 | 1 | python3 tests/test_gates.py | lib/gates.py
 full | par | 300 | 19 | bash tests/test_gates.sh | lib/gates.py lib/gitflow.sh lib/feature.sh lib/release.sh lib/project.sh
 fast | par | 300 | 1 | python3 tests/test_backlog.py | lib/backlog.py

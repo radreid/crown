@@ -237,7 +237,7 @@ class Dispatch(Tree):
         rc, out = run(CODE, "dispatch-local", req)
         self.assertEqual(rc, 0)
         self.assertEqual(out["definition"]["text"], sed_render("judge", ["review"], "haiku", "low", "read-only"))
-        self.assertIn('command: "qargi __guard --class read-only"', out["definition"]["text"])
+        self.assertIn('command: "crown __guard --class read-only"', out["definition"]["text"])
 
     def test_no_effort_drops_the_effort_line_as_sed_did(self):
         for effort in (None, ""):
@@ -270,12 +270,12 @@ class Dispatch(Tree):
 
 
 class Barrier(unittest.TestCase):
-    """A run directory as `qargi local prepare` leaves it, the calls of tests/test_guard.py's Review, through the adapter."""
+    """A run directory as `crown local prepare` leaves it, the calls of tests/test_guard.py's Review, through the adapter."""
 
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="barrier.")
         self.addCleanup(shutil.rmtree, self.t, True)
-        self.run = os.path.join(self.t, "qargi.x")
+        self.run = os.path.join(self.t, "crown.x")
         for d in ("clone/src", "out"):
             os.makedirs(os.path.join(self.run, d))
         open(os.path.join(self.run, "refs.before"), "w").close()
@@ -341,15 +341,15 @@ class Barrier(unittest.TestCase):
 
 
 class AgentAdd(Tree):
-    """qargi agent add reaches the definition through the adapter the descriptor of the project's provider names. There is no default
+    """crown agent add reaches the definition through the adapter the descriptor of the project's provider names. There is no default
     provider: alpha, the project every member belongs to, names the shipped runtimes unless a test says otherwise."""
 
     def setUp(self):
         super().setUp()
-        self.env = dict(os.environ, HOME=os.path.join(self.tmp, "home"), QARGI_CONF=os.path.join(self.tmp, "c"), QARGI_STATE=os.path.join(self.tmp, "s"),
-                        QARGI_PROJECT="alpha")
+        self.env = dict(os.environ, HOME=os.path.join(self.tmp, "home"), CROWN_CONF=os.path.join(self.tmp, "c"), CROWN_STATE=os.path.join(self.tmp, "s"),
+                        CROWN_PROJECT="alpha")
         os.makedirs(os.path.join(self.env["HOME"]))
-        os.makedirs(os.path.join(self.env["QARGI_CONF"], "projects"))
+        os.makedirs(os.path.join(self.env["CROWN_CONF"], "projects"))
         self.repo = os.path.join(self.tmp, "repo")
         subprocess.run(["git", "init", "-q", self.repo], check=True)
 
@@ -358,21 +358,21 @@ class AgentAdd(Tree):
              "roles": {"build": {"base": "main", "push": {"mode": "none"}, "model": "claude-sonnet-5-5", "effort": "high"}}, "memory": {}, "budget_cents": 500}
         if provider:
             p["models"] = {"provider": provider}
-        with open(os.path.join(self.env["QARGI_CONF"], "projects", "alpha.json"), "w") as f:
+        with open(os.path.join(self.env["CROWN_CONF"], "projects", "alpha.json"), "w") as f:
             json.dump(p, f)
 
-    def qargi(self, *args):
-        r = subprocess.run([os.path.join(self.tool, "bin", "qargi")] + list(args), capture_output=True, text=True, env=self.env)
+    def crown(self, *args):
+        r = subprocess.run([os.path.join(self.tool, "bin", "crown")] + list(args), capture_output=True, text=True, env=self.env)
         return r.returncode, r.stdout + r.stderr
 
     def test_a_provider_without_a_member_renderer_cannot_add_a_member(self):
         self.runtime("plain", lambda d: (d.update(adapter=None, adapter_verbs=None), d["renderers"].pop("agent")))
         self.project("plain")
-        rc, out = self.qargi("agent", "add", "forge", "--roles", "build", "--project", "alpha")
+        rc, out = self.crown("agent", "add", "forge", "--roles", "build", "--project", "alpha")
         self.assertNotEqual(rc, 0)
         self.assertIn("provider 'plain' has no member renderer", out)
         self.assertFalse(os.path.exists(os.path.join(self.repo, ".claude", "agents", "forge.md")))
-        conf = os.path.join(self.env["QARGI_CONF"], "agents.json")
+        conf = os.path.join(self.env["CROWN_CONF"], "agents.json")
         if os.path.exists(conf):
             with open(conf) as f:
                 self.assertNotIn("forge", json.load(f).get("projects", {}).get("alpha", {}))
@@ -383,49 +383,49 @@ class AgentAdd(Tree):
         def plain(text):
             return re.sub(r'(?m)^( *(?:- )?[A-Za-z]+: )"(.*)"$', r"\1\2", text)
         self.project()
-        rc, out = self.qargi("agent", "add", "forge", "--roles", "build,test", "--project", "alpha")
+        rc, out = self.crown("agent", "add", "forge", "--roles", "build,test", "--project", "alpha")
         self.assertEqual(rc, 0, out)
         with open(os.path.join(self.repo, ".claude", "agents", "forge.md")) as f:
             self.assertEqual(plain(f.read()), plain(sed_render("forge", ["build", "test"], "claude-sonnet-5-5", "high", "write")))
-        rc, out = self.qargi("agent", "add", "judge", "--roles", "review", "--project", "alpha")
+        rc, out = self.crown("agent", "add", "judge", "--roles", "review", "--project", "alpha")
         self.assertEqual(rc, 0, out)
         with open(os.path.join(self.repo, ".claude", "agents", "judge.md")) as f:
             self.assertEqual(plain(f.read()), plain(sed_render("judge", ["review"], "claude-opus-5-5", "high", "read-only")))
 
     def test_refresh_without_a_recorded_model_uses_the_balanced_alias_of_the_provider(self):
         self.project()
-        self.assertEqual(self.qargi("agent", "add", "forge", "--roles", "build", "--project", "alpha")[0], 0)
-        conf = os.path.join(self.env["QARGI_CONF"], "agents.json")
+        self.assertEqual(self.crown("agent", "add", "forge", "--roles", "build", "--project", "alpha")[0], 0)
+        conf = os.path.join(self.env["CROWN_CONF"], "agents.json")
         with open(conf) as f:
             m = json.load(f)
         m["projects"]["alpha"]["forge"]["model"] = None
         with open(conf, "w") as f:
             json.dump(m, f)
-        rc, out = self.qargi("agent", "refresh", "forge")
+        rc, out = self.crown("agent", "refresh", "forge")
         self.assertEqual(rc, 0, out)
         with open(os.path.join(self.repo, ".claude", "agents", "forge.md")) as f:
             self.assertIn("\nmodel: sonnet\n", f.read())
 
     def test_the_reserved_names_come_from_the_descriptor(self):
         self.project()
-        self.assertEqual(self.qargi("agent", "add", "plan", "--project", "alpha")[0], 1)
+        self.assertEqual(self.crown("agent", "add", "plan", "--project", "alpha")[0], 1)
         self.definition("claude-code", lambda d: d["agents"].update(reserved_names=["plan", "mine"]))
-        rc, out = self.qargi("agent", "add", "mine", "--project", "alpha")
+        rc, out = self.crown("agent", "add", "mine", "--project", "alpha")
         self.assertNotEqual(rc, 0)
         self.assertIn("built-in", out)
-        rc, out = self.qargi("agent", "add", "explore", "--roles", "build", "--project", "alpha")
+        rc, out = self.crown("agent", "add", "explore", "--roles", "build", "--project", "alpha")
         self.assertEqual(rc, 0, out)
 
     def test_a_pinned_model_is_one_that_matches_the_model_pattern(self):
         self.project()
-        self.assertEqual(self.qargi("agent", "add", "forge", "--roles", "build", "--model", "claude-opus-5-5", "--project", "alpha")[0], 0)
-        self.assertEqual(self.qargi("agent", "add", "judge", "--roles", "review", "--model", "opus", "--project", "alpha")[0], 0)
-        rc, out = self.qargi("agent", "models", "--json")
+        self.assertEqual(self.crown("agent", "add", "forge", "--roles", "build", "--model", "claude-opus-5-5", "--project", "alpha")[0], 0)
+        self.assertEqual(self.crown("agent", "add", "judge", "--roles", "review", "--model", "opus", "--project", "alpha")[0], 0)
+        rc, out = self.crown("agent", "models", "--json")
         self.assertEqual(rc, 0, out)
         pinned = {m["name"]: m["pinned"] for m in json.loads(out)["members"]}
         self.assertEqual(pinned, {"forge": True, "judge": False})
         self.catalog(lambda c: c.update(pattern="^zzz"))
-        pinned = {m["name"]: m["pinned"] for m in json.loads(self.qargi("agent", "models", "--json")[1])["members"]}
+        pinned = {m["name"]: m["pinned"] for m in json.loads(self.crown("agent", "models", "--json")[1])["members"]}
         self.assertEqual(pinned, {"forge": False, "judge": False})
 
 
@@ -434,9 +434,9 @@ class Derived(Tree):
 
     def setUp(self):
         super().setUp()
-        self.env = dict(os.environ, HOME=os.path.join(self.tmp, "home"), QARGI_CONF=os.path.join(self.tmp, "c"), QARGI_STATE=os.path.join(self.tmp, "s"))
+        self.env = dict(os.environ, HOME=os.path.join(self.tmp, "home"), CROWN_CONF=os.path.join(self.tmp, "c"), CROWN_STATE=os.path.join(self.tmp, "s"))
         os.makedirs(os.path.join(self.env["HOME"]))
-        os.makedirs(os.path.join(self.env["QARGI_CONF"], "projects"))
+        os.makedirs(os.path.join(self.env["CROWN_CONF"], "projects"))
         os.makedirs(os.path.join(self.tmp, "bin"))
         with open(os.path.join(self.tmp, "bin", "ant"), "w") as f:         # a fake ant: logged in, empty lists
             f.write('#!/usr/bin/env bash\ncase "$1" in auth) exit 0;; *) echo "{}";; esac\n')
@@ -454,12 +454,12 @@ class Derived(Tree):
             json.dump(cat, f)
         self.runtime("zeta", lambda d: d.update(adapter=None, adapter_verbs=None, family="zeta", models={"catalog": "zeta", "use": "alias"}))
 
-    def qargi(self, *args):
-        r = subprocess.run([os.path.join(self.tool, "bin", "qargi")] + list(args), capture_output=True, text=True, env=self.env)
+    def crown(self, *args):
+        r = subprocess.run([os.path.join(self.tool, "bin", "crown")] + list(args), capture_output=True, text=True, env=self.env)
         return r.returncode, r.stdout + r.stderr
 
     def answers(self, provider=None):
-        rc, out = self.qargi("project", "template", "demo")
+        rc, out = self.crown("project", "template", "demo")
         self.assertEqual(rc, 0, out)
         a = json.loads(out)
         a["repo"]["url"] = "https://github.com/example/demo"
@@ -474,7 +474,7 @@ class Derived(Tree):
         path = os.path.join(self.tmp, "check.json")
         with open(path, "w") as f:
             json.dump(a, f)
-        return self.qargi("project", "validate", path)
+        return self.crown("project", "validate", path)
 
     def test_validate_names_the_balanced_model_of_the_projects_provider_in_its_messages(self):
         a, _ = self.answers(BOTH)
@@ -555,12 +555,12 @@ class Derived(Tree):
         a["project"] = "zed"
         for r in a["roles"].values():
             r["model"] = ""
-        with open(os.path.join(self.env["QARGI_CONF"], "projects", "zed.json"), "w") as f:
+        with open(os.path.join(self.env["CROWN_CONF"], "projects", "zed.json"), "w") as f:
             json.dump(a, f)
         def agent_model(name):
-            rc, out = self.qargi("provision", "plan", name)
+            rc, out = self.crown("provision", "plan", name)
             self.assertEqual(rc, 0, out)
-            with open(os.path.join(self.env["QARGI_STATE"], "provision", name, "agents", name, "agent.md")) as f:
+            with open(os.path.join(self.env["CROWN_STATE"], "provision", name, "agents", name, "agent.md")) as f:
                 return re.search(r"^  id: .*$", f.read(), re.M).group(0)
         self.assertIn("claude-sonnet-5-5", agent_model("zed-build"))
         self.catalog(lambda c: c["tiers"]["balanced"].update(model="claude-sonnet-9-9"))
@@ -571,9 +571,9 @@ class Derived(Tree):
         a["project"] = "zed"
         for r in a["roles"].values():
             r["model"] = ""
-        with open(os.path.join(self.env["QARGI_CONF"], "projects", "zed.json"), "w") as f:
+        with open(os.path.join(self.env["CROWN_CONF"], "projects", "zed.json"), "w") as f:
             json.dump(a, f)
-        rc, out = self.qargi("provision", "plan", "--project", "zed", "--role", "build")
+        rc, out = self.crown("provision", "plan", "--project", "zed", "--role", "build")
         self.assertEqual(rc, 2)                                           # a name that is no runtime or family is a refusal (exit 2), not a failure
         self.assertIn("no runtime or family 'nope' for the cloud surface", out)
 
@@ -701,7 +701,7 @@ class StartSession(Tree):
                 rc, out, err = self.call(self.req(role=role, profile=profile))
                 self.assertEqual(rc, 2)
                 self.assertIn("accept", out["error"])
-                self.assertIn("qargi provider accept", err)
+                self.assertIn("crown provider accept", err)
                 rc, out, _ = self.call(self.req(role=role, profile=profile, accept_no_barrier=True))
                 self.assertEqual(rc, 0)
 
@@ -709,7 +709,7 @@ class StartSession(Tree):
         rc, out, err = self.call(fixture("refused/reviewer-no-acceptance.request"))
         self.assertEqual(rc, 2)
         self.assertIn("provider accept claude-platform --surface cloud --no-barrier", out["error"])
-        self.assertEqual(err, "qargi: " + out["error"] + "\n")
+        self.assertEqual(err, "crown: " + out["error"] + "\n")
 
     def test_an_unknown_role_fails_closed_as_read_only(self):
         for role, profile in (("mystery", None), ("worker", "mystery"), ("lead", None)):
@@ -741,7 +741,7 @@ class StartSession(Tree):
         with open(stub, "w") as f:
             f.write('#!/bin/sh\necho "$@" >> "%s"\nexit 4\n' % log)
         os.chmod(stub, 0o755)
-        rc, out, _ = self.call(fixture("worker.request"), env=dict(os.environ, QARGI_TRANSPORT=stub))
+        rc, out, _ = self.call(fixture("worker.request"), env=dict(os.environ, CROWN_TRANSPORT=stub))
         self.assertEqual(rc, 0)
         self.assertFalse(os.path.exists(log))
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""qargi supervise: find stalled agent runs and say so. Hooks only record; one idempotent tick is the only actor.
+"""crown supervise: find stalled agent runs and say so. Hooks only record; one idempotent tick is the only actor.
 
   supervise.py hook-event VERB        a Claude Code hook (stdin: its JSON): append one small line to
-                                      $QARGI_STATE/run-events/<agent_id>.jsonl. No content is read or stored (ids,
+                                      $CROWN_STATE/run-events/<agent_id>.jsonl. No content is read or stored (ids,
                                       timestamps, the tool NAME and a hash of its input; never a command, a message
                                       or an error text). Always exits 0, quickly, even on malformed input.
   supervise.py tick [--now ISO] [--json]
@@ -10,14 +10,14 @@
   supervise.py delivered KEY [--now ISO]            the coordinating session delivered the prepared nudge of a local run
   supervise.py nudge-check SID [--now ISO]          caps for a cloud nudge (prints JSON; sends nothing)
   supervise.py nudge-record SID [--now ISO]         count a cloud nudge that supervise.sh sent
-  supervise.py hooks [--qargi COMMAND]              print the settings.json hook snippet (never writes a file)
+  supervise.py hooks [--crown COMMAND]              print the settings.json hook snippet (never writes a file)
 
 The tick folds the per-run event files and the tracker (sessions.json) and the local-run registry (local-runs.jsonl)
 into runs.json (the only writer, under a lock), classifies every unfinished run, and acts ONLY by printing
-`QARGI SUPERVISE <class> <run> <next-action>` lines, appending to supervisor.log and audit.log (origin supervisor), and
+`CROWN SUPERVISE <class> <run> <next-action>` lines, appending to supervisor.log and audit.log (origin supervisor), and
 PREPARING a nudge in nudges.jsonl (the exact fixed template and the target). It never sends anything. A nudge counts
 once it is delivered: the coordinating session delivers a local one (`delivered`), the owner sends a cloud one with
-`qargi supervise nudge SID --asked ...`. The numbers are data in supervise-defaults.json; the safety caps are also
+`crown supervise nudge SID --asked ...`. The numbers are data in supervise-defaults.json; the safety caps are also
 enforced here (at most 2 nudges, cooldown of at least 10 minutes), so the data cannot loosen them.
 
 Standing permission (extension point, default off): `standing_permission` in the defaults file is read by
@@ -30,7 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import paths as P  # noqa: E402  where the data lives
 STATE = P.state()
-DEFAULTS = os.environ.get("QARGI_SUPERVISE_DEFAULTS") or os.path.join(HERE, "supervise-defaults.json")
+DEFAULTS = os.environ.get("CROWN_SUPERVISE_DEFAULTS") or os.path.join(HERE, "supervise-defaults.json")
 
 EVENTS = {"subagent-start": "start", "subagent-stop": "stop", "tool-use": "tool", "tool-failure": "fail",
           "notification": "notify", "stop-failure": "stopfail", "pre-compact": "compact"}
@@ -112,7 +112,7 @@ def hook_event(verb):
         p = json.loads(sys.stdin.buffer.read(4000000).decode("utf-8", "replace"))
         if not isinstance(p, dict):
             return
-        ev = {"ev": EVENTS[verb], "t": iso(parse(os.environ.get("QARGI_NOW")) or datetime.now(timezone.utc))}   # QARGI_NOW: tests
+        ev = {"ev": EVENTS[verb], "t": iso(parse(os.environ.get("CROWN_NOW")) or datetime.now(timezone.utc))}   # CROWN_NOW: tests
         aid = clean(p.get("agent_id"), 80)
         run = run_dir(p.get("cwd"))
         if aid:
@@ -423,7 +423,7 @@ def classify_cloud(t, now, d):
     if st == "terminated":
         return "terminated", ""
     if st == "idle" and t.get("interrupt_sent_at") and why == "end_turn":
-        return "stopped_by_qargi", ""
+        return "stopped_by_crown", ""
     if why == "requires_action" and st == "idle":
         return "requires_action", ""
     if why == "budget_reached":
@@ -492,7 +492,7 @@ def local_instruction(key, r, ns, d, text):
     n = ns["delivered"] + 1
     return ["  nudge %d of %d prepared for agent %s (%d left after it). The coordinating session sends this fixed message to that agent:" % (n, mx, key, mx - n),
             "    " + text,
-            "  then records it: qargi supervise delivered %s" % key,
+            "  then records it: crown supervise delivered %s" % key,
             "  (a script cannot message a Claude Code subagent; the nudge counts only once it is delivered, and it approves nothing)"]
 
 
@@ -500,7 +500,7 @@ def cloud_instruction(sid, ns, d, text):
     mx = cfg(d, None, "nudge", "max_per_run")
     n = ns["delivered"] + 1
     return ["  nudge %d of %d prepared for session %s (%d left after it); not sent. To send this fixed message, say so and run:" % (n, mx, sid, mx - n),
-            "    qargi supervise nudge %s --asked \"<your words>\"" % sid,
+            "    crown supervise nudge %s --asked \"<your words>\"" % sid,
             "    " + text]
 
 
@@ -568,7 +568,7 @@ def tick(now, d):
             run = r["run_id"]
             action = next_action(cls, detail, r["kind"])
             if cls in ALERT and r["announced"] != cls:
-                line = "QARGI SUPERVISE %s %s %s" % (cls, run, action)
+                line = "CROWN SUPERVISE %s %s %s" % (cls, run, action)
                 out.append(line)
                 append_line(os.path.join(STATE, "supervisor.log"), "%s %s" % (nowi, line))
                 audit("supervise:" + cls, "%s %s %s" % (key, run, action), nowi)
@@ -608,7 +608,7 @@ def tick_nudge(key, r, cls, ns, now, nowi, d, t, out, prepared):
     if why is not None:
         used_up = ns["delivered"] >= cfg(d, ab, "nudge", "max_per_run") and secs(now, ns["last"]) >= cfg(d, ab, "nudge", "cooldown_seconds")
         if used_up and not r["salvage_announced"]:     # still stalled a cooldown after the last nudge
-            line = "QARGI SUPERVISE %s %s salvage" % (cls, r["run_id"])
+            line = "CROWN SUPERVISE %s %s salvage" % (cls, r["run_id"])
             out.append(line)
             append_line(os.path.join(STATE, "supervisor.log"), "%s %s" % (nowi, line))
             audit("supervise:salvage", "%s %s" % (key, r["run_id"]), nowi)
@@ -622,7 +622,7 @@ def tick_nudge(key, r, cls, ns, now, nowi, d, t, out, prepared):
              "number": n, "ts": nowi, "template": "fixed-v1", "text": text}
     append_line(path, json.dumps(entry))
     audit("supervise:nudge-prepared", "%s nudge %d" % (key, n), nowi)
-    line = "QARGI SUPERVISE %s %s nudge-prepared" % (cls, r["run_id"])
+    line = "CROWN SUPERVISE %s %s nudge-prepared" % (cls, r["run_id"])
     out.append(line)
     out.extend(local_instruction(key, r, ns, d, text) if r["kind"] == "local" else cloud_instruction(key, ns, d, text))
     append_line(os.path.join(STATE, "supervisor.log"), "%s %s (%s nudge %d)" % (nowi, line, r["kind"], n))
@@ -681,7 +681,7 @@ def cmd_status(argv):
     interval = int(d["tick_interval_seconds"])
     warn = None
     if not last:
-        warn = "no tick has run yet: nothing is supervising; run qargi supervise tick (on a timer or a loop)"
+        warn = "no tick has run yet: nothing is supervising; run crown supervise tick (on a timer or a loop)"
     elif secs(now, last) > 2 * interval:
         warn = "the last tick was %d minutes ago (more than twice the %d-minute interval): the supervisor may not be running" % (secs(now, last) // 60, interval // 60)
     rows = st["runs"]
@@ -700,7 +700,7 @@ def cmd_status(argv):
         return 0
     if warn:
         print("WARNING: " + warn)
-    print("qargi supervise status: last tick %s" % (last or "never"))
+    print("crown supervise status: last tick %s" % (last or "never"))
     print("  runs by class: " + (", ".join("%s %d" % (k or "-", v) for k, v in sorted(counts.items(), key=lambda x: str(x[0]))) or "none"))
     for key, r in open_rows:
         print("  %-22s %-20s %s" % (r["run_id"][:22], r["class"], "nudges %d" % r["nudges"] if r["nudges"] else ""))
@@ -718,11 +718,11 @@ def cmd_delivered(argv):
         ns = nudge_state(key)
         row = load_runs()["runs"].get(key) or {}
         if not ns["outstanding"]:
-            print("qargi: no prepared nudge for %s (the tick prepares one only when the caps allow)" % key, file=sys.stderr)
+            print("crown: no prepared nudge for %s (the tick prepares one only when the caps allow)" % key, file=sys.stderr)
             return 1
         why = gate(ns, now, d, row.get("ability"), bool(row.get("waiting_on")))
         if why:
-            print("qargi: refused: %s" % why, file=sys.stderr)
+            print("crown: refused: %s" % why, file=sys.stderr)
             return 1
         e = {"type": "delivered", "id": ns["outstanding"]["id"], "key": key, "delivered_at": iso(now), "how": "coordinator"}
         append_line(os.path.join(STATE, "nudges.jsonl"), json.dumps(e))
@@ -772,17 +772,17 @@ def cmd_nudge_record(argv):
     return 0
 
 
-def hooks_snippet(qargi="qargi"):
+def hooks_snippet(crown="crown"):
     spec = [("SubagentStart", "subagent-start"), ("SubagentStop", "subagent-stop"), ("PostToolUse", "tool-use"),
             ("PostToolUseFailure", "tool-failure"), ("Notification", "notification"), ("StopFailure", "stop-failure"),
             ("PreCompact", "pre-compact")]
-    return {"hooks": {ev: [{"hooks": [{"type": "command", "command": "%s hook %s" % (qargi, verb), "timeout": 5}]}] for ev, verb in spec}}
+    return {"hooks": {ev: [{"hooks": [{"type": "command", "command": "%s hook %s" % (crown, verb), "timeout": 5}]}] for ev, verb in spec}}
 
 
 def cmd_hooks(argv):
-    pos, opt = parse_args(argv, {"--qargi": 1})
-    print(json.dumps(hooks_snippet(opt.get("--qargi", "qargi")), indent=2))
-    print("\nMerge the \"hooks\" entries above into your Claude Code settings.json yourself (qargi never writes that file).\n"
+    pos, opt = parse_args(argv, {"--crown": 1})
+    print(json.dumps(hooks_snippet(opt.get("--crown", "crown")), indent=2))
+    print("\nMerge the \"hooks\" entries above into your Claude Code settings.json yourself (crown never writes that file).\n"
           "Each handler records ids, times, the tool name and a hash of its input, and exits 0 at once; it reads no message or command text.", file=sys.stderr)
     return 0
 
@@ -794,12 +794,12 @@ def main(argv):
     verbs = {"tick": cmd_tick, "status": cmd_status, "delivered": cmd_delivered, "nudge-check": cmd_nudge_check,
              "nudge-record": cmd_nudge_record, "hooks": cmd_hooks}
     if not argv or argv[0] not in verbs:
-        print("usage: qargi supervise tick|status|nudge|delivered|hooks ...", file=sys.stderr)
+        print("usage: crown supervise tick|status|nudge|delivered|hooks ...", file=sys.stderr)
         return 2
     try:
         return verbs[argv[0]](argv[1:])
     except ValueError as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
 
 

@@ -1,5 +1,5 @@
-"""The lifecycle of the packs in the provider library (~/.qargi/config/packs/providers/NAME/): a provider (a runtime definition), a
-catalog (the models of a family) or an extension (what a project adds to a runtime). The verbs of `qargi provider` that make, change,
+"""The lifecycle of the packs in the provider library (~/.crown/config/packs/providers/NAME/): a provider (a runtime definition), a
+catalog (the models of a family) or an extension (what a project adds to a runtime). The verbs of `crown provider` that make, change,
 check and remove them; lib/provider.py hands the verbs to this module. A library for lib/provider.py: it does nothing when run.
 
 Every verb that writes is a plan first: it prints the review of what would be stored (files, every executable with its sha256, URLs,
@@ -208,7 +208,7 @@ def capability_lines(doc):
     caps = doc.get("capabilities") if isinstance(doc.get("capabilities"), dict) else {}
     claimed = [(c, cl) for c, cl in caps.items() if isinstance(cl, dict) and cl.get("value") in ("yes", "partial")]
     if claimed:
-        out.append("capabilities claimed (each counts as NO until `qargi provider check` or `attest` records a verification of this exact content):")
+        out.append("capabilities claimed (each counts as NO until `crown provider check` or `attest` records a verification of this exact content):")
         for c, cl in claimed:
             out.append("  %-34s %-8s %s" % (c, cl["value"], cl.get("note", "")))
     else:
@@ -331,8 +331,8 @@ def taken(name):
     if e is None:
         return None
     if e["origin"] == "shipped":
-        return "'%s' is a name qargi ships (a %s); import it under another name (--name)" % (name, e["kind"] or "provider")
-    return "'%s' is already in the library; remove it first (qargi provider remove %s) or import it under another name (--name)" % (name, name)
+        return "'%s' is a name crown ships (a %s); import it under another name (--name)" % (name, e["kind"] or "provider")
+    return "'%s' is already in the library; remove it first (crown provider remove %s) or import it under another name (--name)" % (name, name)
 
 
 # ---- new -------------------------------------------------------------------------------------------------------------------------
@@ -386,10 +386,10 @@ def scaffold(kind, name, base):
 
 README = """# {name}
 
-A {kind} pack for qargi, made by `qargi provider new`. It is unsealed: it cannot be used until you have read it and sealed it.
+A {kind} pack for crown, made by `crown provider new`. It is unsealed: it cannot be used until you have read it and sealed it.
 
-    qargi provider check {name}      the review, the schema and the hermetic checks; records what is verified (once sealed)
-    qargi provider seal {name}       approve it as it is now (a plan first, then --plan TOKEN --approved "...")
+    crown provider check {name}      the review, the schema and the hermetic checks; records what is verified (once sealed)
+    crown provider seal {name}       approve it as it is now (a plan first, then --plan TOKEN --approved "...")
 
 Only text files belong here: scripts you can read, never a compiled program, an archive or an encoded blob. A vendor CLI is installed by
 you and named in definition.json; the review lists it as "needs on PATH". Every executable is approved by name when the pack is sealed.
@@ -399,7 +399,7 @@ you and named in definition.json; the review lists it as "needs on PATH". Every 
 def cmd_new(args):
     opts, pos = parse(args, ("--kind", "--from") + GATE)
     if len(pos) != 1:
-        raise Usage("usage: qargi provider new NAME [--kind provider|catalog|extension] [--from minimal|command|hook-cli|PROVIDER]")
+        raise Usage("usage: crown provider new NAME [--kind provider|catalog|extension] [--from minimal|command|hook-cli|PROVIDER]")
     name, kind = pos[0], opts.get("--kind", "provider")
     base = opts.get("--from")
     if kind not in KINDS:
@@ -439,7 +439,7 @@ def cmd_new(args):
         shutil.rmtree(stage, ignore_errors=True)
         raise
     print("created %s pack %s: %s (unsealed)" % (kind, name, d))
-    print("edit it, then: qargi provider check %s; qargi provider seal %s" % (name, name))
+    print("edit it, then: crown provider check %s; crown provider seal %s" % (name, name))
     return 0
 
 
@@ -476,9 +476,9 @@ def show_review(rv, doc, title, warns):
 def cmd_import(args):
     opts, pos = parse(args, ("--name", "--ref", "--path") + GATE)
     if len(pos) != 1:
-        raise Usage("usage: qargi provider import SOURCE [--name N] [--ref REF] [--path SUB] [--plan TOKEN --approved \"...\" [--approve-exec a,b]]")
+        raise Usage("usage: crown provider import SOURCE [--name N] [--ref REF] [--path SUB] [--plan TOKEN --approved \"...\" [--approve-exec a,b]]")
     source = pos[0]
-    tmp = tempfile.mkdtemp(prefix="qargi-import.")
+    tmp = tempfile.mkdtemp(prefix="crown-import.")
     try:
         os.chmod(tmp, 0o700)
         into, doc, name, rec, rv, fails, warns = prepare(source, opts, tmp, tmp)
@@ -516,7 +516,7 @@ def cmd_import(args):
         shutil.rmtree(tmp, ignore_errors=True)
     print("stored %s pack %s (content %s)%s" % (doc["kind"], name, P.tree_hash(pack_dir(name))[:16],
                                                 "; %d executable%s approved" % (len(execs), "" if len(execs) == 1 else "s") if execs else ""))
-    print("it is not enabled or linked by this; qargi provider check %s records what it can verify" % name)
+    print("it is not enabled or linked by this; crown provider check %s records what it can verify" % name)
     return 0
 
 
@@ -525,9 +525,9 @@ def cmd_import(args):
 def library_entry(name):
     e = P.entry_any(name)
     if e is None:
-        raise Failure("no pack '%s' in the library (qargi provider list)" % name)
+        raise Failure("no pack '%s' in the library (crown provider list)" % name)
     if e["origin"] != "library":
-        raise Refusal("'%s' is shipped with qargi; it is not a library pack" % name)
+        raise Refusal("'%s' is shipped with crown; it is not a library pack" % name)
     if os.path.islink(os.path.dirname(e["file"])):
         raise Refusal("the library entry '%s' is a symbolic link; refusing to change what it points at" % name)
     return e
@@ -536,7 +536,7 @@ def library_entry(name):
 def cmd_seal(args):
     opts, pos = parse(args, GATE)
     if len(pos) != 1:
-        raise Usage("usage: qargi provider seal NAME [--plan TOKEN --approved \"...\" [--approve-exec a,b]]")
+        raise Usage("usage: crown provider seal NAME [--plan TOKEN --approved \"...\" [--approve-exec a,b]]")
     name = pos[0]
     e = library_entry(name)
     d = os.path.dirname(e["file"])
@@ -562,7 +562,7 @@ def cmd_seal(args):
     write_record(d, sealed_record(d, doc["kind"], name, old.get("source", "created"), rv, opts, keep={k: v for k, v in old.items() if k in ("note",)}))
     print("sealed %s pack %s (content %s)" % (doc["kind"], name, P.tree_hash(d)[:16]))
     if os.path.exists(os.path.join(P._state_dir(), "providers", name, "verified.json")):
-        print("its verification records no longer match this content: run qargi provider check %s" % name)
+        print("its verification records no longer match this content: run crown provider check %s" % name)
     return 0
 
 
@@ -612,7 +612,7 @@ def references(name, kind):
 def cmd_remove(args):
     opts, pos = parse(args, GATE)
     if len(pos) != 1:
-        raise Usage("usage: qargi provider remove NAME [--plan TOKEN --approved \"...\"]")
+        raise Usage("usage: crown provider remove NAME [--plan TOKEN --approved \"...\"]")
     name = pos[0]
     e = library_entry(name)
     d = os.path.dirname(e["file"])
@@ -677,10 +677,10 @@ def set_answer(project, path, value):
 def cmd_enable(verb, args):
     opts, pos = parse(args, GATE)
     if len(pos) != 2:
-        raise Usage("usage: qargi provider %s PROJECT EXTENSION [--plan TOKEN --approved \"...\" [--approve-exec a,b]]" % verb)
+        raise Usage("usage: crown provider %s PROJECT EXTENSION [--plan TOKEN --approved \"...\" [--approve-exec a,b]]" % verb)
     project, ext = pos
     if not P.NAME_RE.match(project) or P.project_answers(project) is None:
-        raise Failure("no stored answers for project '%s' (qargi project list)" % project)
+        raise Failure("no stored answers for project '%s' (crown project list)" % project)
     cur = project_models(project).get("extensions")
     cur = [x for x in cur if isinstance(x, str)] if isinstance(cur, list) else []
     e = P.entry_any(ext)
@@ -688,14 +688,14 @@ def cmd_enable(verb, args):
         if verb == "disable" and ext in cur:
             e = None
         else:
-            raise Failure("no extension '%s' (qargi provider list)" % ext)
+            raise Failure("no extension '%s' (crown provider list)" % ext)
     execs, tokparts = {}, ""
     if verb == "enable":
         if e["origin"] != "library":
             raise Refusal("'%s' is shipped; an extension is a library pack" % ext)
         state, why = P.seal_state(e)
         if state != "sealed":
-            raise Refusal("extension '%s' %s; seal it first (qargi provider seal %s): enabling approves code only after it was reviewed" % (ext, why or state, ext))
+            raise Refusal("extension '%s' %s; seal it first (crown provider seal %s): enabling approves code only after it was reviewed" % (ext, why or state, ext))
         d = os.path.dirname(e["file"])
         doc = read_definition(d)
         fails, _ = doc_findings(doc, ext)
@@ -728,7 +728,7 @@ def cmd_enable(verb, args):
             print("nothing to do: %s is enabled for %s already" % (ext, project))
             return 0
         print("applies to: %s" % ", ".join("%s on %s" % (rt, sf) for sf, rt in applied))
-        print("effect: models.extensions of project %s becomes %s; what it provides counts only after it is checked (qargi provider check %s --project %s)" % (project, json.dumps(new), ext, project))
+        print("effect: models.extensions of project %s becomes %s; what it provides counts only after it is checked (crown provider check %s --project %s)" % (project, json.dumps(new), ext, project))
     else:
         if ext not in cur:
             print("nothing to do: %s is not enabled for %s" % (ext, project))
@@ -763,7 +763,7 @@ def cmd_check(args):
     from conformance import cases
     opts, pos = parse(args, ("--project",))
     if len(pos) != 1:
-        raise Usage("usage: qargi provider check NAME|DIR [--project P]")
+        raise Usage("usage: crown provider check NAME|DIR [--project P]")
     d, name, e = check_target(pos[0])
     if e is None and d is None or e is not None and e["origin"] == "shipped":
         return None                                                # a shipped definition, or none: the report provider.py has always made
@@ -772,8 +772,8 @@ def cmd_check(args):
     kind = doc.get("kind")
     state = P.seal_state(e)[0] if e is not None else "directory"
     if state == "unrecorded":                                      # nobody read it or approved it: nothing of it is judged, recorded or run
-        raise Refusal("pack '%s' has no record (put there by hand) and was never reviewed, so it is not checked; read it and seal it (qargi provider seal %s), "
-                      "or qargi provider import it from its source" % (name, name))
+        raise Refusal("pack '%s' has no record (put there by hand) and was never reviewed, so it is not checked; read it and seal it (crown provider seal %s), "
+                      "or crown provider import it from its source" % (name, name))
     rv = R.scan(d, doc)
     fails, warns = doc_findings(doc, name if name else name_of(doc), d)
     fails = rv["fail"] + fails
@@ -809,7 +809,7 @@ def check_extension(doc, d, name, e, state, opts):
     the capabilities it provides, and record those that passed bound to the extension and that runtime (provider.extension_hash)."""
     from conformance import cases
     if name is None or e is None:
-        print("an extension is checked composed onto its runtime, from the library: qargi provider import it first; nothing is recorded")
+        print("an extension is checked composed onto its runtime, from the library: crown provider import it first; nothing is recorded")
         return 0
     try:
         base, surface = P.extension_base(name, opts.get("--project"))
@@ -858,10 +858,10 @@ def record_results(doc, results, name, state, hash_now):
         if ok:
             records[cap] = why
     if name is None:
-        print("a directory is not recorded: put the pack in the library (qargi provider import) to have a verification recorded")
+        print("a directory is not recorded: put the pack in the library (crown provider import) to have a verification recorded")
         return 1 if bad else 0
     if state != "sealed":
-        print("nothing recorded: %s; seal it (qargi provider seal %s) and check again" % ("the pack is " + state, name))
+        print("nothing recorded: %s; seal it (crown provider seal %s) and check again" % ("the pack is " + state, name))
         return 1 if bad else 0
     h = hash_now()
     keep = {c: r for c, r in P.verification(name).items() if isinstance(r, dict) and r.get("by") == "attest" and r.get("hash") == h}
@@ -883,7 +883,7 @@ check YOU ran, with the owner's words, for this exact content. Before any run, t
   4. the hard ceiling (cents or tokens), enforced by the run where it can be
   5. the expected cost, and how the scratch resources are cleaned up afterwards
 Only on the owner's go-ahead run it, then record it:
-  qargi provider attest NAME CAP --asked "<the owner's words>" --did "<what you ran>" --result pass|fail --cost-cents N --cleanup "<state>" [--note TEXT]
+  crown provider attest NAME CAP --asked "<the owner's words>" --did "<what you ran>" --result pass|fail --cost-cents N --cleanup "<state>" [--note TEXT]
   (then the plan token it prints: apply with --plan TOKEN --approved "<the owner's go-ahead to record it>")
 A free local check that makes no API call (an OS sandbox test, say) needs no spend ask, but is recorded the same way, with --cost-cents 0."""
 
@@ -891,7 +891,7 @@ A free local check that makes no API call (an OS sandbox test, say) needs no spe
 def cmd_attest(args):
     opts, pos = parse(args, ("--did", "--result", "--cost-cents", "--cleanup", "--note", "--project") + GATE)
     if len(pos) != 2:
-        raise Usage("usage: qargi provider attest NAME CAP [--project P] --asked WORDS --did TEXT --result pass|fail --cost-cents N --cleanup TEXT [--plan TOKEN --approved WORDS]\n" + ASK)
+        raise Usage("usage: crown provider attest NAME CAP [--project P] --asked WORDS --did TEXT --result pass|fail --cost-cents N --cleanup TEXT [--plan TOKEN --approved WORDS]\n" + ASK)
     name, cap = pos
     e = library_entry(name)
     if (e["kind"] or "provider") not in ("provider", "extension"):
@@ -900,7 +900,7 @@ def cmd_attest(args):
         raise Failure("unknown capability '%s'; one of %s" % (cap, ", ".join(P.capabilities2())))
     state = P.seal_state(e)[0]
     if state != "sealed":
-        raise Refusal("pack '%s' %s; seal it first (qargi provider seal %s), so that the attestation is bound to the content that was reviewed" % (name, P.seal_state(e)[1] or state, name))
+        raise Refusal("pack '%s' %s; seal it first (crown provider seal %s), so that the attestation is bound to the content that was reviewed" % (name, P.seal_state(e)[1] or state, name))
     ext = e["kind"] == "extension"
     if ext:
         try:
@@ -1013,10 +1013,10 @@ def run(verb, rest):
         print(str(e), file=sys.stderr)
         return 2
     except Refusal as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
     except Failure as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     raise ValueError(verb)
 

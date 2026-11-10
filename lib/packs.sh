@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Skills and tools ("packs"): one library, names globally unique, attached by scope links.
 #
-#   library   ~/.qargi/config/packs/skills/<name>/   (a directory with SKILL.md)
-#             ~/.qargi/config/packs/tools/<name>.json (an MCP server with an allowlist)
-#   links     ~/.qargi/config/packs/links.json
+#   library   ~/.crown/config/packs/skills/<name>/   (a directory with SKILL.md)
+#             ~/.crown/config/packs/tools/<name>.json (an MCP server with an allowlist)
+#   links     ~/.crown/config/packs/links.json
 #
 # A link attaches a pack at a scope: user (every project and role), user-role (one role of every
 # project), project (every role of one project), project-role (one role of one project). A role
@@ -17,7 +17,7 @@
 #   packs.sh skill|tool seal    NAME [--compatible LIST] [--plan TOKEN --approved "..."]    approve the current content (after you edited it)
 #   packs.sh skill|tool link    NAME --scope S [--project P] [--role R]      unlink: the same
 #   packs.sh skill|tool enable|disable PROJECT ROLE NAME                     (role-level opt-out)
-#   packs.sh skill accept PROJECT NAME [--user] [--plan TOKEN --approved "..."]   accept a skill a session loads that qargi does not manage
+#   packs.sh skill accept PROJECT NAME [--user] [--plan TOKEN --approved "..."]   accept a skill a session loads that crown does not manage
 #   packs.sh skill unaccept PROJECT NAME [--user] [--plan TOKEN --approved "..."] take the acceptance back
 #   packs.sh skill|tool effective PROJECT ROLE       what the role gets
 #   packs.sh skill|tool check   PROJECT ROLE         review, drift and missing packs of that role
@@ -82,11 +82,11 @@ prov_need() { # project would field...: prov_of, then the refusals above
 }
 case $KIND in skill|tool|packs) ;; *) usage_die "usage: packs.sh skill|tool|packs <verb> ...";; esac
 # Changing a skill needs a present person (library/SPEC.md, "Who may modify a skill"): a caller that is itself approved
-# (QARGI_NESTED) has not approved this change, so the write verbs never honour it and the token is always required.
+# (CROWN_NESTED) has not approved this change, so the write verbs never honour it and the token is always required.
 # No caller nests them: discover.py already clears it, and provisioning only renders.
 case $KIND:$VERB in
   skill:new|skill:import|skill:seal|skill:remove|skill:link|skill:unlink|skill:enable|skill:disable|skill:accept|skill:unaccept|\
-  tool:new|tool:import|tool:seal|tool:remove|tool:link|tool:unlink|tool:enable|tool:disable|packs:apply|packs:seed|packs:link|packs:unlink) unset QARGI_NESTED;;
+  tool:new|tool:import|tool:seal|tool:remove|tool:link|tool:unlink|tool:enable|tool:disable|packs:apply|packs:seed|packs:link|packs:unlink) unset CROWN_NESTED;;
 esac
 need_token() { # expected-token; never empty, and never skipped
   [ -n "${1:-}" ] || die "internal error: no plan token to check; nothing was changed"
@@ -149,10 +149,10 @@ review() { # kind path [compat-json]: the declaration is the third argument whil
     # bidi character in a file or its name); the failures come escaped, from the same rules as the provider packs (conformance/review.py)
     pol=$(python3 -I "$REVIEWPY" policy "$p" 2>&1) || { echo "$pol"; rc=1; }
     n=$(find "$p" -type f ! -path "$p/.pack.json" | wc -l); size=$(find "$p" -type f ! -path "$p/.pack.json" -exec cat {} + | wc -c)
-    # the top-level .pack.json is qargi's own record of a library pack and no part of the skill; one deeper is skill content that nothing
+    # the top-level .pack.json is crown's own record of a library pack and no part of the skill; one deeper is skill content that nothing
     # reads as a record (it would pass for an approval), so it is a finding, and it counts in the content hash like any file
     local nested; nested=$(cd "$p" && find . -mindepth 2 -name .pack.json | sed 's#^\./#  #' | sort)
-    [ -z "$nested" ] || { echo "FAIL: .pack.json is qargi's own record and only the top level of a library pack holds it; remove or rename these:"; echo "$nested" | showable; rc=1; }
+    [ -z "$nested" ] || { echo "FAIL: .pack.json is crown's own record and only the top level of a library pack holds it; remove or rename these:"; echo "$nested" | showable; rc=1; }
     echo "files: $n, $size bytes"
     { [ "$n" -le 100 ] && [ "$size" -le 2000000 ]; } || { echo "FAIL: more than 100 files or 2 MB"; rc=1; }
     (cd "$p" && find . -type f ! -path ./.pack.json | sed 's#^\./#  #' | sort | head -40) | showable
@@ -350,7 +350,7 @@ rn_main() { # verb: apply|check
     # read only: the section of the skills a session would load follows; only a drifted one adds to the exit status
     local rc=0
     prov_need "$prj" "list the skills a session would load" project_skills_dir
-    [ "$(jq -r '.packs.none == true' "$DA_CONF/projects/$prj.json")" = true ] || ! none_linked "$prj" || echo "no pack is linked to any role of $prj (qargi skill link NAME --scope project --project $prj)"
+    [ "$(jq -r '.packs.none == true' "$DA_CONF/projects/$prj.json")" = true ] || ! none_linked "$prj" || echo "no pack is linked to any role of $prj (crown skill link NAME --scope project --project $prj)"
     python3 -I "$PY" check "$RN_W/in.json" || rc=1
     [ -n "$RENDER_ONLY" ] || au_report "$RN_W/in.json" "$RN_W" || rc=1
     exit $rc
@@ -411,13 +411,13 @@ cl_main() { # verb: link|unlink
   exit 0
 }
 
-# skill accept|unaccept: the owner's record, in accepted.json, of a skill a session loads that qargi does not manage (see the
+# skill accept|unaccept: the owner's record, in accepted.json, of a skill a session loads that crown does not manage (see the
 # audit above). Gated like packs link: the plan prints the review of the skill and a token over scope, name and content hash,
 # and apply re-plans and needs the token to match. The --approved text is stored with the record, not verified. One lock
 # for the file, since the acceptances of every project share it; the script writes it atomically, mode 600.
 ac_main() { # verb: accept|unaccept
   local prj=${ARGS[0]:-} name=${ARGS[1]:-} scope=project who tok hash real shown AUPY ACC rec
-  [ "$KIND" = skill ] || die "$1 is for skills: qargi skill $1 PROJECT NAME"
+  [ "$KIND" = skill ] || die "$1 is for skills: crown skill $1 PROJECT NAME"
   [ -n "$prj" ] && [ -n "$name" ] || usage_die "skill $1 needs PROJECT NAME"
   valid_project "$prj" || die "not a project name: $prj"
   # [[ =~ ]] anchors at the end of the string; grep -E '$' would accept a trailing newline
@@ -435,14 +435,14 @@ ac_main() { # verb: accept|unaccept
     python3 -I "$AUPY" target "$RN_W/au.json" "$name" "$scope" "$RN_W/target.json" || exit 1
     hash=$(jq -r .hash "$RN_W/target.json"); real=$(jq -r .real "$RN_W/target.json"); shown=$(jq -r .path "$RN_W/target.json")
     echo "== review of skill $name at $(printf '%s' "$shown" | tr -d '\000-\037\177')"
-    review skill "$real" || echo "note: the review has FAIL findings; accepting takes the skill as it is, qargi does not store or change it"
+    review skill "$real" || echo "note: the review has FAIL findings; accepting takes the skill as it is, crown does not store or change it"
     tok=$(printf 'skill-accept|%s|%s|%s' "$who" "$name" "$hash" | plan_token)
   else
     rec=$(python3 -I "$AUPY" acceptance "$ACC" "$scope" "$prj" "$name") || exit 1
     hash=$(jq -r .sha256 <<<"$rec")
     echo "unaccept plan for $prj: remove the acceptance of skill $name ($who, content $hash)"
     echo "  accepted at $(jq -r '.at // "?"' <<<"$rec") from $(jq -r '.path // "?"' <<<"$rec"), approved: $(jq -r '.approved // ""' <<<"$rec")"
-    echo "  the skill itself is not touched; qargi lists it as unmanaged again."
+    echo "  the skill itself is not touched; crown lists it as unmanaged again."
     tok=$(printf 'skill-unaccept|%s|%s|%s' "$who" "$name" "$hash" | plan_token)
   fi
   if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: --plan $tok --approved \"<the user's go-ahead>\")"; exit 0; fi
@@ -450,7 +450,7 @@ ac_main() { # verb: accept|unaccept
   audit_log "skill-$1" "$prj $name $hash $who $tok"
   if [ "$1" = accept ]; then
     python3 -I "$AUPY" store accept "$ACC" "$scope" "$prj" "$name" "$hash" "$shown" "$APPROVED" "$(now)" || exit 1
-    echo "accepted skill $name (content $hash) for $([ "$scope" = user ] && echo every project || echo "project $prj"); qargi skill unaccept $prj $name${USER_SCOPE:+ --user} undoes it"
+    echo "accepted skill $name (content $hash) for $([ "$scope" = user ] && echo every project || echo "project $prj"); crown skill unaccept $prj $name${USER_SCOPE:+ --user} undoes it"
   else
     python3 -I "$AUPY" store unaccept "$ACC" "$scope" "$prj" "$name" || exit 1
     echo "unaccepted skill $name ($who)"
@@ -475,7 +475,7 @@ if [ "$KIND" = packs ]; then
       for e in ${CP_OK[@]+"${CP_OK[@]}"}; do
         k=${e%%:*}; n=${e#*:}; P=$(item_path "$k" "$n")
         [ -e "$P" ] || die "attached pack $e is not in the library"
-        review "$k" "$P" >/dev/null || die "attached pack $e fails its review (qargi $k check $PRJ $ROL)"
+        review "$k" "$P" >/dev/null || die "attached pack $e fails its review (crown $k check $PRJ $ROL)"
         want=$(jq -r '.sha256 // ""' "$(record_of "$P")" 2>/dev/null)
         { [ -z "$want" ] || [ "$want" = "$(content_hash "$P")" ]; } || die "attached pack $e changed since it was approved (drift); review it and re-import"
         if [ "$k" = skill ]; then cp -r "$P" "$OUT/skills/$n"; rm -f "$OUT/skills/$n/.pack.json"; echo "$n" >> "$OUT/custom_skills.txt"
@@ -485,7 +485,7 @@ if [ "$KIND" = packs ]; then
       # branch/commit/pull-request writes unattended, merges asked of the person, nothing destructive.
       if [ "$ROL" = lead ] && [ "$(jq -r '.lead.push.cloud // "none"' "$DA_CONF/projects/$PRJ.json" 2>/dev/null)" = branches ]; then
         vid=$(jq -r '.lead.push.vault_id // ""' "$DA_CONF/projects/$PRJ.json")
-        [ -n "$vid" ] || die "the lead has a cloud push grant but no vault: run qargi credential setup lead-push $PRJ"
+        [ -n "$vid" ] || die "the lead has a cloud push grant but no vault: run crown credential setup lead-push $PRJ"
         gt=$(dirname "$(readlink -f "$0")")/../provision/templates/github-lead.json; [ -f "$gt" ] || gt=$(dirname "$(readlink -f "$0")")/provision/templates/github-lead.json
         jq -c --arg v "$vid" --slurpfile g "$gt" '. + [($g[0] + {vault_ids: [$v]})]' "$OUT/mcp.json" > "$OUT/mcp.json.tmp" && mv "$OUT/mcp.json.tmp" "$OUT/mcp.json"
         if [ "$(jq -r '.lead.push.merge // "ask"' "$DA_CONF/projects/$PRJ.json")" = never ]; then
@@ -494,13 +494,13 @@ if [ "$KIND" = packs ]; then
       fi;;
     seed)
       # The baseline packs shipped in packs/ (manifest packs/baseline.json, one directory per skill under packs/skills/).
-      # A pack is stored with source "qargi-baseline VERSION" and the hash it shipped with ("shipped"), so a later run can tell
+      # A pack is stored with source "crown-baseline VERSION" and the hash it shipped with ("shipped"), so a later run can tell
       # a copy nobody edited (replaced when a newer version ships) from one the user edited (never overwritten).
       # Links are never touched. --install only adds what is missing, needs no token and never updates.
       ROOT=$(dirname "$(dirname "$(readlink -f "$0")")"); SHIP=$ROOT/packs
       [ -f "$SHIP/baseline.json" ] || die "no baseline packs shipped at $SHIP"
       jq -e '.schema == 1 and (.packs | type == "array")' "$SHIP/baseline.json" >/dev/null 2>&1 || die "$SHIP/baseline.json is not a baseline manifest"
-      SRC="qargi-baseline $(cat "$ROOT/VERSION" 2>/dev/null || echo unknown)"
+      SRC="crown-baseline $(cat "$ROOT/VERSION" 2>/dev/null || echo unknown)"
       ST=() PL=() NOTE='' CMP=()   # ST: "name|status|hs|old" in manifest order; PL: add/update plan lines; CMP: the declaration of each, in the same order
       cmp_of() { local x; for x in "${CMP[@]}"; do [ "${x%% *}" != "$1" ] || { jq -r 'join(",")' <<<"${x#* }"; return; }; done; }
       while IFS=$'\t' read -r k n c; do
@@ -508,7 +508,7 @@ if [ "$KIND" = packs ]; then
         valid_slug "$n" || die "the baseline manifest names '$n', not a pack name"
         { c=$(jq -cS 'if type == "array" then unique else . end' <<<"$c" 2>/dev/null) && python3 -I "$COMPATPY" valid "$c" >/dev/null; } || die "the baseline manifest gives the pack $n no valid compatible_providers (a list of runtime or family names, or [\"any\"])"
         D=$SHIP/skills/$n; [ -f "$D/SKILL.md" ] || die "the shipped pack $n is missing at $D"
-        review skill "$D" "$c" >/dev/null 2>&1 || die "the shipped pack $n fails its review (qargi skill show cannot reach it; run it through review by hand)"
+        review skill "$D" "$c" >/dev/null 2>&1 || die "the shipped pack $n fails its review (crown skill show cannot reach it; run it through review by hand)"
         hs=$(content_hash "$D" "$c"); P=$PACKS/skills/$n; old=''; CMP+=("$n $c")
         if [ -e "$PACKS/tools/$n.json" ]; then
           st=belongs
@@ -516,7 +516,7 @@ if [ "$KIND" = packs ]; then
         else
           rec=$P/.pack.json; src=$(jq -r '.source // ""' "$rec" 2>/dev/null); old=$(content_hash "$P")
           case $src in
-            qargi-baseline*)
+            crown-baseline*)
               if [ "$(jq -r '.shipped // ""' "$rec")" != "$old" ] || [ "$(jq -r '.sha256 // ""' "$rec")" != "$old" ]; then st=edited
               elif [ "$old" = "$hs" ]; then st=current
               else st=update; fi;;
@@ -559,7 +559,7 @@ if [ "$KIND" = packs ]; then
         for e in "${ST[@]}"; do
           case $e in *"|update|"*) NOTE=1;; esac
         done
-        if [ -n "$NOTE" ]; then echo "note: newer shipped versions: run qargi packs seed"; fi
+        if [ -n "$NOTE" ]; then echo "note: newer shipped versions: run crown packs seed"; fi
         [ -n "$names" ] || [ -n "$NOTE" ] || echo "nothing to seed"
         exit 0
       fi
@@ -581,9 +581,9 @@ if [ "$KIND" = packs ]; then
         seed_one "$n" "$hs"; echo "seeded skill $n (content $hs)"
       done
       for prj in $(printf '%s\n' $reached | sort -u); do
-        rt=$(python3 -I "$PROVPY" layout "$(python3 -I "$PROVPY" of "$prj" --conf "$DA_CONF" --surface local 2>/dev/null)" render_target 2>/dev/null) && echo "next: qargi packs apply --target $rt $prj"
+        rt=$(python3 -I "$PROVPY" layout "$(python3 -I "$PROVPY" of "$prj" --conf "$DA_CONF" --surface local 2>/dev/null)" render_target 2>/dev/null) && echo "next: crown packs apply --target $rt $prj"
         [ ! -f "$REG" ] || jq -r --arg p "$prj" 'to_entries[] | select(.value.location=="cloud" and (.key | startswith($p + "-"))) | .key' "$REG" \
-          | while read -r inst; do echo "next: qargi packs apply $inst"; done
+          | while read -r inst; do echo "next: crown packs apply $inst"; done
       done
       exit 0;;
     load)
@@ -594,12 +594,12 @@ if [ "$KIND" = packs ]; then
       valid_role "$ROL" || die "load: --role is one of: $DA_ROLES"
       vet() { # kind name -> dies unless the pack is sound; sets P
         P=$(item_path "$1" "$2"); [ -e "$P" ] || die "attached pack $1:$2 is not in the library"
-        review "$1" "$P" >/dev/null || die "pack $1:$2 fails its review (qargi $1 check $PRJ $ROL)"
+        review "$1" "$P" >/dev/null || die "pack $1:$2 fails its review (crown $1 check $PRJ $ROL)"
         want=$(jq -r '.sha256 // ""' "$(record_of "$P")" 2>/dev/null)
         { [ -z "$want" ] || [ "$want" = "$(content_hash "$P")" ]; } || die "pack $1:$2 changed since it was approved (drift); it is not loaded"
       }
       if [ -z "$LN" ]; then
-        echo "enabled for $PRJ/$ROL (qargi packs load NAME --role $ROL --project $PRJ prints one):"
+        echo "enabled for $PRJ/$ROL (crown packs load NAME --role $ROL --project $PRJ prints one):"
         compat_filter "$PRJ" "$ROL" local,cloud; skip_say "  "
         for e in ${CP_OK[@]+"${CP_OK[@]}"}; do
           k=${e%%:*}; n=${e#*:}; vet "$k" "$n"
@@ -614,7 +614,7 @@ if [ "$KIND" = packs ]; then
       if [ -z "$e" ]; then
         sk=$(skip_say '' | grep -E "^skipped (skill|tool) $(printf '%s' "$LN" | sed 's/[.]/\\./g'): " | head -1)
         [ -z "$sk" ] || die "load: $LN is linked but skipped for $PRJ/$ROL: ${sk#skipped * "$LN": }; it is not loaded"
-        die "load: $LN is not enabled for $PRJ/$ROL (link it, or see: qargi packs load --role $ROL --project $PRJ)"
+        die "load: $LN is not enabled for $PRJ/$ROL (link it, or see: crown packs load --role $ROL --project $PRJ)"
       fi
       k=${e%%:*}; vet "$k" "$LN"
       if [ "$k" = skill ]; then
@@ -681,7 +681,7 @@ case "$VERB" in
       mkdir -p "$P"; printf -- '---\nname: %s\ndescription: <when to use this skill, in one or two sentences>\n---\n\n# %s\n\n<the instructions the agent follows>\n' "$NAME" "$NAME" > "$P/SKILL.md"
     else printf '%s\n' "${TEMPLATE_TOOL//NAME/$NAME}" | jq . > "$P"; fi
     write_record "$P" "$KIND" created "$COMPAT"; audit_log "$KIND-new" "$NAME"
-    echo "created $KIND $NAME: $P (compatible_providers: $(jq -r 'join(", ")' <<<"$COMPAT"))"; echo "edit it, then link it: qargi $KIND link $NAME --scope S ...";;
+    echo "created $KIND $NAME: $P (compatible_providers: $(jq -r 'join(", ")' <<<"$COMPAT"))"; echo "edit it, then link it: crown $KIND link $NAME --scope S ...";;
   import)
     SRC=${ARGS[0]:-}; [ -n "$SRC" ] || usage_die "import needs a SOURCE (a directory or file, or an https git URL)"
     COMPAT=$(compat_need) || exit 1   # before anything is fetched: the declaration is part of what is approved
@@ -693,7 +693,7 @@ case "$VERB" in
     if [ "$KIND" = skill ]; then
       [ -d "$WORK" ] || die "a skill source is a directory with SKILL.md"
       NAME=${NAME:-$(sed -n 's/^name: *//p' "$WORK/SKILL.md" 2>/dev/null | head -1)}
-      # a top-level .pack.json in the source is qargi's own record (a pack copied out of the library, or made by qargi): not copied, and said so
+      # a top-level .pack.json in the source is crown's own record (a pack copied out of the library, or made by crown): not copied, and said so
       cp -r "$WORK" "$T/stage"; if [ -e "$T/stage/.pack.json" ] || [ -L "$T/stage/.pack.json" ]; then IGNORED_REC=1; rm -rf "$T/stage/.pack.json"; fi
     else
       [ -f "$WORK" ] || die "a tool source is a JSON file"
@@ -702,7 +702,7 @@ case "$VERB" in
     valid_slug "$NAME" || die "cannot work out a valid name; pass --name"
     [ -z "$(ls "$PACKS/skills/$NAME" "$PACKS/tools/$NAME.json" 2>/dev/null)" ] || die "$NAME already exists in the library (names are unique; pass --name or remove the old one)"
     echo "== review of $KIND $NAME from $SRCREC"
-    [ -z "${IGNORED_REC:-}" ] || echo "note: the source's top-level .pack.json is qargi's own record of a library pack: it is ignored and not copied (the pack gets a new record from this import)"
+    [ -z "${IGNORED_REC:-}" ] || echo "note: the source's top-level .pack.json is crown's own record of a library pack: it is ignored and not copied (the pack gets a new record from this import)"
     review "$KIND" "$T/stage" "$COMPAT" || { echo "refused: fix the source first" >&2; exit 1; }
     TOK=$(content_hash "$T/stage" "$COMPAT")
     if [ -z "$APPROVED" ]; then echo "plan token: $TOK   (store it with: --plan $TOK --approved \"<the user's go-ahead after reading the review>\")"; exit 0; fi
@@ -736,9 +736,9 @@ case "$VERB" in
     NAME=${ARGS[0]:-}; P=$(item_path "$KIND" "$NAME"); [ -e "$P" ] || die "no such $KIND in the library"
     L=$(link_args "$KIND:$NAME")
     if [ "$VERB" = link ]; then
-      review "$KIND" "$P" >/dev/null || die "the pack fails its review: qargi $KIND show $NAME"
+      review "$KIND" "$P" >/dev/null || die "the pack fails its review: crown $KIND show $NAME"
       want=$(jq -r '.sha256 // ""' "$(record_of "$P")" 2>/dev/null)
-      [ "$want" = "$(content_hash "$P")" ] || die "$NAME changed since it was approved; review and approve it: qargi $KIND seal $NAME"
+      [ "$want" = "$(content_hash "$P")" ] || die "$NAME changed since it was approved; review and approve it: crown $KIND seal $NAME"
       json_update "$LINKS" '.links = ((.links + [$l]) | unique)' --argjson l "$L"
     else json_update "$LINKS" '.links = (.links | map(select(. != $l)))' --argjson l "$L"; fi
     audit_log "$KIND-$VERB" "$L"; echo "$VERB: $L";;
@@ -772,7 +772,7 @@ case "$VERB" in
     exit $rc;;
   remove)
     NAME=${NAME:-${ARGS[0]:-}}; P=$(item_path "$KIND" "$NAME"); [ -e "$P" ] || die "no such $KIND in the library"
-    [ "$(jq -r --arg k "$KIND:$NAME" '[.links[] | select(.pack==$k)] | length' "$LINKS")" = 0 ] || die "$NAME is linked; unlink it from every scope first (qargi $KIND show $NAME)"
+    [ "$(jq -r --arg k "$KIND:$NAME" '[.links[] | select(.pack==$k)] | length' "$LINKS")" = 0 ] || die "$NAME is linked; unlink it from every scope first (crown $KIND show $NAME)"
     audit_log "$KIND-remove" "$NAME"; rm -rf "$P" "$(record_of "$P")"; echo "removed $KIND $NAME";;
   *) usage_die "usage: packs.sh skill|tool new|import|list|show|seal|link|unlink|enable|disable|effective|check|remove ...; skill accept|unaccept PROJECT NAME";;
 esac

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""qargi report: what the session tracker says about cost, review and stuck sessions. Read-only; it reads
-sessions.json and, for the supervisor section, runs.json and nudges.jsonl (which `qargi supervise tick` writes); no cloud call, no registry. The free-text note and asked fields are never
+"""crown report: what the session tracker says about cost, review and stuck sessions. Read-only; it reads
+sessions.json and, for the supervisor section, runs.json and nudges.jsonl (which `crown supervise tick` writes); no cloud call, no registry. The free-text note and asked fields are never
 printed. summarize() is a pure function over the tracker's dict, so the tests feed it fixtures.
 
-Local runs are read from the run directories `qargi local prepare` makes (RUN/out holds the agent's manifest.json
-and log.txt), found through the one-line-per-run registry prepare appends to ($QARGI_STATE/local-runs.jsonl) and,
-with --runs-root DIR (or QARGI_RUNS_ROOT), by scanning DIR/qargi.* as well.
+Local runs are read from the run directories `crown local prepare` makes (RUN/out holds the agent's manifest.json
+and log.txt), found through the one-line-per-run registry prepare appends to ($CROWN_STATE/local-runs.jsonl) and,
+with --runs-root DIR (or CROWN_RUNS_ROOT), by scanning DIR/crown.* as well.
 
 Usage: report.py [--since DATE] [--instance NAME] [--stale-after DURATION] [--local-stale-after DURATION]
                  [--runs-root DIR] [--json]"""
@@ -25,16 +25,16 @@ NEEDS_INPUT = ("requires_action", "budget_reached", "retries_exhausted")
 NOT_SETTLED = ("running", "rescheduling", "unknown")
 
 LOCAL_LIMITS = [
-    "local runs are known from the directories qargi local prepare made; a run made before the registry existed is found only through --runs-root",
+    "local runs are known from the directories crown local prepare made; a run made before the registry existed is found only through --runs-root",
     "'still changing' means a file in the run (output or clone) changed within the stale window: the agent, or a background command it left running, is probably still working",
     "a run can end its turn while its own background command still runs and report again later; a quiet run is only possibly stalled",
     "a local run has no cost record and no review state; this section cannot say whether its work was applied",
 ]
 LIMITS = [
-    "spend is list_cost as qargi last read it from the session (the units of the budget flags: cents, per the docs), not an invoice",
-    "an age counts from last_seen, the last time qargi read the session; a session nobody refreshed looks older than it is",
+    "spend is list_cost as crown last read it from the session (the units of the budget flags: cents, per the docs), not an invoice",
+    "an age counts from last_seen, the last time crown read the session; a session nobody refreshed looks older than it is",
     "review_state records what you did with the work (mark), not whether the work was good",
-    "an interrupted turn also ends with end_turn; only an interrupt sent through qargi stop is recorded, so a session stopped from the console counts as finished",
+    "an interrupted turn also ends with end_turn; only an interrupt sent through crown stop is recorded, so a session stopped from the console counts as finished",
 ]
 
 
@@ -145,7 +145,7 @@ def find_local_runs(state, root=None):
     if root and os.path.isdir(root):
         for name in sorted(os.listdir(root)):
             run = os.path.join(root, name)
-            if not name.startswith("qargi.") or run in seen or not os.path.isdir(run):
+            if not name.startswith("crown.") or run in seen or not os.path.isdir(run):
                 continue
             label = started = None
             try:
@@ -189,7 +189,7 @@ def local_section(facts, now, stale_after=1800, since=None):
     return {"stale_after_seconds": stale_after, "runs": runs, "counts": counts}
 
 
-# what qargi supervise (the tick) found; the classes are the supervisor's, the data is runs.json and nudges.jsonl
+# what crown supervise (the tick) found; the classes are the supervisor's, the data is runs.json and nudges.jsonl
 STALLS = ("stop_failure", "ended_no_manifest", "interim_overdue", "looping", "suspected_dead", "stale_running", "terminated")
 ASKS = ("waiting", "requires_action", "budget_reached", "idle_awaiting_review")
 
@@ -220,7 +220,7 @@ def supervisor_section(runs, nudge_lines):
 
 def render_supervisor(sup, out):
     out.append("")
-    out.append("Supervisor (qargi supervise)")
+    out.append("Supervisor (crown supervise)")
     out.append("  last tick: %s" % sup["last_tick_at"])
     out.append("  suspected stalls: %s" % counts(sup["stalls"]))
     out.append("  waiting on you: %s" % counts(sup["asks"]))
@@ -235,7 +235,7 @@ def scope(rows, now, stale_after):
     spend, unknown_cost, applied = 0.0, 0, 0
     pending, stale, spans = [], [], []
     reasons = {}
-    idle = {"finished": 0, "stopped_by_qargi": 0, "needs_input": {}, "not_recorded": 0, "other": {}}
+    idle = {"finished": 0, "stopped_by_crown": 0, "needs_input": {}, "not_recorded": 0, "other": {}}
     for sid, r in rows:
         rv, st = r.get("review_state"), r.get("status") or "unknown"
         out["review"][rv] = out["review"].get(rv, 0) + 1
@@ -266,7 +266,7 @@ def scope(rows, now, stale_after):
             if not why:
                 idle["not_recorded"] += 1
             elif why in FINISHED and r.get("interrupt_sent_at"):
-                idle["stopped_by_qargi"] += 1   # an interrupted turn also ends with end_turn
+                idle["stopped_by_crown"] += 1   # an interrupted turn also ends with end_turn
             elif why in FINISHED:
                 idle["finished"] += 1
             elif why in NEEDS_INPUT:
@@ -342,7 +342,7 @@ def render_scope(s, title, stale_after, out):
     if s["status"].get("idle"):
         out.append("  idle sessions:")
         out.append("    awaiting review (finished, end_turn): %d" % i["finished"])
-        out.append("    stopped by qargi (interrupt sent, end_turn): %d" % i["stopped_by_qargi"])
+        out.append("    stopped by crown (interrupt sent, end_turn): %d" % i["stopped_by_crown"])
         out.append("    stopped needing input: %s" % counts(i["needs_input"]))
         if i["other"]:
             out.append("    other stop reason: %s" % counts(i["other"]))
@@ -383,7 +383,7 @@ def render_local(loc, out):
 
 
 def render(rep):
-    out = ["qargi report, %s%s" % (rep["generated"], (", sessions created since " + rep["since"]) if rep["since"] else "")]
+    out = ["crown report, %s%s" % (rep["generated"], (", sessions created since " + rep["since"]) if rep["since"] else "")]
     if not rep["total"]["sessions"]:
         out.append("no tracked sessions match")
     else:
@@ -401,7 +401,7 @@ def render(rep):
     nt = rep.get("noticed")
     if nt and (nt["open"] or nt["resolved"]):
         out.append("")
-        out.append("Noticed, not acted on (qargi noticed list): %d open%s" % (nt["open"], (", oldest " + hms(nt["oldest_open_seconds"])) if nt["oldest_open_seconds"] is not None else ""))
+        out.append("Noticed, not acted on (crown noticed list): %d open%s" % (nt["open"], (", oldest " + hms(nt["oldest_open_seconds"])) if nt["oldest_open_seconds"] is not None else ""))
         if nt["resolved"]:
             out.append("  resolved: %s" % counts(nt["resolved"]))
     out.append("")
@@ -413,7 +413,7 @@ def render(rep):
 
 def main(argv):
     since = inst = None
-    root = os.environ.get("QARGI_RUNS_ROOT") or None
+    root = os.environ.get("CROWN_RUNS_ROOT") or None
     stale, lstale = 7200, 1800
     as_json = False
     i = 0
@@ -438,10 +438,10 @@ def main(argv):
                 else:
                     lstale = parse_duration(v)
             else:
-                raise ValueError("usage: qargi report [--since DATE] [--instance NAME] [--stale-after DURATION] [--local-stale-after DURATION] [--runs-root DIR] [--json]")
+                raise ValueError("usage: crown report [--since DATE] [--instance NAME] [--stale-after DURATION] [--local-stale-after DURATION] [--runs-root DIR] [--json]")
             i += 1
     except ValueError as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 2
     path = os.path.join(STATE, "sessions.json")
     try:
@@ -450,7 +450,7 @@ def main(argv):
     except FileNotFoundError:
         sessions = {}
     except (OSError, ValueError) as e:
-        print("qargi: cannot read the tracker: %s" % e, file=sys.stderr)
+        print("crown: cannot read the tracker: %s" % e, file=sys.stderr)
         return 1
     now = datetime.now(timezone.utc)
     rep = summarize(sessions, now, since, inst, stale)

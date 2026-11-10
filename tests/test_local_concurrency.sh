@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Ten local runs at once: ten `local prepare` started together, then ten `local verify` together, then one `local clean --applied`. The
-# registry ($QARGI_STATE/local-runs.jsonl) is one file every run appends to (prepare) and rewrites (verify marks a run verified, clean
+# registry ($CROWN_STATE/local-runs.jsonl) is one file every run appends to (prepare) and rewrites (verify marks a run verified, clean
 # marks it cleaned), each under the registry's own lock: no line may be lost or torn, each run keeps its one line, and the scratch
-# directory and the QARGI_RUN_TMP parent (shared by the ten in both rounds) hold exactly the ten runs and the ten temporary directories
+# directory and the CROWN_RUN_TMP parent (shared by the ten in both rounds) hold exactly the ten runs and the ten temporary directories
 # until clean removes exactly those. The "own" round gives each process a TMPDIR of its own (the test keeps them apart); the "shared"
-# round gives all ten the same TMPDIR on purpose, so only the product's lock and its explicit parents (the scratch, QARGI_RUN_TMP, the
+# round gives all ten the same TMPDIR on purpose, so only the product's lock and its explicit parents (the scratch, CROWN_RUN_TMP, the
 # state) keep them apart. Run: tests/test_local_concurrency.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
 T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0
-export QARGI_CONF=$T/c QARGI_STATE=$T/s
+export CROWN_CONF=$T/c CROWN_STATE=$T/s
 mkdir -p "$T/c" "$T/s"
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 LC="git -c user.name=t -c user.email=t@example.net"
@@ -28,7 +28,7 @@ concurrent_round() { # own|shared -> ten prepares at once, ten verifies at once,
   nb=$(reg_ok) || { no "concurrent $mode: the registry is not whole before the round"; return; }
   for i in $(seq $n); do
     case $mode in own) td=$scr/td$i;; *) td=$scr/td;; esac; mkdir -p "$td"
-    spawn_bg env TMPDIR="$td" QARGI_RUN_TMP="$rt" ./bin/qargi local prepare --repo "$T/r" --base main --slug "$mode-$i" --scratch "$scr" > "$scr/log/p$i" 2> "$scr/log/p$i.err"
+    spawn_bg env TMPDIR="$td" CROWN_RUN_TMP="$rt" ./bin/crown local prepare --repo "$T/r" --base main --slug "$mode-$i" --scratch "$scr" > "$scr/log/p$i" 2> "$scr/log/p$i.err"
     pids+=("$SPAWNED_PID")
   done
   for i in $(seq $n); do wait "${pids[i - 1]}"; rcs+=("$?"); done
@@ -38,8 +38,8 @@ concurrent_round() { # own|shared -> ten prepares at once, ten verifies at once,
     runs+=("$r"); tmps+=("$t")
   done
   [ -z "$bad" ] && [ "$(printf '%s\n' "${runs[@]}" | sort -u | wc -l)" = $n ] && [ "$(printf '%s\n' "${tmps[@]}" | sort -u | wc -l)" = $n ] \
-    && [ "$(printf '%s\n' "${runs[@]}" | grep -c "^$scr/qargi\.......\$")" = $n ] && [ "$(printf '%s\n' "${tmps[@]}" | grep -c "^$rt/qargi-run\.......\$")" = $n ] \
-    && ok "concurrent $mode: $n prepares at once each made a run of its own under the scratch, with a temporary directory of its own under QARGI_RUN_TMP" \
+    && [ "$(printf '%s\n' "${runs[@]}" | grep -c "^$scr/crown\.......\$")" = $n ] && [ "$(printf '%s\n' "${tmps[@]}" | grep -c "^$rt/crown-run\.......\$")" = $n ] \
+    && ok "concurrent $mode: $n prepares at once each made a run of its own under the scratch, with a temporary directory of its own under CROWN_RUN_TMP" \
     || no "concurrent $mode prepares:$bad runs=[${runs[*]}] tmps=[${tmps[*]}] $(cat "$scr"/log/p*.err)"
   na=$(reg_ok) || na=torn
   [ "$na" = $((nb + n)) ] && [ "$(jq -r --arg m "$mode-" 'select((.slug | startswith($m)) and (.cleaned | not)) | .run' "$REG" | sort)" = "$(printf '%s\n' "${runs[@]}" | sort)" ] \
@@ -53,7 +53,7 @@ concurrent_round() { # own|shared -> ten prepares at once, ten verifies at once,
   pids=(); rcs=(); bad=''
   for i in $(seq $n); do
     case $mode in own) td=$scr/td$i;; *) td=$scr/td;; esac
-    spawn_bg env TMPDIR="$td" QARGI_RUN_TMP="$rt" ./bin/qargi local verify "${runs[i - 1]}" > "$scr/log/v$i" 2>&1
+    spawn_bg env TMPDIR="$td" CROWN_RUN_TMP="$rt" ./bin/crown local verify "${runs[i - 1]}" > "$scr/log/v$i" 2>&1
     pids+=("$SPAWNED_PID")
   done
   for i in $(seq $n); do wait "${pids[i - 1]}"; rcs+=("$?"); done
@@ -69,20 +69,20 @@ concurrent_round() { # own|shared -> ten prepares at once, ten verifies at once,
     sha=$($LC -C "$T/r" commit-tree -p main -m "applied $mode-$i" "$(git -C "$T/r" rev-parse 'main^{tree}')")
     printf 'agent/%s %s now\n' "$mode-$i" "$sha" > "${runs[i - 1]}/applied"; git -C "$T/r" update-ref "refs/heads/feature/$mode-$i" "$sha"
   done
-  mkdir "$scr/qargi.zzzzzz" "$rt/qargi-run.zzzzzz"   # lookalikes the registry does not name: clean must leave them
-  o=$(QARGI_RUN_TMP=$rt ./bin/qargi local clean --applied --scratch "$scr" 2>&1); rc=$?
+  mkdir "$scr/crown.zzzzzz" "$rt/crown-run.zzzzzz"   # lookalikes the registry does not name: clean must leave them
+  o=$(CROWN_RUN_TMP=$rt ./bin/crown local clean --applied --scratch "$scr" 2>&1); rc=$?
   na=$(reg_ok) || na=torn
   { [ $rc = 0 ] && grep -q "^cleaned $n run(s), kept 0\$" <<<"$o" && [ "$(grep -c '^cleaned ' <<<"$o")" = $((n + 1)) ]; } || bad=" clean rc=$rc"
   for i in $(seq $n); do
     [ ! -e "${runs[i - 1]}" ] && [ ! -e "${tmps[i - 1]}" ] && [ ! -e "$T/s/runs/$(basename "${runs[i - 1]}")" ] || bad="$bad left($i)"
   done
-  [ -z "$bad" ] && [ "$(find "$scr" -mindepth 1 -maxdepth 1 ! -name 'td*' -printf '%f\n' | sort | tr '\n' ' ')" = "log qargi.zzzzzz rt " ] && [ "$(ls -A "$rt")" = qargi-run.zzzzzz ] \
+  [ -z "$bad" ] && [ "$(find "$scr" -mindepth 1 -maxdepth 1 ! -name 'td*' -printf '%f\n' | sort | tr '\n' ' ')" = "log crown.zzzzzz rt " ] && [ "$(ls -A "$rt")" = crown-run.zzzzzz ] \
     && ok "one clean --applied removed the $n runs, their $n temporary directories and their saved copies, and nothing else (the lookalikes stay)" \
     || no "concurrent $mode clean:$bad scratch=[$(ls -A "$scr" | tr '\n' ' ')] rt=[$(ls -A "$rt" | tr '\n' ' ')] $o"
   [ "$na" = $((nb + n)) ] && [ "$(jq -r --arg m "$mode-" 'select((.slug | startswith($m)) and (.cleaned | type) == "string") | .run' "$REG" | sort)" = "$(printf '%s\n' "${runs[@]}" | sort)" ] \
     && ok "and every run keeps its one line, now marked cleaned: $((nb + n)) whole lines, none lost or torn (the $mode round took $((SECONDS - t0))s)" \
     || no "concurrent $mode registry after clean: $na lines; $(grep "$mode-" "$REG")"
-  rm -rf "$scr/qargi.zzzzzz" "$rt/qargi-run.zzzzzz"
+  rm -rf "$scr/crown.zzzzzz" "$rt/crown-run.zzzzzz"
 }
 concurrent_round own
 concurrent_round shared

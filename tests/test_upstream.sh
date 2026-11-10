@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# qargi upstream status|review|sync: a fork that follows a local bare repository acting as upstream, with its overlay on develop.
+# crown upstream status|review|sync: a fork that follows a local bare repository acting as upstream, with its overlay on develop.
 # Run: tests/test_upstream.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
 T=$(mktemp -d) && [ -n "$T" ] || exit 1   # an empty T would make the helpers below work in the checkout itself
-fail=0; DA=$PWD/bin/qargi
+fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_PROJECT=app
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_PROJECT=app
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects"
 J=$T/s/ref-journal.jsonl; Z=0000000000000000000000000000000000000000
@@ -86,10 +86,10 @@ out=$($UP sync 2>&1); rc=$?; t=$(tok <<<"$out")
   && grep -q "brings 2 commit(s) into upstream" <<<"$out" && ok "the sync plan shows the fast-forward and its commits with a token" || no "plan: rc=$rc $out"
 [ "$(sha upstream)" = "$base" ] && [ ! -f "$J" ] && ok "the plan changes nothing" || no "plan moved the branch"
 $UP sync --plan 000000000000 --approved go >/dev/null 2>&1 && no "a wrong token was accepted" || ok "a wrong plan token is refused"
-out=$(QARGI_NESTED=1 $UP sync --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(sha upstream)" = "$base" ] && ok "sync with no token under QARGI_NESTED is refused, the branch did not move" || no "nested sync, no token: rc=$rc $out"
-out=$(QARGI_NESTED=1 $UP sync --plan 000000000000 --approved go 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(sha upstream)" = "$base" ] && ok "and a wrong token is refused under QARGI_NESTED too" || no "nested sync, wrong token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $UP sync --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(sha upstream)" = "$base" ] && ok "sync with no token under CROWN_NESTED is refused, the branch did not move" || no "nested sync, no token: rc=$rc $out"
+out=$(CROWN_NESTED=1 $UP sync --plan 000000000000 --approved go 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "the plan changed or --plan is missing" <<<"$out" && [ "$(sha upstream)" = "$base" ] && ok "and a wrong token is refused under CROWN_NESTED too" || no "nested sync, wrong token: rc=$rc $out"
 [ "$(sha upstream)" = "$base" ] && ok "and the branch did not move" || no "moved on a wrong token"
 git -C "$R" checkout -q upstream
 $UP sync --plan "$t" --approved go >/dev/null 2>&1 && no "the branch was moved under the main checkout" || ok "a branch checked out in the main checkout is not moved"
@@ -98,7 +98,7 @@ out=$($UP sync --plan "$t" --approved "take them" 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(sha upstream)" = "$tip" ] && ok "sync fast-forwards the branch to the upstream tip" || no "sync: rc=$rc $out"
 [ "$(sha develop)" = "$dev0" ] && [ "$(sha master)" = "$m0" ] && ok "develop and master are untouched" || no "develop or master moved"
 jhas upstream "$base" "$tip" upstream:sync && ok "the move is in the lead's ref journal" || no "journal: $(cat "$J" 2>&1)"
-grep -q "next: qargi feature start upstream-${tip:0:7}" <<<"$out" && grep -q "qargi feature merge upstream-${tip:0:7} upstream" <<<"$out" && ok "the next step is a feature that merges the branch, never develop directly" || no "next step: $out"
+grep -q "next: crown feature start upstream-${tip:0:7}" <<<"$out" && grep -q "crown feature merge upstream-${tip:0:7} upstream" <<<"$out" && ok "the next step is a feature that merges the branch, never develop directly" || no "next step: $out"
 [ "$(git -C "$T/up.git" rev-parse main)" = "$tip" ] && [ -z "$(git -C "$R" remote | grep -v upstream)" ] && ok "nothing was pushed" || no "pushed"
 grep -q "upstream:sync" "$T/s/audit.log" && ok "the audit log has the sync" || no "audit"
 out=$($UP sync 2>&1); rc=$?

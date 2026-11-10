@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Table tests for `qargi project validate|set` (no API). Run: tests/test_project.sh
+# Table tests for `crown project validate|set` (no API). Run: tests/test_project.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); mkdir -p "$T/h"; export HOME=$T/h QARGI_CONF=$T/c QARGI_STATE=$T/s
-DA=./bin/qargi; fail=0; HANDSEAL=$PWD/tests/handseal.py
+T=$(mktemp -d); mkdir -p "$T/h"; export HOME=$T/h CROWN_CONF=$T/c CROWN_STATE=$T/s
+DA=./bin/crown; fail=0; HANDSEAL=$PWD/tests/handseal.py
 base=$($DA project template demo | jq '.repo.url="https://github.com/example/demo"')
 chk() { # name expected(0|1) jq-filter
   local f=$T/a.json; jq "$3" <<<"$base" > "$f"
@@ -215,7 +215,7 @@ chkm "env unknown key"              '.env={colour:"red"}' 'env.colour: unknown k
 chkm "env command not a string"     '.env={doctor_command:["make"]}' 'env.doctor_command: '
 chkm "env command with a newline"   '.env={bootstrap_command:"a\nb"}' 'env.bootstrap_command: '
 chkm "env known_failures not a list" '.env={known_failures:"x"}' 'env.known_failures: '
-# models.accept_no_barrier: what `qargi provider accept` records, exactly {by, at, reason} per surface
+# models.accept_no_barrier: what `crown provider accept` records, exactly {by, at, reason} per surface
 ACC='{by:"rett",at:"2026-10-31T12:00:00Z",reason:"review on cloud, no barrier, my call"}'
 chk  "accept_no_barrier recorded"   0 ".models.accept_no_barrier.cloud=$ACC"
 chk  "accept_no_barrier, both"      0 ".models.accept_no_barrier={cloud:$ACC,local:$ACC}"
@@ -243,7 +243,7 @@ $DA project template demo | grep -qi claude && { echo "FAIL the template names a
 fnd() { # name jq-filter wanted(yes|no): does validate print the models.provider finding, with exit 0?
   local f=$T/a.json out rc; jq "$2" <<<"$base" > "$f"
   out=$($DA project validate "$f" 2>&1); rc=$?
-  local has=no; grep -qx 'finding: models.provider is not set and there is no default provider: qargi project set demo models.provider PROVIDER (qargi provider list)' <<<"$out" && has=yes
+  local has=no; grep -qx 'finding: models.provider is not set and there is no default provider: crown project set demo models.provider PROVIDER (crown provider list)' <<<"$out" && has=yes
   if [ "$rc" = 0 ] && [ "$has" = "$3" ] && { [ "$3" = yes ] || ! grep -q '^finding:' <<<"$out"; }; then echo "ok   $1"
   else echo "FAIL $1 (exit $rc, finding wanted: $3; got: $out)"; fail=1; fi
 }
@@ -267,7 +267,7 @@ out=$($DA project validate "$T/a.json" 2>&1); [ "$?" = 0 ] && ! grep -q '^WARN:'
 rm -rf "$T/c/packs"
 echo "$base" > $T/ok.json; $DA project init demo --answers $T/ok.json >/dev/null 2>&1 || { echo "FAIL init"; fail=1; }
 out=$($DA project init demo --answers $T/ok.json --force 2>&1); grep -q '^finding: models.provider is not set' <<<"$out" && echo "ok   init tells that no provider is set" || { echo "FAIL init finding: $out"; fail=1; }
-grep -q '^lead context window: derived from the model of the session (qargi project set demo lead.context_window TOKENS' <<<"$out" && echo "ok   init says the lead's context window is derived from the model" || { echo "FAIL init context window: $out"; fail=1; }
+grep -q '^lead context window: derived from the model of the session (crown project set demo lead.context_window TOKENS' <<<"$out" && echo "ok   init says the lead's context window is derived from the model" || { echo "FAIL init context window: $out"; fail=1; }
 echo "$base" | jq '.lead.context_window=1000000' > $T/ok2.json; out=$($DA project init demo --answers $T/ok2.json --force 2>&1); grep -qx 'lead context window: 1000000 tokens' <<<"$out" && echo "ok   init says a fixed context window" || { echo "FAIL init fixed window: $out"; fail=1; }
 echo "$base" > $T/ok.json; $DA project init demo --answers $T/ok.json --force >/dev/null 2>&1
 grep -q 'role build: .*, provider tier/high' <<<"$out" && echo "ok   init says a role without a model takes its provider's tier" || { echo "FAIL init role line: $out"; fail=1; }
@@ -319,16 +319,16 @@ for kv in 'models.extensions|["x"]|provider enable' 'models.extensions.0|"x"|pro
           'models.accept_no_barrier|{"local":{"by":"a","at":"t","reason":"r"}}|provider accept' 'models|{"extensions":["x"]}|provider enable' 'models|{"accept_no_barrier":{}}|provider accept'; do
   IFS='|' read -r k v want <<<"$kv"
   msg=$($DA project set demo "$k" "$v" 2>&1); rc=$?
-  { [ $rc = 2 ] && grep -q "qargi $want" <<<"$msg" && cmp -s $T/before.json $T/c/projects/demo.json; } && echo "ok   set refuses $k ($v) with exit 2 and points to qargi $want" || { echo "FAIL set $k $v (rc=$rc): $msg"; fail=1; }
+  { [ $rc = 2 ] && grep -q "crown $want" <<<"$msg" && cmp -s $T/before.json $T/c/projects/demo.json; } && echo "ok   set refuses $k ($v) with exit 2 and points to crown $want" || { echo "FAIL set $k $v (rc=$rc): $msg"; fail=1; }
 done
 $DA project set demo models.provider.local claude-code >/dev/null 2>&1 && [ "$(jq -r .models.provider.local $T/c/projects/demo.json)" = claude-code ] && echo "ok   set still takes models.provider.local" || { echo "FAIL set models.provider.local"; fail=1; }
-# no environment variable opens project set to the gated keys: QARGI_GATED_STORE was one, honoured from any caller, and is gone
+# no environment variable opens project set to the gated keys: CROWN_GATED_STORE was one, honoured from any caller, and is gone
 cp $T/c/projects/demo.json $T/before.json
 for k in models.extensions models.accept_no_barrier.local; do
   v='["x"]'; [ "$k" = models.accept_no_barrier.local ] && v='{"by":"a","at":"2026-11-02T00:00:00Z","reason":"r"}'
-  for how in qargi script; do
-    if [ $how = qargi ]; then msg=$(QARGI_GATED_STORE=1 $DA project set demo "$k" "$v" 2>&1); else msg=$(QARGI_GATED_STORE=1 lib/project.sh set demo "$k" "$v" 2>&1); fi; rc=$?
-    { [ $rc != 0 ] && cmp -s $T/before.json $T/c/projects/demo.json; } && echo "ok   QARGI_GATED_STORE=1 opens nothing: $how project set $k is refused" || { echo "FAIL QARGI_GATED_STORE=1 $how project set $k (rc=$rc): $msg"; fail=1; }
+  for how in crown script; do
+    if [ $how = crown ]; then msg=$(CROWN_GATED_STORE=1 $DA project set demo "$k" "$v" 2>&1); else msg=$(CROWN_GATED_STORE=1 lib/project.sh set demo "$k" "$v" 2>&1); fi; rc=$?
+    { [ $rc != 0 ] && cmp -s $T/before.json $T/c/projects/demo.json; } && echo "ok   CROWN_GATED_STORE=1 opens nothing: $how project set $k is refused" || { echo "FAIL CROWN_GATED_STORE=1 $how project set $k (rc=$rc): $msg"; fail=1; }
   done
 done
 # the store the gated verbs use (provider enable|disable|accept) takes only those two keys, and only what the answers' own validation accepts
@@ -348,7 +348,7 @@ GATEKEYS='.models.extensions=["x"]|.models.accept_no_barrier={local:{by:"a",at:"
 for f in '.models.extensions=["x"]' '.models.accept_no_barrier={local:{by:"a",at:"2026-11-02T00:00:00Z",reason:"r"}}'; do
   jq "$f | .project=\"fresh\"" <<<"$base" > $T/g.json
   msg=$($DA project init fresh --answers $T/g.json 2>&1); rc=$?
-  { [ $rc != 0 ] && [ ! -e $T/c/projects/fresh.json ] && grep -q "qargi provider" <<<"$msg"; } && echo "ok   init of a new project refuses $f and names the verbs" || { echo "FAIL fresh init $f (rc=$rc): $msg"; fail=1; }
+  { [ $rc != 0 ] && [ ! -e $T/c/projects/fresh.json ] && grep -q "crown provider" <<<"$msg"; } && echo "ok   init of a new project refuses $f and names the verbs" || { echo "FAIL fresh init $f (rc=$rc): $msg"; fail=1; }
 done
 jq '.models.extensions=[] | .models.accept_no_barrier={} | .project="fresh"' <<<"$base" > $T/g.json
 $DA project init fresh --answers $T/g.json >/dev/null 2>&1 && echo "ok   init takes empty gated keys (a project whose extensions were all disabled)" || { echo "FAIL init refused empty gated keys"; fail=1; }
@@ -357,7 +357,7 @@ cp $T/c/projects/demo.json $T/before.json
 for f in '.models.extensions=["x"]' '.models.accept_no_barrier={local:{by:"a",at:"2026-11-02T00:00:00Z",reason:"r"}}'; do
   jq "$f | .project=\"demo\"" <<<"$base" > $T/g.json
   msg=$($DA project init demo --answers $T/g.json --force 2>&1); rc=$?
-  { [ $rc != 0 ] && cmp -s $T/before.json $T/c/projects/demo.json && grep -q "qargi provider" <<<"$msg"; } && echo "ok   init --force refuses to add $f" || { echo "FAIL init --force $f (rc=$rc): $msg"; fail=1; }
+  { [ $rc != 0 ] && cmp -s $T/before.json $T/c/projects/demo.json && grep -q "crown provider" <<<"$msg"; } && echo "ok   init --force refuses to add $f" || { echo "FAIL init --force $f (rc=$rc): $msg"; fail=1; }
 done
 # once the stored answers hold them (a gated verb put them there), a file that keeps them as they are is fine, one that adds or changes an entry is not, and one that drops an entry is (that only narrows trust)
 jq "$GATEKEYS" $T/c/projects/demo.json > $T/g.json && mv $T/g.json $T/c/projects/demo.json; cp $T/c/projects/demo.json $T/before.json
@@ -390,7 +390,7 @@ $DA project attach "$AF" --name afp --url https://github.com/example/afp --force
 AR=$T/arepo; git init -q -b main "$AR"; echo x > "$AR/README"; git -C "$AR" -c user.name=t -c user.email=t@example.net add -A
 git -C "$AR" -c user.name=t -c user.email=t@example.net commit -q -m one
 out=$($DA project attach "$AR" --name provless --url https://github.com/example/provless 2>&1); tok=$(sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p' <<<"$out")
-grep -q '^finding: models.provider is not set and there is no default provider: qargi project set provless models.provider PROVIDER' <<<"$out" && echo "ok   the attach plan says no provider is set" || { echo "FAIL attach plan finding: $out"; fail=1; }
+grep -q '^finding: models.provider is not set and there is no default provider: crown project set provless models.provider PROVIDER' <<<"$out" && echo "ok   the attach plan says no provider is set" || { echo "FAIL attach plan finding: $out"; fail=1; }
 out=$($DA project attach "$AR" --name provless --url https://github.com/example/provless --plan "$tok" --approved go 2>&1)
 grep -q '^finding: models.provider is not set' <<<"$out" && [ "$(jq -r '.models.provider // "none"' $T/c/projects/provless.json)" = none ] && echo "ok   attach stores no models.provider and says so" || { echo "FAIL attach stores a provider: $out"; fail=1; }
 $DA project validate provless >/dev/null 2>&1 && echo "ok   the stored answers of an attached project validate" || { echo "FAIL attached project does not validate"; fail=1; }
@@ -400,21 +400,21 @@ copy_tool "$PWD" "$TOOL"
 # shellcheck source=fakeprov.sh
 . "$PWD/tests/fakeprov.sh"
 fake_runtime "$PWD" "$TOOL" agentx local '.adapter = null | .resources.skills.project_dir = ".agent/skills" | .session.render_target = "agentx-render"'
-FX=$TOOL/bin/qargi
+FX=$TOOL/bin/crown
 HR=$T/hrepo; git init -q -b main "$HR"; echo x > "$HR/README"; git -C "$HR" -c user.name=t -c user.email=t@example.net add -A; git -C "$HR" -c user.name=t -c user.email=t@example.net commit -q -m one
 mkdir -p "$HR/.agent/skills/one" "$HR/.claude/skills/two"; echo x > "$HR/.agent/skills/one/SKILL.md"; echo x > "$HR/.claude/skills/two/SKILL.md"
 out=$($FX project attach "$HR" --name hintp --url https://github.com/example/hintp 2>&1); tok=$(sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p' <<<"$out")
-grep -qx "repo has its own .agent/skills (1 skill): qargi packs link hintp offers to use the library's instead and shows which are new" <<<"$out" && grep -qx "repo has its own .claude/skills (1 skill): qargi packs link hintp offers to use the library's instead and shows which are new" <<<"$out" \
+grep -qx "repo has its own .agent/skills (1 skill): crown packs link hintp offers to use the library's instead and shows which are new" <<<"$out" && grep -qx "repo has its own .claude/skills (1 skill): crown packs link hintp offers to use the library's instead and shows which are new" <<<"$out" \
   && echo "ok   no provider yet: the hint is given for the skills directory of every provider" || { echo "FAIL hint for every provider: $out"; fail=1; }
 $FX project attach "$HR" --name hintp --url https://github.com/example/hintp --plan "$tok" --approved go >/dev/null 2>&1; $FX project set hintp models.provider agentx >/dev/null 2>&1
 out=$($FX project attach "$HR" --name hintp 2>&1)
-grep -qx "repo has its own .agent/skills (1 skill): qargi packs link hintp offers to use the library's instead and shows which are new" <<<"$out" && ! grep -q "repo has its own .claude/skills" <<<"$out" \
+grep -qx "repo has its own .agent/skills (1 skill): crown packs link hintp offers to use the library's instead and shows which are new" <<<"$out" && ! grep -q "repo has its own .claude/skills" <<<"$out" \
   && echo "ok   a project with a provider: the hint names that provider's skills directory only" || { echo "FAIL hint for the provider: $out"; fail=1; }
 
-# --- project link | unlink: skills, agents and memory, linked from ~/.qargi into the checkout and the runtime's memory directory
+# --- project link | unlink: skills, agents and memory, linked from ~/.crown into the checkout and the runtime's memory directory
 # One plan and one token for the lot; a worktree gets its links by running the verb inside it; nothing records the worktrees. A member's run
 # never applies, so work from the temporary directory (this test may itself run in one).
-DA=$PWD/bin/qargi
+DA=$PWD/bin/crown
 cd "$T" || exit 1
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 G="git -c user.name=t -c user.email=t@example.net"
@@ -439,17 +439,17 @@ LR=$T/lrepo; git init -q -b main "$LR"; echo x > "$LR/README"; $G -C "$LR" add -
 lproj() { jq -n --arg p "$1" --arg r "$2" --arg v "$3" '{schema:1,project:$p,repo:{url:"https://github.com/example/x",path:$r,long_lived:["main"]},
   roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:$v},memory:{memory_store:"",reference_store:""},budget_cents:500}' > "$T/c/projects/$1.json"; }
 lproj lp "$LR" fakelink
-LM=$HOME/.qargi/memory/projects/lp; mkdir -p "$LM"; echo note > "$LM/a.md"
+LM=$HOME/.crown/memory/projects/lp; mkdir -p "$LM"; echo note > "$LM/a.md"
 key() { python3 -c 'import hashlib,sys;print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:16])' "$1"; }
 LD=$HOME/.fake/mem/$(key "$LR")                                 # where the runtime reads the memory of the checkout
 MD=$T/s/render/lp/fakelink.agents                               # the member render: beside the runtime's render, which a packs render replaces whole
 lgo() { local v=$1 p=$2 tok; shift 2; tok=$($DA project "$v" "$p" "$@" | tokp); [ -n "$tok" ] && $DA project "$v" "$p" "$@" --plan "$tok" --approved test; }
 
 # the plan names every link, prints one token and writes nothing; no member is rendered yet, so agents is skipped and says why
-before=$(snap "$T/s" "$HOME/.qargi" "$LR/.fake" "$HOME/.fake")
+before=$(snap "$T/s" "$HOME/.crown" "$LR/.fake" "$HOME/.fake")
 out=$($DA project link lp 2>&1); tok=$(tokp <<<"$out")
 { [ -n "$tok" ] && grep -q "== memory (dir-symlink)" <<<"$out" && grep -q "link:   $LD" <<<"$out" && grep -q "target: $LM" <<<"$out" && grep -q "^agents: not linked, no member of lp is rendered" <<<"$out" \
-  && [ "$before" = "$(snap "$T/s" "$HOME/.qargi" "$LR/.fake" "$HOME/.fake")" ]; } && ok "project link: the plan names the link, prints a token and writes nothing; agents with no member yet is skipped with the reason" || no "plan: $out"
+  && [ "$before" = "$(snap "$T/s" "$HOME/.crown" "$LR/.fake" "$HOME/.fake")" ]; } && ok "project link: the plan names the link, prints a token and writes nothing; agents with no member yet is skipped with the reason" || no "plan: $out"
 $DA project link lp --resource agents >/dev/null 2>&1; [ $? = 1 ] && ok "project link: a resource named whose source does not exist is refused" || no "named agents without members"
 $DA project link lp --resource skills >/dev/null 2>&1; [ $? = 3 ] && ok "project link: a resource the runtime does not link is exit 3 when named" || no "named skills: $?"
 $DA project link lp --resource bogus >/dev/null 2>&1 && no "a bogus resource was accepted" || ok "project link: --resource takes skills, agents, memory only"
@@ -480,11 +480,11 @@ $DA project unlink lp >/dev/null 2>&1 && no "unlink with nothing linked succeede
 # a real directory where the memory link goes is moved to a backup, and unlink puts it back
 mkdir -p "$LD"; echo mine > "$LD/MEMORY.md"
 out=$($DA project link lp --resource memory 2>&1)
-grep -q "apply moves the directory to $LD.qargi-backup" <<<"$out" && ok "backup: the plan says a real memory directory is moved, not deleted" || no "backup plan: $out"
+grep -q "apply moves the directory to $LD.crown-backup" <<<"$out" && ok "backup: the plan says a real memory directory is moved, not deleted" || no "backup plan: $out"
 lgo link lp --resource memory >/dev/null 2>&1
-{ [ -L "$LD" ] && [ "$(cat "$LD.qargi-backup/MEMORY.md")" = mine ]; } && ok "backup: the real directory is now $LD.qargi-backup, whole" || no "backup apply"
+{ [ -L "$LD" ] && [ "$(cat "$LD.crown-backup/MEMORY.md")" = mine ]; } && ok "backup: the real directory is now $LD.crown-backup, whole" || no "backup apply"
 lgo unlink lp --resource memory >/dev/null 2>&1
-{ [ -d "$LD" ] && [ ! -L "$LD" ] && [ "$(cat "$LD/MEMORY.md")" = mine ] && [ ! -e "$LD.qargi-backup" ]; } && ok "backup: unlink restores it" || no "backup restore"
+{ [ -d "$LD" ] && [ ! -L "$LD" ] && [ "$(cat "$LD/MEMORY.md")" = mine ] && [ ! -e "$LD.crown-backup" ]; } && ok "backup: unlink restores it" || no "backup restore"
 rm -rf "$LD"
 
 # a link that is not ours is refused, in every resource, and nothing is changed
@@ -505,11 +505,11 @@ out=$($DA project link lp --resource memory 2>&1); rc=$?
 rm -f "$HOME/.fake"
 
 # the project memory must lie in the memory root by its real path: a link below the root that leads outside it is outside
-mkdir -p "$T/mem-outside"; echo n > "$T/mem-outside/n.md"; ln -s "$T/mem-outside" "$HOME/.qargi/memory/vialink"
-jq --arg p "$HOME/.qargi/memory/vialink" '.memory.tiers = {project:{path:$p}}' "$T/c/projects/lp.json" > "$T/lp.tmp" && cp "$T/lp.tmp" "$T/c/projects/lp.json"
+mkdir -p "$T/mem-outside"; echo n > "$T/mem-outside/n.md"; ln -s "$T/mem-outside" "$HOME/.crown/memory/vialink"
+jq --arg p "$HOME/.crown/memory/vialink" '.memory.tiers = {project:{path:$p}}' "$T/c/projects/lp.json" > "$T/lp.tmp" && cp "$T/lp.tmp" "$T/c/projects/lp.json"
 out=$($DA project link lp --resource memory 2>&1); rc=$?
 { [ $rc != 0 ] && grep -q "is placed at" <<<"$out" && grep -q "outside" <<<"$out" && [ ! -e "$LD" ] && [ ! -L "$LD" ]; } && ok "a project memory path that is a link out of the memory root is refused as outside it" || no "memory via link: rc=$rc $out"
-rm -f "$HOME/.qargi/memory/vialink" "$T/lp.tmp"; rm -rf "$T/mem-outside"; lproj lp "$LR" fakelink
+rm -f "$HOME/.crown/memory/vialink" "$T/lp.tmp"; rm -rf "$T/mem-outside"; lproj lp "$LR" fakelink
 
 # a worktree gets its links by running the verb inside it; nothing lists worktrees
 $DA project link lp --resource memory,agents --plan "$($DA project link lp --resource memory,agents | tokp)" --approved test >/dev/null 2>&1
@@ -552,7 +552,7 @@ jq 'del(.models.extensions)' "$T/c/projects/lp.json" > "$T/p.tmp" && mv "$T/p.tm
 # the real runtime: skills (dir-symlink) and memory in one plan; agents are not linked by Claude Code's definition, so they are skipped
 CR=$T/crepo; git init -q -b main "$CR"; echo x > "$CR/README"; $G -C "$CR" add -A; $G -C "$CR" commit -q -m one
 lproj lc "$CR" claude-code
-CM=$HOME/.qargi/memory/projects/lc; mkdir -p "$CM"; echo n > "$CM/b.md"
+CM=$HOME/.crown/memory/projects/lc; mkdir -p "$CM"; echo n > "$CM/b.md"
 CRD=$T/s/render/lc/claude-code/.claude/skills; mkdir -p "$CRD/s1"; echo s > "$CRD/s1/SKILL.md"       # what packs apply makes
 CD=$HOME/.claude/projects/$(sed 's/[^A-Za-z0-9]/-/g' <<<"$CR")/memory
 out=$(lgo link lc 2>&1)

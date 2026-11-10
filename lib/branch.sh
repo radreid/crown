@@ -3,13 +3,13 @@
 # Branch housekeeping by the git-flow rules.
 #
 #   branch.sh prune [--project P] [--remote] [--plan T --approved W]
-#       The merged agent/* and feature/* branches of the project, and the worktrees of the ones qargi made, as a plan and a token;
+#       The merged agent/* and feature/* branches of the project, and the worktrees of the ones crown made, as a plan and a token;
 #       with --plan and --approved they are deleted. --remote adds the same branches on origin (asked live). A branch is merged when
 #       it was merged with --no-ff into develop, into a branch of repo.long_lived or repo.detached (a feature or an agent branch), or into
 #       an open feature/* (an agent branch), and is still in that branch's history; a branch that only sits at the tip of one of them
 #       was never merged and is kept.
 #       Never touched: master, develop, the branches of repo.long_lived and repo.detached, the parking branch, an unmerged branch, a
-#       branch checked out in a worktree that qargi did not make (the main checkout, the runtime's own worktrees) or in a dirty one.
+#       branch checked out in a worktree that crown did not make (the main checkout, the runtime's own worktrees) or in a dirty one.
 #       Nothing is pushed except the deletions on origin, each as a lease on the tip the plan showed.
 . "$(dirname "$0")/lib.sh"
 
@@ -20,11 +20,11 @@ while [ $# -gt 0 ]; do
     --project) need_val "$1" $#; PROJ=$2; shift 2;; --plan) need_val "$1" $#; PLAN_ARG=$2; shift 2;; --approved) need_val "$1" $#; APPROVED=$2; shift 2;;
     --remote) REMOTE=1; shift;;
     -*) usage_die "unknown option $1";;
-    *) usage_die "usage: qargi branch prune [--project P] [--remote] [--plan T --approved WORDS]";;
+    *) usage_die "usage: crown branch prune [--project P] [--remote] [--plan T --approved WORDS]";;
   esac
 done
 export PLAN_ARG   # need_plan reads it
-[ "$verb" = prune ] || usage_die "usage: qargi branch prune [--project P] [--remote] [--plan T --approved WORDS]"
+[ "$verb" = prune ] || usage_die "usage: crown branch prune [--project P] [--remote] [--plan T --approved WORDS]"
 . "$(dirname "$0")/gitflow.sh"
 project_load
 branch_exists develop || die "no develop branch"
@@ -63,14 +63,14 @@ while IFS= read -r ref; do
   elif wt_in_root "$w"; then
     if [ -z "$(git -C "$w" status --porcelain 2>/dev/null)" ]; then LOCAL+=("$b$TAB$sha$TAB$into$TAB$w")
     else KEPT+=("$b: its worktree $w has uncommitted changes"); fi
-  else KEPT+=("$b: checked out in $w, which qargi did not make"); fi
+  else KEPT+=("$b: checked out in $w, which crown did not make"); fi
 done < <(g for-each-ref --format='%(refname)' 'refs/heads/agent/*' 'refs/heads/feature/*')
 
 if [ -n "$REMOTE" ]; then
   g remote get-url origin >/dev/null 2>&1 || die "the repository has no origin remote"
   command -v timeout >/dev/null 2>&1 || die "no timeout command to bound the check of origin"
   g fetch -q origin 2>/dev/null || die "fetch failed"
-  rl=$(GIT_TERMINAL_PROMPT=0 timeout "${QARGI_REMOTE_TIMEOUT:-10}" git -C "$REPO" ls-remote --heads origin 'refs/heads/agent/*' 'refs/heads/feature/*' 2>/dev/null) || die "origin could not be asked (no answer within ${QARGI_REMOTE_TIMEOUT:-10}s, or it refused)"
+  rl=$(GIT_TERMINAL_PROMPT=0 timeout "${CROWN_REMOTE_TIMEOUT:-10}" git -C "$REPO" ls-remote --heads origin 'refs/heads/agent/*' 'refs/heads/feature/*' 2>/dev/null) || die "origin could not be asked (no answer within ${CROWN_REMOTE_TIMEOUT:-10}s, or it refused)"
   while read -r sha ref; do
     [ -n "$sha" ] || continue
     b=${ref#refs/heads/}
@@ -98,19 +98,19 @@ for e in "${REM[@]}"; do
   echo "  delete origin/$b (${sha:0:7}, merged into $into)"
 done
 for k in "${KEPT[@]}"; do echo "  kept $k"; done
-if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: qargi branch prune${REMOTE:+ --remote} --plan $tok --approved \"...\")"; exit 0; fi
-QARGI_NESTED='' need_plan "$tok"
+if [ -z "$APPROVED" ]; then echo "plan token: $tok   (apply with: crown branch prune${REMOTE:+ --remote} --plan $tok --approved \"...\")"; exit 0; fi
+CROWN_NESTED='' need_plan "$tok"
 n=0 m=0
 for e in "${LOCAL[@]}"; do
   IFS=$TAB read -r b sha _ w <<<"$e"
   [ -z "$w" ] || wt_drop "$b"
   if g update-ref -d "refs/heads/$b" "$sha"; then journal_ref "$REPO" "refs/heads/$b" "$sha" "" branch:prune; n=$((n + 1)); echo "deleted $b"
-  else echo "qargi: warning: could not delete $b (it moved meanwhile)" >&2; fi
+  else echo "crown: warning: could not delete $b (it moved meanwhile)" >&2; fi
 done
 for e in "${REM[@]}"; do
   IFS=$TAB read -r b sha _ <<<"$e"
   if g push -q --force-with-lease="refs/heads/$b:$sha" origin ":refs/heads/$b" 2>/dev/null; then journal_push "refs/heads/$b" "$sha" "" branch:prune; m=$((m + 1)); echo "deleted origin/$b"
-  else echo "qargi: warning: could not delete origin/$b (it moved, or origin refused)" >&2; fi
+  else echo "crown: warning: could not delete origin/$b (it moved, or origin refused)" >&2; fi
 done
 audit_log "branch:prune" "$PROJ $n local $m remote"
 echo "pruned $n local and $m remote branch(es)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi env plan and env apply (lib/env_apply.py): a dry run runs project code, so the plan needs --approve-exec; the plan token, the refusals of
+"""crown env plan and env apply (lib/env_apply.py): a dry run runs project code, so the plan needs --approve-exec; the plan token, the refusals of
 apply, the audit line and the record. Fixture repositories are invented (acme); the bootstrap recipe records its argv in a file, sudo is a fake that
 records and runs its arguments. Offline. Run: python3 tests/test_env_apply.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
@@ -90,7 +90,7 @@ class Apply(Fixtures):
         self.assertIn("./record.sh", seen)
         self.assertNotIn("echo", seen)                                    # a shell builtin is not listed
         self.assertIn("best effort", out)
-        self.assertRegex(out, r"(?m)^plan token: [0-9a-f]{12}   \(apply with: qargi env apply --plan [0-9a-f]{12} --approved .* --approve-exec make\)$")
+        self.assertRegex(out, r"(?m)^plan token: [0-9a-f]{12}   \(apply with: crown env apply --plan [0-9a-f]{12} --approved .* --approve-exec make\)$")
         self.assertTrue(os.path.exists(os.path.join(self.d, "parsed-marker")), "$(shell) is run by the dry run: that is why plan is gated")
         self.assertIsNone(self.ran(), "the dry run ran the recipe")
 
@@ -159,7 +159,7 @@ class Apply(Fixtures):
         self.assertIn("exited with status", r.stderr)
         self.assertNotIn("plan token", r.stdout)
         self.set_makefile(MAKEFILE + "$(shell sleep 20)\n")
-        r = self.q("env", "plan", "--repo", self.d, "--approve-exec", "make", env=dict(self.env, QARGI_ENV_TIMEOUT="1"))
+        r = self.q("env", "plan", "--repo", self.d, "--approve-exec", "make", env=dict(self.env, CROWN_ENV_TIMEOUT="1"))
         self.assertEqual(r.returncode, 1)
         self.assertIn("did not finish in 1 seconds", r.stderr)
 
@@ -186,7 +186,7 @@ class Apply(Fixtures):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.ran(), "bootstrap one two\ndoctor\n")            # then env check runs the doctor
         self.assertIn("running: make bootstrap", r.stdout)
-        self.assertIn("running: qargi env check", r.stdout)
+        self.assertIn("running: crown env check", r.stdout)
         self.assertTrue(r.stdout.rstrip().endswith("ENV OK"), r.stdout)
         lines = [x for x in self.audit_lines() if x["verb"].startswith("env:apply")]
         self.assertEqual([x["verb"] for x in lines], ["env:apply", "env:apply-result"])
@@ -285,9 +285,9 @@ class Apply(Fixtures):
         self.assertTrue(lines[-1]["detail"].endswith("exit 2"), lines)
         self.assertEqual(json.loads(slurp(os.path.join(self.t, "state", "env", "acme.json")))["apply"]["exit"], 2)
 
-    def test_qargi_dry_run_stops_before_the_bootstrap(self):
+    def test_crown_dry_run_stops_before_the_bootstrap(self):
         tok = self.token()
-        r = self.apply(tok, "--approve-exec", "make", env=dict(self.env, QARGI_DRY_RUN="1"))
+        r = self.apply(tok, "--approve-exec", "make", env=dict(self.env, CROWN_DRY_RUN="1"))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("not run", r.stdout)
         self.assertIsNone(self.ran())
@@ -298,7 +298,7 @@ class Apply(Fixtures):
         """Standard input is inherited by the bootstrap command (sudo asks there) and the caller's secrets are not."""
         self.set_makefile(MAKEFILE + "\t@read -r line < /dev/stdin && echo \"$$line $${SECRET_X:-none}\" >> stdin-record\n")
         tok = self.token()
-        r = subprocess.run([A.__file__.replace("lib/env_apply.py", "bin/qargi"), "env", "apply", "--repo", self.d, "--plan", tok, "--approved", GO, "--approve-exec", "make"],
+        r = subprocess.run([A.__file__.replace("lib/env_apply.py", "bin/crown"), "env", "apply", "--repo", self.d, "--plan", tok, "--approved", GO, "--approve-exec", "make"],
                            input="typed\n", capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(slurp(os.path.join(self.d, "stdin-record")), "typed none\n")
@@ -436,7 +436,7 @@ class Tools(Apply):
         self.assertIn("the 1 tool install(s) were not run", r.stderr)
         self.assertEqual(self.go_log(), "")
         self.declare([self.GO_TOOL])
-        r = self.apply(self.token(), "--approve-exec", "make,go", env=dict(self.env, QARGI_DRY_RUN="1"))
+        r = self.apply(self.token(), "--approve-exec", "make,go", env=dict(self.env, CROWN_DRY_RUN="1"))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("then 1 tool install(s); it was not run", r.stdout)
         self.assertEqual(self.go_log(), "")
@@ -446,7 +446,7 @@ class Tools(Apply):
         r = self.q("env", "check", "--project", "acme")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("tools:    2 declared (roles.<role>.tools): 2 missing", r.stdout)
-        self.assertIn("missing:  acme-lint is not installed (roles build: go github.com/acme/lint/cmd/acme-lint@v1.2.0; qargi env apply installs it)", r.stdout)
+        self.assertIn("missing:  acme-lint is not installed (roles build: go github.com/acme/lint/cmd/acme-lint@v1.2.0; crown env apply installs it)", r.stdout)
         self.assertIn("missing:  acme-fmt is not installed", r.stdout)
         self.assertIn("ENV INCOMPLETE: 2 missing", r.stdout)
         subprocess.run([os.path.join(self.bin, "go"), "install", "github.com/acme/lint/cmd/acme-lint@v1.1.0"], check=True, env=self.env)

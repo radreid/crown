@@ -154,7 +154,7 @@ class FixtureBackend(Backend):
 
     def _save(self):
         if self.file:
-            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(self.file)), prefix=".qargi-", suffix=".tmp")
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(self.file)), prefix=".crown-", suffix=".tmp")
             try:
                 with os.fdopen(fd, "w") as f:
                     for m in self.other:
@@ -242,7 +242,7 @@ class DirBackend(Backend):
 
     @contextlib.contextmanager
     def lock(self):
-        """Exclusive among qargi writers, advisory (an editor that never asks is not stopped), reentrant: apply_ops
+        """Exclusive among crown writers, advisory (an editor that never asks is not stopped), reentrant: apply_ops
         holds it across a whole plan and each write takes it again, and flock on a second descriptor of one
         process would block on the first. The RLock keeps other threads of this process out for the same span."""
         with self._mutex:
@@ -274,7 +274,7 @@ class DirBackend(Backend):
 
     def _still(self, path, was):
         """The note at `path` still has digest `was`, read now: the last look before a replace or a release of a name,
-        so a change made outside qargi after the check is caught instead of overwritten or lost."""
+        so a change made outside crown after the check is caught instead of overwritten or lost."""
         now = self._current(path)
         if now is None or digest(now["content"]) != was:
             raise StaleError("%s changed while it was being written" % path)
@@ -294,7 +294,7 @@ class DirBackend(Backend):
                 os.unlink(f)                 # the half-written file this call made; no note was there
                 raise
             return
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(f), prefix=".qargi-")
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(f), prefix=".crown-")
         try:
             os.chmod(tmp, os.stat(f).st_mode & 0o777 if os.path.exists(f) else 0o644)
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as h:
@@ -503,7 +503,7 @@ class CloudBackend(Backend):
 
 def open_store(ref, ant="ant", write=False):
     """A store from its name on the command line: a directory, a .jsonl dump or a memstore_ id. A dump is read-only:
-    it can be a source, never something qargi writes (write=True refuses it)."""
+    it can be a source, never something crown writes (write=True refuses it)."""
     if ref.startswith("memstore_"):
         return CloudBackend(ref, ant)
     if ref.endswith(".jsonl"):

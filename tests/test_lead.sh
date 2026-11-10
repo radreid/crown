@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# The guided lead flow: qargi lead grant | status | revoke; and the lead's context: usage, compact-check and the stage lines.
+# The guided lead flow: crown lead grant | status | revoke; and the lead's context: usage, compact-check and the stage lines.
 # Offline (fake curl, git, ant with state; fixture transcripts).
 # Run: tests/test_lead.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
+export CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
 mkdir -p "$T/c/projects" "$T/s" "$T/bin" "$FAKE"
 TOK=github_pat_11AAAAAA0abcdefghijklmnopqrstuvwxyz0123456789SECRETVALUE
 cat > "$T/bin/curl" <<'EOS'
@@ -58,19 +58,19 @@ jq -n '{schema:1,project:"alpha",repo:{url:"https://github.com/example/x",path:"
   teams:{t:{members:["build","write"]}},memory:{memory_store:"",reference_store:""},budget_cents:500}' > "$T/c/projects/alpha.json"
 jq -n '{"alpha-lead":{location:"cloud",deployment_id:"depl_L",environment_id:"env_1",agent:{id:"agent_L",version:1,version_pinned:1}}}' > "$T/c/instances.json"
 printf '%s' "$TOK" > "$T/tokfile"; echo y > "$T/yes"; : > "$T/out"
-export QARGI_TTY_IN=$T/yes QARGI_TTY_OUT=$T/out
+export CROWN_TTY_IN=$T/yes CROWN_TTY_OUT=$T/out
 
 # status before anything
 out=$($DA lead status alpha 2>&1)
 echo "$out" | grep -q "this session.*may push agent branches" && echo "$out" | grep -q "cloud lead.*no grant" && ok "status before a grant shows this session's grant and no cloud grant" || no "status: $out"
 
 # the flow needs a terminal
-QARGI_TTY_IN=/nonexistent $DA lead grant alpha --from-file "$T/tokfile" >/dev/null 2>&1 && no "grant ran without a terminal" || ok "grant refuses to run without a terminal"
+CROWN_TTY_IN=/nonexistent $DA lead grant alpha --from-file "$T/tokfile" >/dev/null 2>&1 && no "grant ran without a terminal" || ok "grant refuses to run without a terminal"
 
 # a step reads its plan token from the call's --json output: the plan is shown without the token line, the answer no applies nothing,
 # and a plan that fails stops the flow with the call's own message
 echo n > "$T/no0"
-out=$(QARGI_TTY_IN=$T/no0 $DA lead grant alpha --from-file "$T/tokfile" 2>&1); rc=$?
+out=$(CROWN_TTY_IN=$T/no0 $DA lead grant alpha --from-file "$T/tokfile" 2>&1); rc=$?
 [ $rc != 0 ] && echo "$out" | grep -q "== 1/3" && echo "$out" | grep -q "skipped: 1/3" && ! echo "$out" | grep -q "plan token:" && ok "a step shows its plan without the token line, and no applies nothing" || no "step no: rc=$rc $out"
 jq -e '.lead.push.cloud != "branches"' "$T/c/projects/alpha.json" >/dev/null && [ ! -f "$FAKE/agent_tool" ] && ok "answering no to the first step records no grant" || no "step no changed something"
 echo ghp_classic > "$T/classic"
@@ -106,15 +106,15 @@ $DA instances refresh-prompt alpha-lead --asked "t" --plan "$tok" --approved "go
 jq -e '.type == "coordinator" and .agents == [{"type":"agent","id":"agent_D","version":2}]' "$FAKE/multiagent" >/dev/null 2>&1 && ok "the approved plan points the lead at the member's current version" || no "multiagent: $(cat "$FAKE/multiagent" 2>&1)"
 
 # revoke
-echo n > "$T/no"; QARGI_TTY_IN=$T/no $DA lead revoke alpha >/dev/null 2>&1; jq -e '.lead.push.cloud == "branches"' "$T/c/projects/alpha.json" >/dev/null && ok "answering no to revoke changes nothing" || no "revoke no"
+echo n > "$T/no"; CROWN_TTY_IN=$T/no $DA lead revoke alpha >/dev/null 2>&1; jq -e '.lead.push.cloud == "branches"' "$T/c/projects/alpha.json" >/dev/null && ok "answering no to revoke changes nothing" || no "revoke no"
 out=$($DA lead revoke alpha 2>&1)
 jq -e '.lead.push.cloud == "none" and (.lead.push | has("vault_id") | not) and .lead.push.local == true' "$T/c/projects/alpha.json" >/dev/null && ok "revoke sets the cloud grant to none and keeps the local one" || no "revoke answers: $out"
 [ ! -e "$T/c/credentials/alpha-lead-push" ] && [ ! -f "$FAKE/cred" ] && ok "revoke deletes the token file and archives the credential" || no "revoke cleanup"
 grep -q -- "--vault-id \[\]" "$FAKE/dep-update" && ok "revoke detaches the vault from the deployment" || no "detach: $(tail -2 "$FAKE/dep-update")"
 echo "$out" | grep -q "revoke the token on GitHub" && ok "revoke reminds you to revoke the token on GitHub itself" || no "reminder"
 
-# --- the lead's context: qargi lead usage | compact-check, the stage lines, the markers the verbs keep (fixture transcripts under the fresh HOME)
-RB=$T/beta; S=$QARGI_STATE; export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+# --- the lead's context: crown lead usage | compact-check, the stage lines, the markers the verbs keep (fixture transcripts under the fresh HOME)
+RB=$T/beta; S=$CROWN_STATE; export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 git init -q -b master "$RB"; echo 0.1.0 > "$RB/VERSION"; printf '# Changelog\n\n## [Unreleased]\n\n- a change\n' > "$RB/CHANGELOG.md"
 git -C "$RB" add -A && git -C "$RB" commit -q -m one && git -C "$RB" branch develop && git -C "$RB" checkout -q -b parked
 DURING=$T/during.out

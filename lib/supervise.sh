@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# The supervisor of stalled agent runs (design: supervisor/DESIGN.md). Hooks only record (qargi hook ...); the one
+# The supervisor of stalled agent runs (design: supervisor/DESIGN.md). Hooks only record (crown hook ...); the one
 # actor is the idempotent tick. Nothing here sends a message by itself.
-#   supervise.sh tick [--now ISO] [--json]       fold the events, classify the runs, print QARGI SUPERVISE lines, prepare nudges
+#   supervise.sh tick [--now ISO] [--json]       fold the events, classify the runs, print CROWN SUPERVISE lines, prepare nudges
 #   supervise.sh status [--now ISO] [--json]     the runs by class; warns when the last tick is older than twice the interval
 #   supervise.sh delivered KEY [--now ISO]       record that the coordinating session delivered a local run's prepared nudge
 #   supervise.sh nudge SID --asked "..." [--now ISO]   send the fixed nudge template to a cloud session, only when the caps allow
-#   supervise.sh hooks [--qargi COMMAND]         print the settings.json hook snippet; never writes the file
+#   supervise.sh hooks [--crown COMMAND]         print the settings.json hook snippet; never writes the file
 # The logic is lib/supervise.py; the numbers are lib/supervise-defaults.json. The cloud send is the only part that needs
 # the cloud tool (ant) and the user's request (--asked), like every cloud verb.
 . "$(dirname "$0")/lib.sh"

@@ -3,13 +3,13 @@
 
   merged.py REPO TIP --state DIR [--branch NAME] [--answers JSON]     exit 0 merged, 1 not merged, 2 no tip that is a full hex object name
 
-TIP is the commit a run's applied file records (qargi review apply: the second word), which a member can write; NAME is the first word of that file, the
+TIP is the commit a run's applied file records (crown review apply: the second word), which a member can write; NAME is the first word of that file, the
 branch review apply made. When the lead's ref journal ($STATE/ref-journal.jsonl) has a review:apply line for that branch in this repository, its tip is
 the one tested and the file's is ignored (the journal is the lead's, the file the member's). The tip counts as merged when it (or the commit the lead
 rewrote it to) is on a local branch other than agent/*, other than a worktree-bridge-* branch and other than a ref the run's answers declare the runtime's
 own (JSON, the copy of the answers in the lead's registry: runs.owned_refs, matched as lib/owned_refs.py matches): a member can create such a branch at
 the tip, and a branch the lead did not make settles nothing. A rewrite is the lead's own, journaled by
-`qargi ref record --rewrite` (verb ref:rewrite, the same tree) in $STATE/ref-journal.jsonl: the journal is followed from TIP, line by line, to
+`crown ref record --rewrite` (verb ref:rewrite, the same tree) in $STATE/ref-journal.jsonl: the journal is followed from TIP, line by line, to
 the last rewrite of each commit, and the run is merged when any commit on that path is. A word that is not a full hex name never reaches git,
 so an option-like text cannot become an option of for-each-ref; the value is given in the --contains=VALUE form and the ref patterns after --.
 Read-only; python3 -I, standard library only. lib/local.sh (merged_tip) runs it, and lib/lead_usage.py imports it."""

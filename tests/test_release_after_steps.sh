@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # The answer release.after_steps: a list of steps (a string, or an object {name, command, who, evidence}) that `release finish` prints as
 # "after the release: [pending] NAME (WHO): COMMAND" lines and records as pending under the state for `release status`; `release step` marks
-# one done. qargi never runs them. gh is a stub (QARGI_GH); GitHub is never contacted.
+# one done. crown never runs them. gh is a stub (CROWN_GH); GitHub is never contacted.
 # Run: tests/test_release_after_steps.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; ROOT=$PWD; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects"
 REL="$DA release"; tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # rstart ARGS: release start through its plan (a token) and the approval; a refusal of the plan is printed and fails
@@ -19,7 +19,7 @@ cat > "$T/gh" <<G
 echo "\$*" >> "$T/gh.log"
 case "\$*" in *"pr create"*) echo https://github.com/acme/relaf/pull/1;; *"release view"*) echo "release not found" >&2; exit 1;; esac
 G
-chmod +x "$T/gh"; export QARGI_GH=$T/gh
+chmod +x "$T/gh"; export CROWN_GH=$T/gh
 
 # --- the answer
 base=$($DA project template relaf | jq '.repo.url="https://github.com/acme/relaf"')
@@ -55,9 +55,9 @@ git clone -q --bare "$R" "$T/origin.git" && git -C "$R" remote add origin "$T/or
 git -C "$R" checkout -q -b parked
 jq --arg p "$R" --arg t "$T" '.repo={url:"https://github.com/acme/relaf", path:$p, long_lived:["master","develop"]} | .test_command="true"
   | .release={after_steps:["announce {version} to the list",
-      {name:"post the notes", command:("touch " + $t + "/ran-by-qargi"), who:"lead", evidence:"the address of the post"},
+      {name:"post the notes", command:("touch " + $t + "/ran-by-crown"), who:"lead", evidence:"the address of the post"},
       {name:"tag the docs repository", command:"git tag {version}", who:"owner"}]}' <<<"$base" > "$T/c/projects/relaf.json"
-export QARGI_PROJECT=relaf
+export CROWN_PROJECT=relaf
 cd "$T" || exit 1
 $REL verify 0.2.0 >/dev/null 2>&1 && rstart 0.2.0 --date 2026-01-02 >/dev/null 2>&1 || no "release 0.2.0 could not start"
 t=$($REL push 0.2.0 | tok); $REL push 0.2.0 --plan "$t" --approved go >/dev/null 2>&1
@@ -65,9 +65,9 @@ t=$($REL finish 0.2.0 | tok)
 ! grep -q "after the release" <<<"$($REL finish 0.2.0)" && ok "the finish plan does not show the steps yet (nothing is finished)" || no "plan shows steps"
 out=$($REL finish 0.2.0 --plan "$t" --approved go 2>&1); rc=$?
 [ $rc = 0 ] && git -C "$R" rev-parse -q --verify refs/tags/0.2.0 >/dev/null && ok "the release finishes" || no "finish: rc=$rc $out"
-exp=$(printf 'after the release: [pending] announce 0.2.0 to the list (lead)\nafter the release: [pending] post the notes (lead): touch %s/ran-by-qargi [evidence needed: the address of the post]\nafter the release: [pending] tag the docs repository (owner): waits for the owner: run git tag 0.2.0\n' "$T")
+exp=$(printf 'after the release: [pending] announce 0.2.0 to the list (lead)\nafter the release: [pending] post the notes (lead): touch %s/ran-by-crown [evidence needed: the address of the post]\nafter the release: [pending] tag the docs repository (owner): waits for the owner: run git tag 0.2.0\n' "$T")
 [ "$(grep '^after the release:' <<<"$out")" = "$exp" ] && ok "finish prints each step as an 'after the release: [pending] NAME (WHO): COMMAND' line, {version} replaced, in order" || no "lines: $out"
-[ ! -e "$T/ran-by-qargi" ] && ok "a step is never run" || no "a step was run"
+[ ! -e "$T/ran-by-crown" ] && ok "a step is never run" || no "a step was run"
 rec=$T/s/release/relaf-0.2.0.after.json
 [ "$(jq -r '.steps | length' "$rec")" = 3 ] && [ "$(jq -r '.steps[0].name' "$rec")" = "announce 0.2.0 to the list" ] && [ "$(jq -r '.version' "$rec")" = 0.2.0 ] \
   && [ "$(jq -r '[.steps[] | select(.state == "pending")] | length' "$rec")" = 3 ] && [ "$(jq -r '.steps[0].who' "$rec")" = lead ] && [ "$(jq -r '.steps[2].who' "$rec")" = owner ] \
@@ -85,7 +85,7 @@ out=$(sf 0.2.0 "announce 0.2.0 to the list" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "marked done already" <<<"$out" && grep -q -- "--again" <<<"$out" && ok "a step marked done is refused a second time" || no "again: rc=$rc $out"
 out=$(sf 0.2.0 "announce 0.2.0 to the list" --again --evidence "second try" 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(jq -r '.steps[0].evidence' "$rec")" = "second try" ] && ok "--again records it again" || no "--again: rc=$rc $out"
-# a write that fails is told in qargi's words (the record cannot be written; check it and its directory), not in jq's and without blaming another command
+# a write that fails is told in crown's words (the record cannot be written; check it and its directory), not in jq's and without blaming another command
 # (a lock makes the commands wait for each other), and the exit status stays 1
 cp "$rec" "$T/rec.keep"
 if [ "$(id -u)" != 0 ]; then
@@ -129,12 +129,12 @@ out=$(sf 0.2.0 "no such step" 2>&1); rc=$?
 out=$(sf 0.9.9 "post the notes" 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "no record of the after-steps of 0.9.9" <<<"$out" && ok "a version with no record is refused" || no "unknown version: rc=$rc $out"
 out=$(sf 0.2.0 2>&1); rc=$?
-[ $rc != 0 ] && grep -q "usage: qargi release step" <<<"$out" && ok "release step without a name is refused" || no "no name: rc=$rc $out"
+[ $rc != 0 ] && grep -q "usage: crown release step" <<<"$out" && ok "release step without a name is refused" || no "no name: rc=$rc $out"
 out=$($REL status 0.2.0 --evidence x 2>&1); rc=$?
 [ $rc != 0 ] && grep -q "belong to release step" <<<"$out" && ok "--evidence belongs to release step" || no "stray option: rc=$rc $out"
 out=$(sf 0.2.0 "post the notes" --evidence "https://example.net/p/1" 2>&1); rc=$?
 [ $rc = 0 ] && [ "$(jq -r '.steps[1].evidence' "$rec")" = "https://example.net/p/1" ] && ok "an evidence-required step is marked done with its evidence" || no "evidence done: rc=$rc $out"
-[ ! -e "$T/ran-by-qargi" ] && ok "release step never runs the command" || no "release step ran the command"
+[ ! -e "$T/ran-by-crown" ] && ok "release step never runs the command" || no "release step ran the command"
 out=$($REL status 0.2.0 2>&1)
 sect=$(sed -n '/after-steps/,$p' <<<"$out")
 [ "$(grep -c '^    \[done\] ' <<<"$sect")" = 2 ] && grep -qE '^    \[done\] post the notes \(lead, [0-9T:Z-]+, evidence: https://example.net/p/1\)$' <<<"$sect" \

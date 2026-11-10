@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `qargi packs seed`: the baseline packs shipped with qargi are added to the library, updated only while the user has not
+# `crown packs seed`: the baseline packs shipped with crown are added to the library, updated only while the user has not
 # changed them, and never overwrite an edited copy. The tool is copied to a temporary directory with fixture packs, so the
 # shipped text is under the test's control (case 13 checks the real packs/ directory). Offline, hermetic.
 # Run: tests/test_packs_seed.sh
@@ -16,7 +16,7 @@ ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 mkdir -p "$T/tool/packs/skills"
 cp -r bin lib VERSION "$T/tool/"
 VER=$(cat "$T/tool/VERSION")
-DA=$T/tool/bin/qargi
+DA=$T/tool/bin/crown
 SK=$T/tool/packs/skills
 NAMES="alpha-pack beta-pack gamma-pack"
 mkpack() { mkdir -p "$SK/$1"; printf -- '---\nname: %s\ndescription: Use when testing %s.\n---\n# %s\n%s\n' "$1" "$1" "$1" "$2" > "$SK/$1/SKILL.md"; }
@@ -27,7 +27,7 @@ files_hash() { (cd "$1" && find . -type f ! -name .pack.json -print0 | sort -z |
 # the content hash covers the declaration: every pack here declares ["any"]
 hash_of() { printf '%s\ncompatible_providers=%s\n' "$(files_hash "$1")" '["any"]' | sha256sum | cut -c1-16; }
 tok_of() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
-fresh() { rm -rf "$T/c" "$T/s"; export QARGI_CONF=$T/c QARGI_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s"; LIB=$T/c/packs; shipped; }
+fresh() { rm -rf "$T/c" "$T/s"; export CROWN_CONF=$T/c CROWN_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s"; LIB=$T/c/packs; shipped; }
 proj() { jq -n --arg p "$1" '{schema:1,project:$p,repo:{url:"https://github.com/example/x",path:"",long_lived:["main"]},
   roles:{build:{base:"@dispatcher",push:{mode:"none"},model:"claude-sonnet-5-5",effort:"high",apt:[],skills:[]}},
   models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{memory_store:"",reference_store:""},budget_cents:500}' > "$T/c/projects/$1.json"; }
@@ -64,12 +64,12 @@ if [ "$RC" = 0 ] && has "seeded skill alpha-pack \(content $H_A\)" && has "seede
 good=1
 for n in $NAMES; do
   cmp -s "$SK/$n/SKILL.md" "$LIB/skills/$n/SKILL.md" || good=0
-  [ "$(rec "$n" .source)" = "qargi-baseline $VER" ] || good=0
+  [ "$(rec "$n" .source)" = "crown-baseline $VER" ] || good=0
   [ "$(rec "$n" .kind)" = skill ] || good=0
   [ "$(rec "$n" .shipped)" = "$(hash_of "$LIB/skills/$n")" ] || good=0
   [ "$(rec "$n" .sha256)" = "$(hash_of "$LIB/skills/$n")" ] || good=0
 done
-[ "$good" = 1 ] && ok "the copies equal the shipped text; records say source qargi-baseline $VER and carry shipped" || no "library copies or records"
+[ "$good" = 1 ] && ok "the copies equal the shipped text; records say source crown-baseline $VER and carry shipped" || no "library copies or records"
 [ -z "$(find "$LIB/skills" -maxdepth 1 -name '.seed-*')" ] && ok "no staging directory is left behind" || no "staging left: $(ls -A "$LIB/skills")"
 tail -1 "$T/s/audit.log" 2>/dev/null | jq -e '.verb=="packs-seed"' >/dev/null && ok "the apply is in the audit log" || no "audit line: $(tail -1 "$T/s/audit.log" 2>/dev/null)"
 
@@ -117,7 +117,7 @@ plan
 { has "kept +skill alpha-pack: the name belongs to a pack you created or imported" && has "add +skill beta-pack" && [ "$(hash_of "$LIB/skills/alpha-pack")" = "$mine" ]; } \
   && ok "a created pack under a baseline name is kept" || { no "created-pack plan (rc=$RC)"; shown; }
 apply
-{ [ "$(hash_of "$LIB/skills/alpha-pack")" = "$mine" ] && [ "$(rec alpha-pack .source)" != "qargi-baseline $VER" ]; } && ok "and it stays the user's after the apply" || no "created pack overwritten"
+{ [ "$(hash_of "$LIB/skills/alpha-pack")" = "$mine" ] && [ "$(rec alpha-pack .source)" != "crown-baseline $VER" ]; } && ok "and it stays the user's after the apply" || no "created pack overwritten"
 fresh; mkdir -p "$T/imp/beta-pack"; printf -- '---\nname: beta-pack\ndescription: Use when importing.\n---\nbody\n' > "$T/imp/beta-pack/SKILL.md"
 itok=$($DA skill import "$T/imp/beta-pack" --compatible any | tok_of); $DA skill import "$T/imp/beta-pack" --compatible any --plan "$itok" --approved test >/dev/null 2>&1
 plan
@@ -142,7 +142,7 @@ OUT=$($DA packs seed --install 2>&1); RC=$?
 old=$(hash_of "$LIB/skills/alpha-pack")
 mkpack alpha-pack "second text of alpha-pack"; rm -rf "${LIB:?}/skills/gamma-pack"
 OUT=$($DA packs seed --install 2>&1); RC=$?
-{ [ "$RC" = 0 ] && has "note: newer shipped versions: run qargi packs seed" && has "seeded skill gamma-pack" && ! has "plan token" && [ "$(hash_of "$LIB/skills/alpha-pack")" = "$old" ]; } \
+{ [ "$RC" = 0 ] && has "note: newer shipped versions: run crown packs seed" && has "seeded skill gamma-pack" && ! has "plan token" && [ "$(hash_of "$LIB/skills/alpha-pack")" = "$old" ]; } \
   && ok "--install adds a missing pack, never updates, and points at the full seed" || { no "install with a newer pack (rc=$RC)"; shown; }
 OUT=$($DA packs seed --install 2>&1); RC=$?; [ "$RC" = 0 ] && ok "--install is repeatable" || no "second --install (rc=$RC)"
 
@@ -161,7 +161,7 @@ mkpack alpha-pack "second text of alpha-pack"
 plan
 { has "update +skill alpha-pack" && ! has "alpha-pack \(content [0-9a-f]+ -> [0-9a-f]+; links: none\)"; } && ok "the update line names the links it reaches" || { no "linked update plan"; shown; }
 apply
-{ [ "$RC" = 0 ] && has "seeded skill alpha-pack" && has "qargi packs apply --target claude-code apple" && [ "$(cat "$LIB/links.json")" = "$links" ]; } \
+{ [ "$RC" = 0 ] && has "seeded skill alpha-pack" && has "crown packs apply --target claude-code apple" && [ "$(cat "$LIB/links.json")" = "$links" ]; } \
   && ok "the apply prints the follow-up for the project and keeps the link" || { no "follow-up (rc=$RC)"; echo "$OUT" | sed 's/^/       | /'; }
 
 # --- 13. the packs shipped in this repository
@@ -170,7 +170,7 @@ if [ -d "$PK/skills" ] && [ -f "$PK/baseline.json" ]; then
   jq -e '.schema==1 and (.packs|length)>0 and all(.packs[]; .kind=="skill" and (.name|test("^[a-z0-9-]+$")) and (.propose|length>0))' "$PK/baseline.json" >/dev/null \
     && ok "baseline.json is well formed" || no "baseline.json shape"
   jq -e 'all(.packs[]; .compatible_providers == ["any"])' "$PK/baseline.json" >/dev/null && ok "every shipped baseline pack declares compatible_providers [\"any\"]" || no "baseline.json compatible_providers"
-  fresh; out=$($ROOT/bin/qargi packs seed --install 2>&1); rc=$?
+  fresh; out=$($ROOT/bin/crown packs seed --install 2>&1); rc=$?
   { [ "$rc" = 0 ] && [ "$(ls "$LIB/skills" | wc -l)" = "$(jq '.packs|length' "$PK/baseline.json")" ] \
     && [ -z "$(for f in "$LIB"/skills/*/.pack.json; do jq -e '.compatible_providers == ["any"]' "$f" >/dev/null || echo bad; done)" ]; } \
     && ok "the shipped baseline seeds into a library, every record declaring [\"any\"]" || { no "seeding the shipped baseline (rc=$rc)"; echo "$out" | sed 's/^/       | /'; }
@@ -179,19 +179,19 @@ if [ -d "$PK/skills" ] && [ -f "$PK/baseline.json" ]; then
     && ok "shipped pack keep-a-changelog tells a member to use unnumbered items and that the lead renumbers (gitflow-member leaves it there)" || no "the numbering rule is not in keep-a-changelog alone"
   # declared gates: the member pack and the lead's flow skill say that verify runs them in order, stopping at the first failure
   grep -qi "declare gates" "$PK/skills/gitflow-member/SKILL.md" && grep -q "stopping at the first failure" "$PK/skills/gitflow-member/SKILL.md" && grep -q '`feature verify` and `release verify`' "$PK/skills/gitflow-member/SKILL.md" \
-    && grep -q 'declare `gates`' "$ROOT/skills/qargi-flow/SKILL.md" && grep -q "stop at the first failure" "$ROOT/skills/qargi-flow/SKILL.md" && grep -q "only the checks of its own change" "$ROOT/skills/qargi-flow/SKILL.md" \
-    && ok "gitflow-member and qargi-flow tell that declared gates run in order and stop at the first failure, and that a member runs only its own checks" || no "the declared gates are not in gitflow-member and qargi-flow"
+    && grep -q 'declare `gates`' "$ROOT/skills/crown-flow/SKILL.md" && grep -q "stop at the first failure" "$ROOT/skills/crown-flow/SKILL.md" && grep -q "only the checks of its own change" "$ROOT/skills/crown-flow/SKILL.md" \
+    && ok "gitflow-member and crown-flow tell that declared gates run in order and stop at the first failure, and that a member runs only its own checks" || no "the declared gates are not in gitflow-member and crown-flow"
   for n in gitflow-member keep-a-changelog; do
     [ "$(jq -r .sha256 "$LIB/skills/$n/.pack.json")" = "$(jq -r .shipped "$LIB/skills/$n/.pack.json")" ] && [ "$(jq -r .sha256 "$LIB/skills/$n/.pack.json")" = "$(hash_of "$PK/skills/$n")" ] && ok "shipped pack $n is recorded with the content hash of packs/skills/$n" || no "shipped pack $n hash"
   done
   listed=$(jq -r '.packs[].name' "$PK/baseline.json" | sort); present=$(ls "$PK/skills" | sort)
   [ "$listed" = "$present" ] && ok "every packs/skills directory is listed in baseline.json and the reverse" || no "listed [$listed] vs present [$present]"
   # the seven shipped packs: three process packs and four member practice packs, each text-only (a SKILL.md and nothing else)
-  want=$(printf '%s\n' docs-site-member gitflow-member keep-a-changelog qargi-contributing review-findings secrets-scan shellcheck-gate)
+  want=$(printf '%s\n' docs-site-member gitflow-member keep-a-changelog crown-contributing review-findings secrets-scan shellcheck-gate)
   [ "$listed" = "$want" ] && ok "the baseline ships exactly the seven expected packs (count $(wc -l <<<"$listed"))" || no "baseline packs are [$listed], expected [$want]"
   textonly=1; for d in "$PK"/skills/*/; do [ "$(find "$d" -type f | wc -l)" = 1 ] && [ -f "${d}SKILL.md" ] || { textonly=0; echo "       | not text-only: $d"; }; done
   [ "$textonly" = 1 ] && ok "every shipped pack is a single SKILL.md" || no "a shipped pack holds more than SKILL.md"
-  for n in review-findings secrets-scan docs-site-member qargi-contributing; do
+  for n in review-findings secrets-scan docs-site-member crown-contributing; do
     jq -e --arg n "$n" '.packs[] | select(.name==$n) | .kind=="skill" and (.propose|length>0) and .compatible_providers==["any"]' "$PK/baseline.json" >/dev/null \
       && ok "baseline.json lists $n with a propose value and [\"any\"]" || no "baseline.json entry for $n"
   done
@@ -204,7 +204,7 @@ if [ -d "$PK/skills" ] && [ -f "$PK/baseline.json" ]; then
     { [ "$(wc -l <<<"$fm")" = 2 ] && grep -q '^description: ' <<<"$fm"; } || bad="$bad front-matter-not-name+description"
     awk 'NR>1 && /^---$/{f=1} END{exit !f}' "$f" || bad="$bad unclosed-front-matter"
     grep -Eiqw 'curl|wget|ssh|scp|nc|ncat' "$f" && bad="$bad network-word"
-    grep -Eq 'qargi (skill|tool|packs|project|local|memory|discover|review|feature)' "$f" && bad="$bad names-a-qargi-verb"
+    grep -Eq 'crown (skill|tool|packs|project|local|memory|discover|review|feature)' "$f" && bad="$bad names-a-crown-verb"
     [ -z "$(find "$d" -type l)" ] || bad="$bad symlink"
     [ -z "$bad" ] && ok "shipped pack $n: front matter, name and wording" || no "shipped pack $n:$bad"
     fresh; out=$($DA skill import "$d" --compatible any 2>&1); rc=$?

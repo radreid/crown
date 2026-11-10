@@ -6,20 +6,20 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects"
 REL="$DA release"
 tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # rstart ARGS: release start through its plan (a token) and the approval; a refusal of the plan is printed and fails
 rstart() { local p t; p=$($REL start "$@" 2>&1); t=$(tok <<<"$p"); [ -n "$t" ] || { printf '%s\n' "$p"; return 1; }; $REL start "$@" --plan "$t" --approved go; }
-printf '#!/usr/bin/env bash\nexit 1\n' > "$T/gh"; chmod +x "$T/gh"; export QARGI_GH=$T/gh
+printf '#!/usr/bin/env bash\nexit 1\n' > "$T/gh"; chmod +x "$T/gh"; export CROWN_GH=$T/gh
 mk() { # name release-answers-json: a repository with develop and an origin, the answers with test_command true
   R=$T/$1; git init -q -b master "$R"; echo 0.1.0 > "$R/VERSION"
   printf '# Changelog\n\n## [Unreleased]\n\n### Added\n- a thing\n' > "$R/CHANGELOG.md"
   jq -n --arg p "$R" --arg n "$1" --argjson r "${2:-{\}}" '{schema:1, project:$n, methodology:"gitflow", repo:{url:"https://github.com/acme/x", path:$p, long_lived:["master","develop"]}, test_command:"true", release:$r}' > "$T/c/projects/$1.json"
-  export QARGI_PROJECT=$1
+  export CROWN_PROJECT=$1
 }
 seal() { git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" branch -f develop && $REL verify 0.2.0 >/dev/null 2>&1
   git clone -q --bare "$R" "$T/$1.git" && git -C "$R" remote add origin "$T/$1.git"; }
@@ -64,20 +64,20 @@ grep -q "^version files (release.version_files): all 1 contain 0.2.0" <<<"$out" 
 # --- notes_file: the plan of push warns of the changelog items the notes do not mention
 chk "notes_file a file name with {version}" 0 '.release={notes_file:"dist/NOTES-{version}.md"}'
 mk nf '{"notes_file":"NOTES-{version}.md"}'
-printf '# Changelog\n\n## [Unreleased]\n\n### Added\n- `qargi widget` lists the widgets,\n  over two lines.\n- The **frobnicator** now remembers its last setting.\n- Quick fix of the gizmo.\n- `qargi gadget` is new.\n\n### Fixed\n- Parser: no longer loops.\n\n## [0.1.0] - 2026-01-01\n- `old thing` of an older release\n' > "$R/CHANGELOG.md"
+printf '# Changelog\n\n## [Unreleased]\n\n### Added\n- `crown widget` lists the widgets,\n  over two lines.\n- The **frobnicator** now remembers its last setting.\n- Quick fix of the gizmo.\n- `crown gadget` is new.\n\n### Fixed\n- Parser: no longer loops.\n\n## [0.1.0] - 2026-01-01\n- `old thing` of an older release\n' > "$R/CHANGELOG.md"
 seal nf
 rstart 0.2.0 --date 2026-03-04 >/dev/null 2>&1 || no "notes: start: $(rstart 0.2.0 2>&1)"
 wt=$($REL fix 0.2.0 | sed -n 's/^worktree: //p')
 out=$($REL push 0.2.0 2>&1)
 grep -q "^warning: release.notes_file: NOTES-0.2.0.md is not a file on release/0.2.0" <<<"$out" && grep -q "^plan token: " <<<"$out" && ok "a notes file that is not on the branch is a warning, not a refusal" || no "notes missing file: $out"
-printf '# 0.2.0\n\nThe qargi widget command lists them.\nPARSER: no  longer loops.\n' > "$wt/NOTES-0.2.0.md"
+printf '# 0.2.0\n\nThe crown widget command lists them.\nPARSER: no  longer loops.\n' > "$wt/NOTES-0.2.0.md"
 git -C "$wt" add -A && git -C "$wt" commit -q -m "notes"
 out=$($REL push 0.2.0 2>&1)
-exp=$(printf '  - The frobnicator now\n  - Quick fix of\n  - qargi gadget\n')
+exp=$(printf '  - The frobnicator now\n  - Quick fix of\n  - crown gadget\n')
 grep -q "^warning: NOTES-0.2.0.md on release/0.2.0 does not mention these items of the 0.2.0 section of CHANGELOG.md" <<<"$out" \
   && [ "$(grep '^  - ' <<<"$out")" = "$exp" ] && ! grep -q "old thing" <<<"$out" && grep -q "^plan token: " <<<"$out" \
   && ok "the plan lists the items the notes lack (backticked term or first three words; case and spacing ignored; only the version's section) and still gives a token" || no "notes warning: $out"
-printf 'The qargi widget, the qargi gadget, quick fix of the gizmo; the frobnicator now; Parser: no longer.\n' > "$wt/NOTES-0.2.0.md"
+printf 'The crown widget, the crown gadget, quick fix of the gizmo; the frobnicator now; Parser: no longer.\n' > "$wt/NOTES-0.2.0.md"
 git -C "$wt" commit -q -am "notes complete"
 out=$($REL push 0.2.0 2>&1)
 grep -q "^notes (release.notes_file): NOTES-0.2.0.md mentions every item of the 0.2.0 section" <<<"$out" && ! grep -q "^warning: NOTES" <<<"$out" && ok "a notes file that mentions every item gets no warning" || no "notes complete: $out"

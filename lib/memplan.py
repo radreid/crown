@@ -14,7 +14,7 @@ to the first `Sources:` line of the note's header block (or adding the line afte
 `@<12 hex>`, the digest of the note as it was before the segment was added; only a segment whose digest matches
 the text it was taken from is ours (core, full, origin), so a hand-written look-alike is just text. core()
 takes one segment off again, which restores an archived note byte for byte. A note with no `Sources:` line gets
-`Sources: origin not recorded (qargi memory); <segment>`; a note whose own line is exactly that placeholder text gets
+`Sources: origin not recorded (crown memory); <segment>`; a note whose own line is exactly that placeholder text gets
 the segment appended like any other. Undoing tells them apart by the digest alone (the placeholder line is dropped
 when the text without it has the digest, kept when the text with it has), so the format has no flag for it and notes
 written by any earlier release restore the same way.
@@ -30,7 +30,7 @@ For a later port, typed links or a link-rewriting step, the contract this module
 - DirBackend ids are derived from path and content, so they change with every edit; the cloud's ids are stable.
   Steps therefore name notes by path and digest, never by id.
 
-CLI (qargi memory split|merge|copy runs these; the approval gate is in memory.sh):
+CLI (crown memory split|merge|copy runs these; the approval gate is in memory.sh):
   memplan.py plan  VERB --source REF --target REF [--prefix P]... [--role R] [--note-kind K] [--archive] [--policy P] --out FILE
   memplan.py show  FILE
   memplan.py apply FILE
@@ -43,7 +43,7 @@ import canon as C  # noqa: E402
 import membackend as B  # noqa: E402
 
 POLICIES = ("conflicts", "keep")
-NO_SOURCE = "origin not recorded (qargi memory)"      # the Sources: value of a note that had no such line
+NO_SOURCE = "origin not recorded (crown memory)"      # the Sources: value of a note that had no such line
 SEGMENT = re.compile(r"; (copied|archived) from ([^;\s]+)@([0-9a-f]{12})(?: on \d{4}-\d{2}-\d{2})?(\r?)$")
 
 
@@ -306,7 +306,7 @@ def migrate(store, to_version, kind, project, roles, seed, today=None):
     """The canon's own plan for a store (canon.make_plan), with the digests it was computed from.
     Only the current canon version is a target. -> plan with a "target" (the store itself) and notes"""
     if to_version != C.LATEST:
-        raise ValueError("this qargi migrates to canon %d only" % C.LATEST)
+        raise ValueError("this crown migrates to canon %d only" % C.LATEST)
     today = today or today_utc()
     p = C.make_plan(kind, store, project, roles, seed, today)
     byid = {m["id"]: path for path, m in store.items() if m.get("id")}
@@ -408,7 +408,7 @@ def main():
                 done = apply_plan(plan, backends, dry_run=False)
                 print("applied %d step(s)" % len(done))
     except (B.StoreError, ValueError, OSError) as x:
-        print("qargi: %s" % x, file=sys.stderr)
+        print("crown: %s" % x, file=sys.stderr)
         return 1
     return 0
 

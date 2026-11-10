@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# qargi marshal forget NAME: the owner drops this machine's accepted high-water mark of a feature, so that a stale mark (left after the
+# crown marshal forget NAME: the owner drops this machine's accepted high-water mark of a feature, so that a stale mark (left after the
 # feature was deleted or re-created on the remote) stops reporting "rollback detected". Hermetic: a scratch bare origin in a temp dir and
-# machines with their own HOME, QARGI_CONF, QARGI_STATE and clone of it; nothing leaves the temp dir. Run: tests/test_marshal_forget.sh
+# machines with their own HOME, CROWN_CONF, CROWN_STATE and clone of it; nothing leaves the temp dir. Run: tests/test_marshal_forget.sh
 #
 # Interface this test fixes:
 #   - `marshal forget NAME [--project P]` without options prints a plan (the rev and the oid of the mark it would drop) and `plan token: TOK`
@@ -13,11 +13,11 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 trap 'rm -rf "$T" "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
+export CROWN_PROJECT=app
 unset GIT_TERMINAL_PROMPT
 ORIGIN=$T/origin.git
 WORDS="the stale mark is safe to drop"
@@ -31,11 +31,11 @@ mk() { # NAME: a machine with its own home, conf, state and a clone of the origi
   local d=$T/m/$1
   mkdir -p "$d/home" "$d/c/projects" "$d/s"
   git clone -q "$ORIGIN" "$d/app" && git -C "$d/app" branch develop origin/develop >/dev/null 2>&1
-  env HOME="$d/home" QARGI_CONF="$d/c" QARGI_STATE="$d/s" "$DA" project template app \
+  env HOME="$d/home" CROWN_CONF="$d/c" CROWN_STATE="$d/s" "$DA" project template app \
     | jq --arg p "$d/app" '.repo.path = $p | .repo.url = "https://github.com/acme/app" | .methodology = "gitflow" | .test_command = "true"' > "$d/c/projects/app.json"
 }
 # the machines run from their own directory, never from the checkout this test sits in (which may itself be a member's run directory)
-XE() { local m=$1; shift; cd "${XD:-$T/m/$m}" && env HOME="$T/m/$m/home" QARGI_CONF="$T/m/$m/c" QARGI_STATE="$T/m/$m/s" "$DA" "$@" >"$T/o" 2>"$T/e"; }
+XE() { local m=$1; shift; cd "${XD:-$T/m/$m}" && env HOME="$T/m/$m/home" CROWN_CONF="$T/m/$m/c" CROWN_STATE="$T/m/$m/s" "$DA" "$@" >"$T/o" 2>"$T/e"; }
 out() { cat "$T/o" "$T/e"; }
 S() { echo "$T/m/$1/s"; }
 MK() { echo "$(S "$1")/features/.accepted-app.json"; }
@@ -50,18 +50,18 @@ mk a; mk b; mk c
 mkdir -p "$(S a)/features" "$(S b)/features" "$(S c)/features"
 fb f1 f2
 # a: shared refs, a key, itself trusted, integrity advisory (its own writes are signed and become its accepted marks)
-OWN a key init --principal alice@ms >/dev/null 2>&1; LA=$(grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/o" | sed 's/^[[:space:]]*//')
+OWN a key init --principal alice@ms >/dev/null 2>&1; LA=$(grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/o" | sed 's/^[[:space:]]*//')
 XE a marshal enable; tk=$(tokof); XE a marshal enable --plan "$tk" --approved "$WORDS"
 OWN a signers add --line "$LA" >/dev/null 2>&1
 OWN a enable --integrity advisory >/dev/null 2>&1
-XE a marshal claim f1 --as alice --goal one >/dev/null 2>&1; R1=$(oref refs/qargi/features/f1)
+XE a marshal claim f1 --as alice --goal one >/dev/null 2>&1; R1=$(oref refs/crown/features/f1)
 XE a marshal set f1 --as alice --goal two >/dev/null 2>&1
-XE a marshal set f1 --as alice --goal three >/dev/null 2>&1; R3=$(oref refs/qargi/features/f1)
-XE a marshal claim f2 --as alice --goal other >/dev/null 2>&1; R2=$(oref refs/qargi/features/f2)
+XE a marshal set f1 --as alice --goal three >/dev/null 2>&1; R3=$(oref refs/crown/features/f1)
+XE a marshal claim f2 --as alice --goal other >/dev/null 2>&1; R2=$(oref refs/crown/features/f2)
 [ "$(mark a f1)" = "[3,\"$R3\"]" ] && [ -n "$(mark a f2)" ] && ok "setup: the machine holds marks for f1 (rev 3) and f2" || no "setup: marks $(cat "$(MK a)" 2>&1)"
 
 # the remote has f1 rewound to its first record: the stale-mark situation
-OG update-ref refs/qargi/features/f1 "$R1"
+OG update-ref refs/crown/features/f1 "$R1"
 XE a marshal status f1
 grep -q 'rollback detected' <(out) && ok "before: a status of f1 reports rollback detected" || no "setup: expected a rollback: $(out)"
 

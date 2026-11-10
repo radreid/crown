@@ -4,9 +4,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s
 mkdir -p "$HOME" "$T/c"
 
 $DA methodology list | grep -q "^gitflow .*built-in" && ok "list shows the built-in methodology" || no "list: $($DA methodology list)"
@@ -23,7 +23,7 @@ out2=$($DA methodology files gitflow --param project=acme --param ci_timeout_min
 wf "$out2" | grep -qx '    timeout-minutes: 45' && ! wf "$out2" | grep -q '{{ci_timeout_minutes}}' && ok "--param ci_timeout_minutes fills the CI job's time limit" || no "timeout 45: $(wf "$out2")"
 for v in 0 abc 3.5 "45 minutes" -5; do $DA methodology files gitflow --param project=acme --param "ci_timeout_minutes=$v" >/dev/null 2>&1 && no "ci_timeout_minutes=$v was accepted" || ok "ci_timeout_minutes=$v is refused (a positive whole number of minutes)"; done
 jq -r '.[] | select(.dest==".gitignore") | .content' <<<"$out" | grep -qx '.claude/worktrees/' && jq -r '.[] | select(.dest==".gitignore") | .content' <<<"$out" | grep -qx '.claude/settings.local.json' && ok "the .gitignore excludes Claude Code's worktrees and local settings, not all of .claude" || no ".gitignore lines"
-jq -r '.[].content' <<<"$out" | grep -qi qargi && no "the scaffold mentions qargi" || ok "the scaffold carries no reference to qargi"
+jq -r '.[].content' <<<"$out" | grep -qi crown && no "the scaffold mentions crown" || ok "the scaffold carries no reference to crown"
 jq -r '.[].content' <<<"$out" | grep -q '{{[a-z_]*}}' && no "an unfilled placeholder remains" || ok "no declared placeholder is left"
 $DA methodology files gitflow >/dev/null 2>&1 && no "a missing project was accepted" || ok "the project parameter is required"
 $DA methodology files gitflow --param project=Bad >/dev/null 2>&1 && no "a bad project name was accepted" || ok "a malformed project name is refused"
@@ -104,10 +104,10 @@ $DA methodology list | grep -q "^lean .*user" && $DA methodology check lean >/de
 jq 'length' <<<"$($DA methodology files lean --param project=x)" | grep -qx 1 && ok "and renders" || no "render lean"
 jq '.scaffold=[{"src":"missing.md","dest":"../escape"}]' "$M/methodology.json" > "$M/m.tmp" && mv "$M/m.tmp" "$M/methodology.json"
 $DA methodology check lean >/dev/null 2>&1 && no "an escaping scaffold path passed" || ok "a scaffold path that leaves the project fails the check"
-$DA methodology show gitflow | grep -q "^  site  *when site.enabled: qargi release site {version}" && ok "show lists the after_release step" || no "show after_release: $($DA methodology show gitflow)"
+$DA methodology show gitflow | grep -q "^  site  *when site.enabled: crown release site {version}" && ok "show lists the after_release step" || no "show after_release: $($DA methodology show gitflow)"
 jq '.scaffold=[{"src":"README.md","dest":"README.md"}] | .after_release=[{"id":"site","when":"site.enabled","next":"rm -rf /"}]' methodologies/gitflow/methodology.json | jq '.name="lean"' > "$M/methodology.json"
-$DA methodology check lean 2>&1 | grep -q "after_release step site: next is the one qargi command line" && ok "an after_release step that is no qargi command fails the check" || no "after_release next"
-jq '.after_release=[{"id":"site","when":"Site Enabled","next":"qargi x"},{"id":"site","when":"a.b","next":"qargi y","extra":1}]' "$M/methodology.json" > "$M/m.tmp" && mv "$M/m.tmp" "$M/methodology.json"
+$DA methodology check lean 2>&1 | grep -q "after_release step site: next is the one crown command line" && ok "an after_release step that is no crown command fails the check" || no "after_release next"
+jq '.after_release=[{"id":"site","when":"Site Enabled","next":"crown x"},{"id":"site","when":"a.b","next":"crown y","extra":1}]' "$M/methodology.json" > "$M/m.tmp" && mv "$M/m.tmp" "$M/methodology.json"
 out=$($DA methodology check lean 2>&1)
 grep -q "when is the dotted name of a project answer" <<<"$out" && grep -q "an object {id, when, next, help}" <<<"$out" && ok "a bad when and an unknown key of an after_release step fail the check" || no "after_release check: $out"
 mkdir -p "$T/c/methodologies/gitflow"; cp methodologies/gitflow/methodology.json "$T/c/methodologies/gitflow/"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Numbered changelog items (the part of `qargi changelog` and of the feature verbs that reads and rewrites them).
+"""Numbered changelog items (the part of `crown changelog` and of the feature verbs that reads and rewrites them).
 
 A project opts in with the answer release.changelog.numbered: true. Under the unreleased heading of its changelog (the answer
 release.changelog.unreleased, default "## [Unreleased]"; the section runs to the next heading of that level or above), an item is a line that
@@ -105,12 +105,12 @@ def cmd_renumber(args):
         with open(path, encoding="utf-8") as f:
             text = f.read()
     except OSError as e:
-        print("qargi: %s: %s" % (path, e.strerror or e), file=sys.stderr)
+        print("crown: %s: %s" % (path, e.strerror or e), file=sys.stderr)
         return 3
     unrel, _ = RL.templates(RL.load_release(af))
     sec = section(text, unrel)
     if not sec:
-        print("qargi: %s has no '%s' section (release.changelog.unreleased) to number the items of" % (os.path.basename(path), unrel), file=sys.stderr)
+        print("crown: %s has no '%s' section (release.changelog.unreleased) to number the items of" % (os.path.basename(path), unrel), file=sys.stderr)
         return 3
     head, a, b = sec
     lines = text[a:b].split("\n")
@@ -124,7 +124,7 @@ def cmd_renumber(args):
         print("%s: duplicate item numbers under '%s':" % (os.path.basename(path), head))
         for n in sorted(dups):
             print("  %d: lines %s" % (n, ", ".join(str(base + i + 1) for i in dups[n])))
-        print("Fix: qargi changelog renumber in the checkout that holds the file, commit it, and run the whole suite again.")
+        print("Fix: crown changelog renumber in the checkout that holds the file, commit it, and run the whole suite again.")
         return 1
     new, changed, nrefs = renumbered(lines, its)
     with open(path, "w", encoding="utf-8") as f:

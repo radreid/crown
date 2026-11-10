@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `qargi project profile check [NAME] [--profile FILE]`: the profile of a repository still carries the shipped template header (exit 1), a gate command
+# `crown project profile check [NAME] [--profile FILE]`: the profile of a repository still carries the shipped template header (exit 1), a gate command
 # the repository does not know is a warning (exit 0), and `project validate` prints the header finding as a WARN line. Offline, hermetic.
 # Run: tests/test_project_profile.sh
 set -u
@@ -9,9 +9,9 @@ ROOT=$PWD
 . tests/hermetic.sh
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s HOME=$T/h
+export CROWN_CONF=$T/c CROWN_STATE=$T/s HOME=$T/h
 mkdir -p "$T/c/projects" "$T/c/profiles" "$T/s" "$T/h"
-DA=$ROOT/bin/qargi
+DA=$ROOT/bin/crown
 R=$T/acme-repo; PF=$T/c/profiles/acme-repo.md
 mkdir -p "$R"
 jq -n --arg r "$R" '{schema:1,project:"acme",repo:{url:"https://github.com/example/acme-repo",path:$r,long_lived:["main"]},

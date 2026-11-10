@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# qargi marshal, slice 3: signed records (integrity off | advisory | strict) on the shared refs backend. Written from the SPEC of the
+# crown marshal, slice 3: signed records (integrity off | advisory | strict) on the shared refs backend. Written from the SPEC of the
 # feature, not from its code. Everything is local: a scratch bare origin in a temp dir, several "machines" (each with its own HOME,
-# QARGI_CONF, QARGI_STATE and clone of that origin) and a git shim and an ssh-keygen shim first on PATH (the shims log every call, and
+# CROWN_CONF, CROWN_STATE and clone of that origin) and a git shim and an ssh-keygen shim first on PATH (the shims log every call, and
 # the ssh-keygen shim can make a verification hang). Forged, replayed, rewound and tampered records are written with git plumbing
 # straight to the scratch origin; the test signs forged records itself, with ssh-keygen, from the format of the spec (an independent
-# implementation of the payload, which is also how the test checks that a record qargi signed verifies). Nothing leaves the temp dir.
+# implementation of the payload, which is also how the test checks that a record crown signed verifies). Nothing leaves the temp dir.
 # Run: tests/test_marshal_sign.sh
 #
 # Interfaces beyond the spec's wording that this test ASSUMES (the commit message of this file lists them as well):
@@ -13,9 +13,9 @@
 #     the two missing, or a wrong token, is refused (exit nonzero). `marshal resign NAME` (review fix, the spec said only `--approved WORDS`) is the same:
 #     a plan with the record's lead and goal and a token, applied with `--plan TOK --approved WORDS`.
 #   - `marshal key init [--principal P]` names the key's principal P (default: person@machine); it prints the signers line
-#     `P namespaces="qargi-marshal" ssh-ed25519 AAAA...` (the test takes the line from the output) and does not add it to the signers
+#     `P namespaces="crown-marshal" ssh-ed25519 AAAA...` (the test takes the line from the output) and does not add it to the signers
 #     file; a second `key init` while the key exists is refused and leaves the key as it was. Its audit line has a verb containing
-#     `marshal:key`. The key is written as $QARGI_CONF/credentials/marshal_ed25519 (the public half beside it is not looked at).
+#     `marshal:key`. The key is written as $CROWN_CONF/credentials/marshal_ed25519 (the public half beside it is not looked at).
 #   - `marshal signers add --line L` takes one single line; text that is not a signers line, or a line with a newline in it, is refused.
 #     `marshal signers remove P` drops every line of the principal P; `marshal signers list` prints the lines.
 #   - `marshal enable --integrity MODE` also works on a project that is already enabled and keeps backend and remote; a mode other than
@@ -37,12 +37,12 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 trap 'jobs -p | xargs -r kill 2>/dev/null; rm -rf "$T" "$HERMETIC"' EXIT
 # shellcheck source=fixtures.sh
 . tests/fixtures.sh
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
+export CROWN_PROJECT=app
 unset GIT_TERMINAL_PROMPT
 REALGIT=$(command -v git); REALSSHK=$(command -v ssh-keygen || echo /nonexistent/ssh-keygen)
 git() { "$REALGIT" "$@"; }                 # the test's own git is never logged by the shim
@@ -58,11 +58,11 @@ nall() { wc -l < "$LOG"; }
 
 # --- the origin, seeded from a scratch repository, and the machines
 make_origin "$ORIGIN"
-# XE MACHINE [VAR=val...] ARGS...: qargi as that machine, output in $T/o and $T/e, the exit status returned
+# XE MACHINE [VAR=val...] ARGS...: crown as that machine, output in $T/o and $T/e, the exit status returned
 XE() {
   local m=$1; shift; local -a ev=()
   while [[ ${1:-} =~ ^[A-Z_0-9]+= ]]; do ev+=("$1"); shift; done
-  env HOME="$T/m/$m/home" QARGI_CONF="$T/m/$m/c" QARGI_STATE="$T/m/$m/s" "${ev[@]}" "$DA" "$@" >"$T/o" 2>"$T/e"
+  env HOME="$T/m/$m/home" CROWN_CONF="$T/m/$m/c" CROWN_STATE="$T/m/$m/s" "${ev[@]}" "$DA" "$@" >"$T/o" 2>"$T/e"
 }
 S() { echo "$T/m/$1/s"; }                  # the state directory of a machine
 KEY() { echo "$T/m/$1/c/credentials/marshal_ed25519"; }
@@ -83,14 +83,14 @@ orec() { OG cat-file -p "$1:record.json" 2>/dev/null; }
 jsf() { orec "$1" | jq -r "$2" 2>/dev/null; }                  # a field of the record at an origin ref
 js() { XE "$1" marshal status "$2" --json; tr -d ' \n' < "$T/o"; }   # `status NAME --json` of a machine, without blanks
 
-# --- the independent implementation of the spec's signing format (the test's own, never qargi's)
+# --- the independent implementation of the spec's signing format (the test's own, never crown's)
 cat > "$T/sigtool.py" <<'PY'
 import hashlib, json, os, re, subprocess, sys, tempfile
 SSHK, GIT = os.environ["REAL_SSHK"], os.environ["REAL_GIT"]
 def canon(o): return json.dumps(o, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 def payload(project, feature, kind, rec, parent):
     lead = rec.get("lead"); lid = lead.get("id") if isinstance(lead, dict) else None
-    return canon({"v": 1, "ns": "qargi-marshal", "project": project, "feature": feature, "kind": kind, "rev": rec["rev"], "parent": parent,
+    return canon({"v": 1, "ns": "crown-marshal", "project": project, "feature": feature, "kind": kind, "rev": rec["rev"], "parent": parent,
                   "lead": lid, "record_sha256": hashlib.sha256(canon(rec).encode()).hexdigest()}).encode()
 def git(gd, *a): return subprocess.run([GIT, "--git-dir", gd, *a], capture_output=True, check=True).stdout
 def main():
@@ -116,7 +116,7 @@ def main():
         data = payload(project, rec["feature"], kind, rec, parent)
         with tempfile.TemporaryDirectory() as d:
             sf = os.path.join(d, "sig"); open(sf, "w").write(blocks[0] + "\n")
-            r = subprocess.run([SSHK, "-Y", "verify", "-f", signers, "-I", rec["signer"], "-n", "qargi-marshal", "-s", sf], input=data, capture_output=True)
+            r = subprocess.run([SSHK, "-Y", "verify", "-f", signers, "-I", rec["signer"], "-n", "crown-marshal", "-s", sf], input=data, capture_output=True)
         if r.returncode: sys.exit("verify failed: " + r.stderr.decode() + r.stdout.decode())
 main()
 PY
@@ -124,7 +124,7 @@ ST() { REAL_SSHK=$REALSSHK REAL_GIT=$REALGIT python3 -I "$T/sigtool.py" "$@"; }
 : > "$T/ste"
 vok() { ST check "$ORIGIN" "$1" app "$2" "$3" 2>"$T/ste"; }          # COMMIT KIND SIGNERS-FILE
 chain_ok() { # REF SIGNERS: every commit on the ref verifies, parent signed, and the revs go up
-  local c kind=${1#refs/qargi/} prev=0 rv; kind=${kind%%/*}
+  local c kind=${1#refs/crown/} prev=0 rv; kind=${kind%%/*}
   for c in $(OG rev-list --reverse "$1"); do
     vok "$c" "$kind" "$2" || { echo "commit $c: $(cat "$T/ste" 2>/dev/null)"; return 1; }
     rv=$(OG cat-file -p "$c:record.json" | jq -r .rev); [ "$rv" -gt "$prev" ] 2>/dev/null || { echo "rev $rv not above $prev"; return 1; }; prev=$rv
@@ -150,7 +150,7 @@ forge() { # KIND FEATURE PARENT|- KEYFILE NS RECFILE [MODE]: a commit with a sig
   blob=$(OG hash-object -w "$rec"); trr=$(printf '100644 blob %s\trecord.json\n' "$blob" | OG mktree)
   if [ "$parent" = - ]; then OG commit-tree -m "$msg" "$trr"; else OG commit-tree -p "$parent" -m "$msg" "$trr"; fi
 }
-plantf() { local c; c=$(forge "$@") && OG update-ref "refs/qargi/$1/$2" "$c"; }    # plantf KIND FEATURE ... (as forge)
+plantf() { local c; c=$(forge "$@") && OG update-ref "refs/crown/$1/$2" "$c"; }    # plantf KIND FEATURE ... (as forge)
 copyto() { # SRCREF DSTREF JQFILTER: a root commit at DSTREF with the message of SRCREF's head and its record changed by the filter
   local c blob trr msg new
   c=$(oref "$1"); msg=$(OG show -s --format=%B "$c")
@@ -158,7 +158,7 @@ copyto() { # SRCREF DSTREF JQFILTER: a root commit at DSTREF with the message of
   new=$(OG commit-tree -m "$msg" "$trr") && OG update-ref "$2" "$new"
 }
 tamper() { # NAME JQFILTER: features/NAME becomes a commit with the same parent and message and a changed record
-  local ref=refs/qargi/features/$1 c blob trr msg par new
+  local ref=refs/crown/features/$1 c blob trr msg par new
   c=$(oref "$ref"); msg=$(OG show -s --format=%B "$c"); par=$(OG rev-parse -q --verify "$c^" 2>/dev/null || true)
   blob=$(orec "$ref" | jq -c "$2" | OG hash-object -w --stdin); trr=$(printf '100644 blob %s\trecord.json\n' "$blob" | OG mktree)
   if [ -n "$par" ]; then new=$(OG commit-tree -p "$par" -m "$msg" "$trr"); else new=$(OG commit-tree -m "$msg" "$trr"); fi
@@ -172,7 +172,7 @@ ensure_key() { # MACHINE PRINCIPAL: a key made by hand when key init did not mak
   mkdir -p "$(dirname "$(KEY "$1")")"; "$REALSSHK" -q -t ed25519 -N '' -C "$2" -f "$(KEY "$1")" >/dev/null 2>&1; chmod 600 "$(KEY "$1")"; hand "key of $1"
 }
 lineof() { # MACHINE PRINCIPAL: the signers line of the key of a machine
-  printf '%s namespaces="qargi-marshal" %s\n' "$2" "$(cut -d' ' -f1,2 "$(KEY "$1").pub" 2>/dev/null)"
+  printf '%s namespaces="crown-marshal" %s\n' "$2" "$(cut -d' ' -f1,2 "$(KEY "$1").pub" 2>/dev/null)"
 }
 addsig() { # MACHINE LINE
   grep -qxF -- "$2" "$(SIG "$1")" 2>/dev/null && return 0
@@ -213,13 +213,13 @@ make_machine wa
 fb f1 f2 f3 f4 f5 f6 f6t w1 w2 w3
 en wa || no "setup: enable of wa"
 for m in wb wc wk; do clone_machine wa "$m"; done   # wb, wc and wk are copies of the enabled wa
-kl() { OWN "$1" key init --principal "$1@ms" >/dev/null 2>&1; grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/o" | sed 's/^[[:space:]]*//'; }
+kl() { OWN "$1" key init --principal "$1@ms" >/dev/null 2>&1; grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/o" | sed 's/^[[:space:]]*//'; }
 LWA=$(kl wa); LWB=$(kl wb); LWC=$(kl wc)
 for l in "$LWA" "$LWB" "$LWC"; do OWN wa signers add --line "$l" >/dev/null 2>&1; done; for m in wb wc wk; do cp "$(SIG wa)" "$(SIG "$m")"; done   # the same three lines everywhere
 mode wa strict; mode wb strict; mode wc advisory; mode wk advisory
 { [ -f "$(KEY wa)" ] && [ -f "$(KEY wb)" ] && [ -f "$(KEY wc)" ] && [ "$(jq -r .integrity "$(EN wb)")" = strict ] && [ "$(jq -r .integrity "$(EN wc)")" = advisory ] && grep -qF "$LWC" "$(SIG wk)"; } \
   && ok "review fixes: the fixture (wa, wb strict, wc, wk advisory, keys trusted everywhere) is in place" || no "setup of the review-fix machines"
-F=refs/qargi/features
+F=refs/crown/features
 JUNK=''
 junk() { # REF JQFILTER: an unsigned commit on top of REF's head (no sig_v, no signer, the filter applied to the record); JUNK is its oid
   local h blob trr; h=$(oref "$1")
@@ -252,10 +252,10 @@ XE wc marshal set f2 --as alice --plan P-wc; rc=$?
 { [ $rc = 0 ] && anc "$K2" $F/f2 && [ "$(jsf $F/f2 .goal)" = from-k ] && [ "$(jsf $F/f2 .plan)" = P-wc ] && [ "$(jsf $F/f2 .signer)" = "$PWC" ] && vok "$(oref $F/f2)" features "$(SIG wc)"; } \
   && ok "advisory: a write builds on wk's unsigned head (its goal is kept, the head is in the chain) and is signed" || no "SPEC advisory must build on the actual unsigned head, not on the mark (rc=$rc, goal '$(jsf $F/f2 .goal)', unsigned head kept: $(anc "$K2" $F/f2 && echo yes || echo NO)): $(cat "$T/e")"
 # the lease timer follows the head that was used: wk's unsigned renewals keep the lease of alice alive on wc
-XE wc QARGI_MARSHAL_MONO=0 marshal claim f3 --as alice >/dev/null 2>&1
+XE wc CROWN_MARSHAL_MONO=0 marshal claim f3 --as alice >/dev/null 2>&1
 XE wk marshal renew f3 --as alice >/dev/null 2>&1
-XE wc QARGI_MARSHAL_MONO=800 marshal status f3 --as sam >/dev/null 2>&1
-XE wc QARGI_MARSHAL_MONO=$((TTL + 1)) marshal takeover f3 --as sam --approved "$WORDS"; rc=$?
+XE wc CROWN_MARSHAL_MONO=800 marshal status f3 --as sam >/dev/null 2>&1
+XE wc CROWN_MARSHAL_MONO=$((TTL + 1)) marshal takeover f3 --as sam --approved "$WORDS"; rc=$?
 { [ $rc != 0 ] && [ "$(jsf $F/f3 .lead.id)" = alice ]; } && ok "advisory: the lease timer counts the unsigned head the lead's other machine renewed (the takeover at ttl+1 s is refused)" || no "SPEC advisory: the timer must follow the head that is used, not the mark (rc=$rc, lead $(jsf $F/f3 .lead.id)): $(out)"
 # an INVALID head (changed after signing) is used in advisory too, and a write builds on it
 XE wc marshal claim f4 --as alice --goal g4 >/dev/null 2>&1
@@ -266,7 +266,7 @@ XE wc marshal set f4 --as alice --plan P4; rc=$?
 
 # ------------------------------------------------------------ (16c) a signed done/ ref does not clear the mark of a feature that is open again, and an old one cannot be replayed
 XE wa marshal claim f5 --as alice --goal life1 >/dev/null 2>&1; XE wa marshal finish f5 --as alice >/dev/null 2>&1
-D5=refs/qargi/done/f5; DONE1=$(oref $D5)
+D5=refs/crown/done/f5; DONE1=$(oref $D5)
 XE wa marshal claim f5 --as alice --goal l2r1 >/dev/null 2>&1; G1=$(oref $F/f5)
 XE wa marshal set f5 --as alice --goal l2r2 >/dev/null 2>&1; XE wa marshal set f5 --as alice --goal l2r3 >/dev/null 2>&1; G3=$(oref $F/f5)
 XE wb marshal status f5 >/dev/null 2>&1
@@ -302,10 +302,10 @@ j=$(js wb f6); XE wb marshal status f6
 { [[ $j == *'"goal":"g6c"'* ]] && ! grep -q 'rollback detected' <(out); } && ok "identity: the real chain after it is accepted, the descent check follows the chain by record identity" || no "SPEC the real chain must not be flagged as rollback after a re-committed head (json ${j:0:200}): $(cat "$T/e")"
 # a re-committed head does not renew the lease timer
 XE wa marshal claim f6t --as alice >/dev/null 2>&1; XE wa marshal renew f6t --as alice >/dev/null 2>&1; T6=$(oref $F/f6t)
-XE wb QARGI_MARSHAL_MONO=0 marshal status f6t --as sam >/dev/null 2>&1
+XE wb CROWN_MARSHAL_MONO=0 marshal status f6t --as sam >/dev/null 2>&1
 T6B=$(GIT_COMMITTER_DATE="2001-01-01T00:00:00Z" OG commit-tree -p "$(OG rev-parse "$T6^")" -m "$(OG show -s --format=%B "$T6")" "$(OG rev-parse "$T6^{tree}")"); OG update-ref $F/f6t "$T6B"
-XE wb QARGI_MARSHAL_MONO=600 marshal status f6t --as sam >/dev/null 2>&1
-XE wb QARGI_MARSHAL_MONO=$((TTL + 1)) marshal takeover f6t --as sam --approved "$WORDS"; rc=$?
+XE wb CROWN_MARSHAL_MONO=600 marshal status f6t --as sam >/dev/null 2>&1
+XE wb CROWN_MARSHAL_MONO=$((TTL + 1)) marshal takeover f6t --as sam --approved "$WORDS"; rc=$?
 { [ $rc = 0 ] && [ "$(jsf $F/f6t .lead.id)" = sam ]; } && ok "identity: re-committing a head does not restart the lease timer (takeover at ttl+1 s from the first sight works)" || no "SPEC a re-committed head must not renew a lease (rc=$rc, lead $(jsf $F/f6t .lead.id)): $(out)"
 
 # ------------------------------------------------------------ (16e) resign signs what the owner was shown, never a stranger's record over an accepted one
@@ -374,8 +374,8 @@ for m in b ra rs ro; do clone_machine a "$m"; done   # the others are copies of 
 # ============================================================ (1) integrity is off by default; an unkeyed machine writes unsigned records
 jq -e '(.integrity // "off") == "off"' "$(EN a)" >/dev/null 2>&1 && ok "default: after enable the switch file has no integrity field or off" || no "SPEC integrity defaults to off: $(cat "$(EN a)" 2>&1)"
 XE a marshal claim off1 --as alice --goal local; rc=$?
-orec refs/qargi/features/off1 | jq -e 'has("sig_v") == false and has("signer") == false' >/dev/null 2>&1 && ! OG cat-file commit "$(oref refs/qargi/features/off1)" | grep -q 'BEGIN SSH SIGNATURE' && [ $rc = 0 ] \
-  && ok "off: with integrity off a claim has no sig_v, no signer and no signature in the commit" || no "SPEC off = today: record $(orec refs/qargi/features/off1), rc=$rc: $(out)"
+orec refs/crown/features/off1 | jq -e 'has("sig_v") == false and has("signer") == false' >/dev/null 2>&1 && ! OG cat-file commit "$(oref refs/crown/features/off1)" | grep -q 'BEGIN SSH SIGNATURE' && [ $rc = 0 ] \
+  && ok "off: with integrity off a claim has no sig_v, no signer and no signature in the commit" || no "SPEC off = today: record $(orec refs/crown/features/off1), rc=$rc: $(out)"
 XE ro marshal status off1; rc=$?
 [ $rc = 0 ] && grep -q alice <(out) && ok "off: the unsigned record is read as before" || no "SPEC off reads unsigned records (rc=$rc): $(out)"
 [ ! -e "$(KEY a)" ] && ok "default: no key exists before key init" || no "a key exists before key init: $(ls "$(KEY a)")"
@@ -390,17 +390,17 @@ XE a marshal key init --principal "$PA" --plan 000000000000 --approved "$WORDS";
 if [ $r1 != 0 ] && [ $r2 != 0 ] && [ $r3 != 0 ] && [ ! -e "$(KEY a)" ]; then ok "key init: refused without the plan token, without words and with a wrong token (nothing created)"
 else no "SPEC key init gate: rc without token $r1, without words $r2, wrong token $r3, key: $(ls "$(KEY a)" 2>&1)"; fi
 OWN a key init --principal "$PA"; rc=$?; cp "$T/o" "$T/ki.a"; cp "$T/e" "$T/ki.a.e"
-LA=$(grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/ki.a" | sed 's/^[[:space:]]*//')
+LA=$(grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/ki.a" | sed 's/^[[:space:]]*//')
 if [ $rc = 0 ] && [ -f "$(KEY a)" ] && [ "$(stat -c %a "$(KEY a)" 2>/dev/null)" = 600 ] && [ "${LA%% *}" = "$PA" ]; then
-  ok "key init: exit 0, \$QARGI_CONF/credentials/marshal_ed25519 is mode 0600 and the signers line is printed"
+  ok "key init: exit 0, \$CROWN_CONF/credentials/marshal_ed25519 is mode 0600 and the signers line is printed"
 else no "SPEC key init (rc=$rc): key mode $(stat -c %a "$(KEY a)" 2>&1), line '$LA': $(cat "$T/ki.a" "$T/ki.a.e")"; fi
 jq -e --arg w "$WORDS" 'select((.verb // "") | startswith("marshal:key")) | select(.approved == $w)' "$(S a)/audit.log" >/dev/null 2>&1 \
   && ok "key init: an audit line marshal:key... with the words" || no "SPEC key init is audited: $(cat "$(S a)/audit.log" 2>&1)"
 cp "$(KEY a)" "$T/keya.before"
 OWN a key init --principal other@ms; rc=$?
 [ $rc != 0 ] && cmp -s "$(KEY a)" "$T/keya.before" && ok "key init: a second run is refused and the key is untouched" || no "SPEC key init must not overwrite a key (rc=$rc): $(out)"
-OWN b key init --principal "$PB"; cp "$T/o" "$T/ki.b"; LB=$(grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/ki.b" | sed 's/^[[:space:]]*//')
-OWN rs key init --principal "$PS"; cp "$T/o" "$T/ki.rs"; LS=$(grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/ki.rs" | sed 's/^[[:space:]]*//')
+OWN b key init --principal "$PB"; cp "$T/o" "$T/ki.b"; LB=$(grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/ki.b" | sed 's/^[[:space:]]*//')
+OWN rs key init --principal "$PS"; cp "$T/o" "$T/ki.rs"; LS=$(grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/ki.rs" | sed 's/^[[:space:]]*//')
 [ -n "$LB" ] && [ -n "$LS" ] && [ -f "$(KEY b)" ] && [ -f "$(KEY rs)" ] || no "SPEC key init of b and rs (lines '$LB' '$LS')"
 ensure_key a "$PA"; ensure_key b "$PB"; ensure_key rs "$PS"
 [ -n "$LA" ] || LA=$(lineof a "$PA"); [ -n "$LB" ] || LB=$(lineof b "$PB"); [ -n "$LS" ] || LS=$(lineof rs "$PS")
@@ -438,7 +438,7 @@ jq -e '(.integrity // "off") == "off"' "$(EN ro)" >/dev/null 2>&1 && ok "integri
 for m in a b ra; do setmode "$m" advisory; done; setmode rs strict
 
 # ============================================================ (5) a signed claim and the chain after it
-XE a marshal claim s1 --as alice --goal "signed goal"; rc=$?; S1=refs/qargi/features/s1
+XE a marshal claim s1 --as alice --goal "signed goal"; rc=$?; S1=refs/crown/features/s1
 C1=$(oref $S1)
 if [ $rc = 0 ] && orec $S1 | jq -e --arg p "$PA" '.sig_v == 1 and .signer == $p and .lead.id == "alice"' >/dev/null 2>&1; then ok "signed claim: the record has sig_v 1 and signer ($PA)"
 else no "SPEC signed claim fields (rc=$rc): $(orec $S1; out)"; fi
@@ -450,7 +450,7 @@ for step in "set s1 --as alice --goal g2" "renew s1 --as alice" "set s1 --as ali
 done
 r=$(chain_ok $S1 "$(SIG a)") && [ "$(ocount $S1)" = 4 ] && ok "signed chain: all four commits verify, each signs its real parent, revs go up" || no "SPEC signed chain: $r"
 XE b marshal claim s2 --as bob; rc=$?
-{ [ $rc = 0 ] && chain_ok refs/qargi/features/s2 "$(SIG b)" >/dev/null && [ "$(jsf refs/qargi/features/s2 .signer)" = "$PB" ]; } && ok "signed claim: machine b signs with its own key (signer $PB)" || no "SPEC b's signed claim (rc=$rc): $(orec refs/qargi/features/s2; out)"
+{ [ $rc = 0 ] && chain_ok refs/crown/features/s2 "$(SIG b)" >/dev/null && [ "$(jsf refs/crown/features/s2 .signer)" = "$PB" ]; } && ok "signed claim: machine b signs with its own key (signer $PB)" || no "SPEC b's signed claim (rc=$rc): $(orec refs/crown/features/s2; out)"
 XE ra marshal status s1 --as zed; rc=$?; ra_out=$(out)
 { [ $rc = 0 ] && grep -q alice <<<"$ra_out" && grep -qw signed <<<"$ra_out" && ! grep -q INVALID <<<"$ra_out"; } && ok "advisory reader: status shows the record tagged signed" || no "SPEC advisory status tags signed (rc=$rc): $ra_out"
 XE rs marshal status s1 --as zed; rc=$?
@@ -460,40 +460,40 @@ jq -e --arg r "$(jsf $S1 .rev)" --arg o "$(oref $S1)" '.s1 == [($r | tonumber), 
 XE ro marshal status s2; rc=$?
 { [ $rc = 0 ] && grep -q bob <(out) && ! grep -qi 'warn\|invalid' <(out); } && ok "old client: an integrity-off reader reads a signed record (extra keys, signature in the message) without complaint" || no "SPEC old clients read signed records (rc=$rc): $(out)"
 XE a marshal finish s1 --as alice; rc=$?
-[ $rc = 0 ] && [ "$(oref $S1)" = none ] && chain_ok refs/qargi/done/s1 "$(SIG a)" >/dev/null && ok "signed finish: refs/qargi/done/s1 is signed with kind done" || no "SPEC signed finish (rc=$rc): $(out); $(cat "$T/ste" 2>&1)"
-! OG cat-file --batch-all-objects --batch | grep -aq 'namespaces="qargi-marshal"' && [ "$(OG for-each-ref --format='%(refname)' | grep -vc '^refs/\(qargi/\(features\|done\)/\|heads/\)')" = 0 ] \
-  && ok "refs: no signers line and no ref outside refs/qargi/features, done and heads on the origin" || no "signers line or a stray ref on the origin: $(OG for-each-ref)"
+[ $rc = 0 ] && [ "$(oref $S1)" = none ] && chain_ok refs/crown/done/s1 "$(SIG a)" >/dev/null && ok "signed finish: refs/crown/done/s1 is signed with kind done" || no "SPEC signed finish (rc=$rc): $(out); $(cat "$T/ste" 2>&1)"
+! OG cat-file --batch-all-objects --batch | grep -aq 'namespaces="crown-marshal"' && [ "$(OG for-each-ref --format='%(refname)' | grep -vc '^refs/\(crown/\(features\|done\)/\|heads/\)')" = 0 ] \
+  && ok "refs: no signers line and no ref outside refs/crown/features, done and heads on the origin" || no "signers line or a stray ref on the origin: $(OG for-each-ref)"
 
 # ============================================================ (6) ssh-keygen that hangs: bounded, cannot verify
 XE a marshal claim tmo --as alice >/dev/null 2>&1
 clone_machine rs rsh; mkdir -p "$T/m/rsh/tmp"; echo "$T/m/rsh/tmp" > "$T/sk.slow"
 ( t0=$(date +%s)
-  timeout 100 env HOME="$T/m/rsh/home" QARGI_CONF="$T/m/rsh/c" QARGI_STATE="$T/m/rsh/s" TMPDIR="$T/m/rsh/tmp" QARGI_REMOTE_TIMEOUT=2 "$DA" marshal status tmo >"$T/hang.o" 2>"$T/hang.e"
+  timeout 100 env HOME="$T/m/rsh/home" CROWN_CONF="$T/m/rsh/c" CROWN_STATE="$T/m/rsh/s" TMPDIR="$T/m/rsh/tmp" CROWN_REMOTE_TIMEOUT=2 "$DA" marshal status tmo >"$T/hang.o" 2>"$T/hang.e"
   echo $? > "$T/hang.rc"; echo $(( $(date +%s) - t0 )) > "$T/hang.el" ) &
 HANGPID=$!   # its verdict is judged before the member-run cases (14), when it has surely ended
 
 # ============================================================ (7) forged records: a positive control, then the rejections
 EVIL=$T/evilkey; "$REALSSHK" -q -t ed25519 -N '' -C evil -f "$EVIL" >/dev/null 2>&1
-mkrec fkctl xfkctl 1 "$PA"; plantf features fkctl - "$(KEY a)" qargi-marshal "$T/rec.fkctl"
-CT1=$(oref refs/qargi/features/fkctl)
-mkrec fkctl xfkctl 2 "$PA"; plantf features fkctl "$CT1" "$(KEY a)" qargi-marshal "$T/rec.fkctl"
+mkrec fkctl xfkctl 1 "$PA"; plantf features fkctl - "$(KEY a)" crown-marshal "$T/rec.fkctl"
+CT1=$(oref refs/crown/features/fkctl)
+mkrec fkctl xfkctl 2 "$PA"; plantf features fkctl "$CT1" "$(KEY a)" crown-marshal "$T/rec.fkctl"
 adv_ctl=$(js ra fkctl); XE ra marshal status fkctl; rcs=$?
 { [[ $adv_ctl == *'"id":"xfkctl"'* && $adv_ctl == *'"rev":2'* ]] && [ $rcs = 0 ] && grep -qw signed <(out) && ! grep -qE 'INVALID|rollback' <(out); } \
   && ok "positive control: a record the test signed by the spec's format (two revs, a chain) is shown signed by an advisory reader" || no "SPEC format: the test's own validly signed chain must verify: $(out)"
 js rs fkctl | grep -q '"id":"xfkctl"' && XE rs marshal status fkctl && grep -qw signed <(out) && ! grep -qi 'warn' "$T/e" && ok "positive control: and by a strict reader, tagged signed, no warning" || no "SPEC format: strict must accept the test's validly signed chain: $(out)"
-mkrec fkunk xfkunk 1 mallory@evil; plantf features fkunk - "$EVIL" qargi-marshal "$T/rec.fkunk"
-mkrec fkkey xfkkey 1 "$PA"; plantf features fkkey - "$EVIL" qargi-marshal "$T/rec.fkkey"
-mkrec fkbkey xfkbkey 1 "$PA"; plantf features fkbkey - "$(KEY b)" qargi-marshal "$T/rec.fkbkey"
+mkrec fkunk xfkunk 1 mallory@evil; plantf features fkunk - "$EVIL" crown-marshal "$T/rec.fkunk"
+mkrec fkkey xfkkey 1 "$PA"; plantf features fkkey - "$EVIL" crown-marshal "$T/rec.fkkey"
+mkrec fkbkey xfkbkey 1 "$PA"; plantf features fkbkey - "$(KEY b)" crown-marshal "$T/rec.fkbkey"
 mkrec fkns xfkns 1 "$PA"; plantf features fkns - "$(KEY a)" some-other-ns "$T/rec.fkns"
-mkrec fknosig xfknosig 1 "$PA"; plantf features fknosig - "$(KEY a)" qargi-marshal "$T/rec.fknosig" nosig
-mkrec fkv2 xfkv2 1 "$PA" '.sig_v = 2'; plantf features fkv2 - "$(KEY a)" qargi-marshal "$T/rec.fkv2"
+mkrec fknosig xfknosig 1 "$PA"; plantf features fknosig - "$(KEY a)" crown-marshal "$T/rec.fknosig" nosig
+mkrec fkv2 xfkv2 1 "$PA" '.sig_v = 2'; plantf features fkv2 - "$(KEY a)" crown-marshal "$T/rec.fkv2"
 # a genuine record changed after signing: lead, rev, status
 for n in tamlead tamrev tamstat; do XE a marshal claim "$n" --as alice >/dev/null 2>&1 || no "setup: claim $n"; done
 tamper tamlead '.lead.id = "xtamlead"'; tamper tamrev '.rev = 7'; tamper tamstat '.status = "blocked"'
 # copied to another feature, another kind, another project
 XE a marshal claim cpsrc --as xcpsrc >/dev/null 2>&1; XE a marshal claim cpk2 --as xcpsrc >/dev/null 2>&1; XE a marshal claim cppx --as xcppx >/dev/null 2>&1
-copyto refs/qargi/features/cpsrc refs/qargi/features/cpfeat '.feature = "cpfeat"'
-copyto refs/qargi/features/cpk2 refs/qargi/done/cpk2 '.'; OG update-ref -d refs/qargi/features/cpk2
+copyto refs/crown/features/cpsrc refs/crown/features/cpfeat '.feature = "cpfeat"'
+copyto refs/crown/features/cpk2 refs/crown/done/cpk2 '.'; OG update-ref -d refs/crown/features/cpk2
 for spec in 'fkunk|"id":"xfkunk"|a record signed by an unknown key' 'fkkey|"id":"xfkkey"|a record naming a trusted signer but signed with another key' \
             'fkbkey|"id":"xfkbkey"|a record signed by b'"'"'s key but claiming to be alice'"'"'s' 'fkns|"id":"xfkns"|a record signed in another namespace' \
             'fknosig|"id":"xfknosig"|a record with sig_v 1 and no signature block' 'fkv2|"id":"xfkv2"|a record with an unknown sig_v' \
@@ -512,10 +512,10 @@ done
 XE rs marshal status --all --history; grep -qi 'warn' "$T/e" && grep -qF cpk2 "$T/e" && ok "strict: a features record copied to done/ is ignored with a warning" || no "SPEC strict: done/cpk2 copied from a features record must warn: $(out)"
 # another project: app2 on the same origin and the same keys must not accept app's record
 jq '.project = "app2"' "$T/m/rs/c/projects/app.json" > "$T/m/rs/c/projects/app2.json"
-XE rs QARGI_PROJECT=app2 marshal enable; tk=$(tokof); XE rs QARGI_PROJECT=app2 marshal enable --plan "$tk" --approved "$WORDS"
+XE rs CROWN_PROJECT=app2 marshal enable; tk=$(tokof); XE rs CROWN_PROJECT=app2 marshal enable --plan "$tk" --approved "$WORDS"
 cp "$(SIG rs)" "$(S rs)/marshal/app2.signers" 2>/dev/null
-XE rs QARGI_PROJECT=app2 marshal enable --integrity strict; tk=$(tokof); XE rs QARGI_PROJECT=app2 marshal enable --integrity strict --plan "$tk" --approved "$WORDS"
-j=$(js rs cppx); XE rs QARGI_PROJECT=app2 marshal status cppx; j2=$(tr -d ' \n' < "$T/o")
+XE rs CROWN_PROJECT=app2 marshal enable --integrity strict; tk=$(tokof); XE rs CROWN_PROJECT=app2 marshal enable --integrity strict --plan "$tk" --approved "$WORDS"
+j=$(js rs cppx); XE rs CROWN_PROJECT=app2 marshal status cppx; j2=$(tr -d ' \n' < "$T/o")
 { [[ $j == *'"id":"xcppx"'* ]] && [[ $j2 != *'"id":"xcppx"'* ]] && grep -qi warn "$T/e"; } && ok "strict: a record of project app is not accepted by project app2 (same origin, same keys)" || no "SPEC a record copied to another project must be refused (json under app2: ${j2:0:200}): $(out)"
 for n in fkunk fkkey fkbkey fkns fknosig fkv2 tamlead tamrev tamstat cpfeat; do
   XE ra marshal status "$n" >/dev/null 2>&1; XE rs marshal status "$n" >/dev/null 2>&1
@@ -524,13 +524,13 @@ jq -e '(has("fkunk") or has("fkkey") or has("fkbkey") or has("fkns") or has("fkn
   && ok "high-water mark: a record that did not verify never enters it" || no "SPEC accepted mark holds an invalid record: $(cat "$(S rs)/features/.accepted-app.json" 2>&1)"
 
 # ============================================================ (8) hostile signature payloads
-mkrec hbigblk xhbigblk 1 "$PA"; plantf features hbigblk - "$(KEY a)" qargi-marshal "$T/rec.hbigblk" bigblk
-mkrec h2blk xh2blk 1 "$PA"; plantf features h2blk - "$(KEY a)" qargi-marshal "$T/rec.h2blk" twice
-mkrec hb64 xhb64 1 "$PA"; plantf features hb64 - "$(KEY a)" qargi-marshal "$T/rec.hb64" badb64
-mkrec hmsg xhmsg 1 "$PA"; plantf features hmsg - "$(KEY a)" qargi-marshal "$T/rec.hmsg" hugemsg
-mkrec hsigd xhsigd 1 "-oProxyCommand=false"; plantf features hsigd - "$(KEY a)" qargi-marshal "$T/rec.hsigd"
-mkrec hsigc xhsigc 1 "ali"$'\033'"[31mce"$'\a'; plantf features hsigc - "$(KEY a)" qargi-marshal "$T/rec.hsigc"
-mkrec hsign xhsign 1 "alice@ms -n x"; plantf features hsign - "$(KEY a)" qargi-marshal "$T/rec.hsign"
+mkrec hbigblk xhbigblk 1 "$PA"; plantf features hbigblk - "$(KEY a)" crown-marshal "$T/rec.hbigblk" bigblk
+mkrec h2blk xh2blk 1 "$PA"; plantf features h2blk - "$(KEY a)" crown-marshal "$T/rec.h2blk" twice
+mkrec hb64 xhb64 1 "$PA"; plantf features hb64 - "$(KEY a)" crown-marshal "$T/rec.hb64" badb64
+mkrec hmsg xhmsg 1 "$PA"; plantf features hmsg - "$(KEY a)" crown-marshal "$T/rec.hmsg" hugemsg
+mkrec hsigd xhsigd 1 "-oProxyCommand=false"; plantf features hsigd - "$(KEY a)" crown-marshal "$T/rec.hsigd"
+mkrec hsigc xhsigc 1 "ali"$'\033'"[31mce"$'\a'; plantf features hsigc - "$(KEY a)" crown-marshal "$T/rec.hsigc"
+mkrec hsign xhsign 1 "alice@ms -n x"; plantf features hsign - "$(KEY a)" crown-marshal "$T/rec.hsign"
 HOST="hbigblk h2blk hb64 hmsg hsigd hsigc hsign"
 for n in $HOST; do strict_ignored rs "$n" "\"id\":\"x$n\"" "hostile signature '$n'"; done
 for n in $HOST; do [ "$n" = hsigc ] || adv_invalid ra "$n" "\"id\":\"x$n\"" "hostile signature '$n'"; done
@@ -548,16 +548,16 @@ XE a marshal claim sl1 --as xsl1 >/dev/null 2>&1
 cp "$(SIG rs)" "$T/signers.real"; rm -f "$(SIG rs)"; ln -s "$T/signers.real" "$(SIG rs)"
 strict_ignored rs sl1 '"id":"xsl1"' "a genuine record when the signers file is a symlink"
 "$REALSSHK" -q -t ed25519 -N '' -C ev2 -f "$T/ev2" >/dev/null 2>&1
-OWN rs signers add --line "evil@x namespaces=\"qargi-marshal\" $(cut -d' ' -f1,2 "$T/ev2.pub")" >/dev/null 2>&1
+OWN rs signers add --line "evil@x namespaces=\"crown-marshal\" $(cut -d' ' -f1,2 "$T/ev2.pub")" >/dev/null 2>&1
 cmp -s "$T/signers.real" <(cat "$T/signers.real") && ! grep -q 'evil@x' "$T/signers.real" && ok "signers: nothing is written through a symlinked signers file" || no "SPEC a signers symlink must not be written through: $(cat "$T/signers.real")"
 rm -f "$(SIG rs)"; cp "$T/signers.real" "$(SIG rs)"
-for n in $HOST fkunk fkkey fkbkey fkns fknosig fkv2 tamlead tamrev tamstat cpfeat sl1; do OG update-ref -d "refs/qargi/features/$n"; done
-OG update-ref -d refs/qargi/done/cpk2
+for n in $HOST fkunk fkkey fkbkey fkns fknosig fkv2 tamlead tamrev tamstat cpfeat sl1; do OG update-ref -d "refs/crown/features/$n"; done
+OG update-ref -d refs/crown/done/cpk2
 
 # ============================================================ (9) rollback: replayed, forked and rewritten history
-XE a marshal claim rp1 --as alice --goal gtone >/dev/null 2>&1; R1=$(oref refs/qargi/features/rp1)
-XE a marshal set rp1 --as alice --goal gttwo >/dev/null 2>&1; R2=$(oref refs/qargi/features/rp1)
-XE a marshal set rp1 --as alice --goal gtthree >/dev/null 2>&1; R3=$(oref refs/qargi/features/rp1)
+XE a marshal claim rp1 --as alice --goal gtone >/dev/null 2>&1; R1=$(oref refs/crown/features/rp1)
+XE a marshal set rp1 --as alice --goal gttwo >/dev/null 2>&1; R2=$(oref refs/crown/features/rp1)
+XE a marshal set rp1 --as alice --goal gtthree >/dev/null 2>&1; R3=$(oref refs/crown/features/rp1)
 XE ra marshal status rp1 >/dev/null 2>&1; XE rs marshal status rp1 >/dev/null 2>&1
 jq -e --arg o "$R3" '.rp1[1] == $o' "$(S rs)/features/.accepted-app.json" >/dev/null 2>&1 && ok "rollback: the readers accepted rev 3 of rp1" || no "setup: accepted mark of rp1: $(cat "$(S rs)/features/.accepted-app.json" 2>&1)"
 rb() { # DESC GOALNOTSHOWN: both readers say rollback detected; strict still shows the accepted goal
@@ -568,55 +568,55 @@ rb() { # DESC GOALNOTSHOWN: both readers say rollback detected; strict still sho
   done
   j=$(js rs rp1); [[ $j == *'"goal":"gtthree"'* && $j != *"$2"* ]] && ok "rollback: $1: the strict reader keeps the accepted record" || no "SPEC rollback ($1): strict must fall back to the accepted gtthree, not show $2: ${j:0:300}"
 }
-OG update-ref refs/qargi/features/rp1 "$R1"; rb "an older valid record replayed" '"goal":"gtone"'
-OG update-ref refs/qargi/features/rp1 "$R2"; rb "the previous valid record replayed" '"goal":"gttwo"'
-mkrec rp1 alice 3 "$PA" '.goal = "gtfork"'; plantf features rp1 "$R2" "$(KEY a)" qargi-marshal "$T/rec.rp1"
+OG update-ref refs/crown/features/rp1 "$R1"; rb "an older valid record replayed" '"goal":"gtone"'
+OG update-ref refs/crown/features/rp1 "$R2"; rb "the previous valid record replayed" '"goal":"gttwo"'
+mkrec rp1 alice 3 "$PA" '.goal = "gtfork"'; plantf features rp1 "$R2" "$(KEY a)" crown-marshal "$T/rec.rp1"
 rb "a validly signed sibling at the same rev but another oid" '"goal":"gtfork"'
-mkrec rp1 alice 9 "$PA" '.goal = "gtroot"'; plantf features rp1 - "$(KEY a)" qargi-marshal "$T/rec.rp1"
+mkrec rp1 alice 9 "$PA" '.goal = "gtroot"'; plantf features rp1 - "$(KEY a)" crown-marshal "$T/rec.rp1"
 rb "a validly signed record at a higher rev that does not descend from the accepted one" '"goal":"gtroot"'
-OG update-ref refs/qargi/features/rp1 "$R3"
+OG update-ref refs/crown/features/rp1 "$R3"
 XE rs marshal status rp1; XE rs marshal status rp1 >/dev/null 2>&1
 jq -e --arg o "$R3" '.rp1[1] == $o' "$(S rs)/features/.accepted-app.json" >/dev/null 2>&1 && ok "rollback: the mark was not lowered by the attacks" || no "SPEC the mark must not go down: $(cat "$(S rs)/features/.accepted-app.json" 2>&1)"
-OG update-ref refs/qargi/features/rp1 "$R1"
+OG update-ref refs/crown/features/rp1 "$R1"
 rm -f "$(S rs)/features/.accepted-app.json"
 j=$(js rs rp1); XE rs marshal status rp1
 { [[ $j == *'"goal":"gtone"'* ]] && ! grep -q 'rollback detected' <(out); } && ok "rollback: a machine with no mark yet trusts what it first sees" || no "SPEC no mark: trust on first sight (json ${j:0:200}): $(out)"
-OG update-ref refs/qargi/features/rp1 "$R3"
+OG update-ref refs/crown/features/rp1 "$R3"
 
 # ============================================================ (10) junk and replays do not renew a lease timer and do not block a feature
 XE a marshal claim tmj --as alice >/dev/null 2>&1; XE a marshal claim tmj2 --as alice >/dev/null 2>&1
-XE rs QARGI_MARSHAL_MONO=0 marshal status tmj --as sam >/dev/null 2>&1; XE rs QARGI_MARSHAL_MONO=0 marshal status tmj2 --as sam >/dev/null 2>&1
+XE rs CROWN_MARSHAL_MONO=0 marshal status tmj --as sam >/dev/null 2>&1; XE rs CROWN_MARSHAL_MONO=0 marshal status tmj2 --as sam >/dev/null 2>&1
 for n in tmj tmj2; do
-  mkrec "$n" xjunk 99 -; c=$(OG commit-tree -p "$(oref refs/qargi/features/$n)" -m junk "$(printf '100644 blob %s\trecord.json\n' "$(OG hash-object -w "$T/rec.$n")" | OG mktree)") && OG update-ref refs/qargi/features/$n "$c"
+  mkrec "$n" xjunk 99 -; c=$(OG commit-tree -p "$(oref refs/crown/features/$n)" -m junk "$(printf '100644 blob %s\trecord.json\n' "$(OG hash-object -w "$T/rec.$n")" | OG mktree)") && OG update-ref refs/crown/features/$n "$c"
 done
-XE rs QARGI_MARSHAL_MONO=$((TTL - 100)) marshal status tmj --as sam >/dev/null 2>&1
-XE rs QARGI_MARSHAL_MONO=$((TTL + 1)) marshal takeover tmj --as sam --approved "$WORDS"; rc=$?
-{ [ $rc = 0 ] && [ "$(jsf refs/qargi/features/tmj .lead.id)" = sam ] && [ "$(jsf refs/qargi/features/tmj .signer)" = "$PS" ] && vok "$(oref refs/qargi/features/tmj)" features "$(SIG rs)"; } \
-  && ok "junk: a junk push on top of A's record did not restart the lease timer (takeover after the ttl from the first sight works, signed)" || no "SPEC junk pushes must not renew a lease (rc=$rc, lead $(jsf refs/qargi/features/tmj .lead.id)): $(out)"
+XE rs CROWN_MARSHAL_MONO=$((TTL - 100)) marshal status tmj --as sam >/dev/null 2>&1
+XE rs CROWN_MARSHAL_MONO=$((TTL + 1)) marshal takeover tmj --as sam --approved "$WORDS"; rc=$?
+{ [ $rc = 0 ] && [ "$(jsf refs/crown/features/tmj .lead.id)" = sam ] && [ "$(jsf refs/crown/features/tmj .signer)" = "$PS" ] && vok "$(oref refs/crown/features/tmj)" features "$(SIG rs)"; } \
+  && ok "junk: a junk push on top of A's record did not restart the lease timer (takeover after the ttl from the first sight works, signed)" || no "SPEC junk pushes must not renew a lease (rc=$rc, lead $(jsf refs/crown/features/tmj .lead.id)): $(out)"
 mode a strict                       # advisory uses the head as it is (a stranger's unsigned record leads), so the junk cases are strict ones
 XE a marshal renew tmj2 --as alice; rc=$?
 mode a advisory
-{ [ $rc = 0 ] && [ "$(jsf refs/qargi/features/tmj2 .lead.id)" = alice ] && [ "$(jsf refs/qargi/features/tmj2 .signer)" = "$PA" ] && vok "$(oref refs/qargi/features/tmj2)" features "$(SIG a)"; } \
+{ [ $rc = 0 ] && [ "$(jsf refs/crown/features/tmj2 .lead.id)" = alice ] && [ "$(jsf refs/crown/features/tmj2 .signer)" = "$PA" ] && vok "$(oref refs/crown/features/tmj2)" features "$(SIG a)"; } \
   && ok "junk: in strict the lead can still renew the feature after a junk push (signed again); the feature is not blocked" || no "SPEC junk pushes must not block the lead (rc=$rc): $(out)"
-XE rs marshal status tmj2 --as sam; [ "$(jsf refs/qargi/features/tmj2 .lead.id)" = alice ] && grep -q alice <(out) && ok "junk: a strict reader sees the lead's renewal" || no "strict reader after junk and renewal: $(out)"
-XE a marshal claim tmr --as alice >/dev/null 2>&1; M1=$(oref refs/qargi/features/tmr)
-XE a marshal renew tmr --as alice >/dev/null 2>&1; M2=$(oref refs/qargi/features/tmr)
-XE rs QARGI_MARSHAL_MONO=0 marshal status tmr --as sam >/dev/null 2>&1
-OG update-ref refs/qargi/features/tmr "$M1"; XE rs QARGI_MARSHAL_MONO=600 marshal status tmr --as sam >/dev/null 2>&1
-OG update-ref refs/qargi/features/tmr "$M2"; XE rs QARGI_MARSHAL_MONO=601 marshal status tmr --as sam >/dev/null 2>&1
-XE rs QARGI_MARSHAL_MONO=$((TTL + 1)) marshal takeover tmr --as sam --approved "$WORDS"; rc=$?
-[ $rc = 0 ] && [ "$(jsf refs/qargi/features/tmr .lead.id)" = sam ] && ok "replay: a replayed older record did not restart the lease timer (the observed oid is the last accepted one)" || no "SPEC replays must not renew a lease (rc=$rc): $(out)"
-XE a QARGI_MARSHAL_NOW=$(( $(date +%s) + 86400 )) marshal claim tw3 --as alice >/dev/null 2>&1
-XE rs QARGI_MARSHAL_MONO=0 marshal status tw3 --as sam >/dev/null 2>&1
-XE rs QARGI_MARSHAL_MONO=$((TTL + 1)) marshal takeover tw3 --as sam --approved "$WORDS"; rc=$?
-[ $rc = 0 ] && [ "$(jsf refs/qargi/features/tw3 .lead.id)" = sam ] && ok "clock: a signed renewed_at a day in the future does not keep the lease alive (never compared with the local clock)" || no "SPEC signed timestamps are not compared with the local clock (rc=$rc): $(out)"
+XE rs marshal status tmj2 --as sam; [ "$(jsf refs/crown/features/tmj2 .lead.id)" = alice ] && grep -q alice <(out) && ok "junk: a strict reader sees the lead's renewal" || no "strict reader after junk and renewal: $(out)"
+XE a marshal claim tmr --as alice >/dev/null 2>&1; M1=$(oref refs/crown/features/tmr)
+XE a marshal renew tmr --as alice >/dev/null 2>&1; M2=$(oref refs/crown/features/tmr)
+XE rs CROWN_MARSHAL_MONO=0 marshal status tmr --as sam >/dev/null 2>&1
+OG update-ref refs/crown/features/tmr "$M1"; XE rs CROWN_MARSHAL_MONO=600 marshal status tmr --as sam >/dev/null 2>&1
+OG update-ref refs/crown/features/tmr "$M2"; XE rs CROWN_MARSHAL_MONO=601 marshal status tmr --as sam >/dev/null 2>&1
+XE rs CROWN_MARSHAL_MONO=$((TTL + 1)) marshal takeover tmr --as sam --approved "$WORDS"; rc=$?
+[ $rc = 0 ] && [ "$(jsf refs/crown/features/tmr .lead.id)" = sam ] && ok "replay: a replayed older record did not restart the lease timer (the observed oid is the last accepted one)" || no "SPEC replays must not renew a lease (rc=$rc): $(out)"
+XE a CROWN_MARSHAL_NOW=$(( $(date +%s) + 86400 )) marshal claim tw3 --as alice >/dev/null 2>&1
+XE rs CROWN_MARSHAL_MONO=0 marshal status tw3 --as sam >/dev/null 2>&1
+XE rs CROWN_MARSHAL_MONO=$((TTL + 1)) marshal takeover tw3 --as sam --approved "$WORDS"; rc=$?
+[ $rc = 0 ] && [ "$(jsf refs/crown/features/tw3 .lead.id)" = sam ] && ok "clock: a signed renewed_at a day in the future does not keep the lease alive (never compared with the local clock)" || no "SPEC signed timestamps are not compared with the local clock (rc=$rc): $(out)"
 
 # ============================================================ (11) unsigned records: advisory uses and tags them, strict falls back, resign signs on top
 XE a marshal claim st1 --as alice --goal gtsigned >/dev/null 2>&1
 XE ra marshal status st1 >/dev/null 2>&1; XE rs marshal status st1 >/dev/null 2>&1
 mode a off; XE a marshal set st1 --as alice --goal gtunsigned; rc=$?
 mode a advisory
-{ [ $rc = 0 ] && jsf refs/qargi/features/st1 'has("sig_v")' | grep -q false; } && ok "off: a writer with integrity off writes an unsigned record on top of a signed one" || no "setup: unsigned write on st1 (rc=$rc): $(orec refs/qargi/features/st1)"
+{ [ $rc = 0 ] && jsf refs/crown/features/st1 'has("sig_v")' | grep -q false; } && ok "off: a writer with integrity off writes an unsigned record on top of a signed one" || no "setup: unsigned write on st1 (rc=$rc): $(orec refs/crown/features/st1)"
 j=$(js ra st1); XE ra marshal status st1
 { [[ $j == *'"goal":"gtunsigned"'* ]] && grep -qw unsigned <(out) && ! grep -q INVALID <(out); } && ok "advisory: an unsigned record is used and tagged unsigned" || no "SPEC advisory uses unsigned records and tags them (json ${j:0:200}): $(out)"
 j=$(js rs st1); XE rs marshal status st1
@@ -625,22 +625,22 @@ j=$(js ro st1); XE ro marshal status st1
 { [[ $j == *'"goal":"gtunsigned"'* ]] && ! grep -qi 'warn\|invalid' <(out); } && ok "off: an integrity-off reader uses the unsigned record as before" || no "SPEC off = today (json ${j:0:200}): $(out)"
 XE a marshal claim rsg1 --as alice >/dev/null 2>&1; mode a off; XE a marshal set rsg1 --as alice --note unsignedwrite >/dev/null 2>&1
 mode a advisory
-G0=$(oref refs/qargi/features/rsg1); REV0=$(jsf refs/qargi/features/rsg1 .rev)
+G0=$(oref refs/crown/features/rsg1); REV0=$(jsf refs/crown/features/rsg1 .rev)
 XE a marshal resign rsg1; r1=$?; tk=$(tokof)
 XE a marshal resign rsg1 --approved "$WORDS"; r3=$?
-[ "$(oref refs/qargi/features/rsg1)" = "$G0" ] && [ -n "$tk" ] && [ $r3 != 0 ] && ok "resign: without options it prints a plan and a token, with the words alone (no token) it is refused, nothing changed" || no "SPEC resign needs the plan token and --approved W (rc=$r1 / $r3, token '$tk')"
+[ "$(oref refs/crown/features/rsg1)" = "$G0" ] && [ -n "$tk" ] && [ $r3 != 0 ] && ok "resign: without options it prints a plan and a token, with the words alone (no token) it is refused, nothing changed" || no "SPEC resign needs the plan token and --approved W (rc=$r1 / $r3, token '$tk')"
 XE a marshal resign nosuchfeature --approved "$WORDS"; r2=$?; [ $r2 != 0 ] && ok "resign: a feature that is not open is refused" || no "SPEC resign of a missing feature must fail"
 OWN a resign rsg1; rc=$?
-if [ $rc = 0 ] && [ "$(OG rev-parse "$(oref refs/qargi/features/rsg1)^")" = "$G0" ] && [ "$(jsf refs/qargi/features/rsg1 .rev)" = $((REV0 + 1)) ] && vok "$(oref refs/qargi/features/rsg1)" features "$(SIG a)"; then
+if [ $rc = 0 ] && [ "$(OG rev-parse "$(oref refs/crown/features/rsg1)^")" = "$G0" ] && [ "$(jsf refs/crown/features/rsg1 .rev)" = $((REV0 + 1)) ] && vok "$(oref refs/crown/features/rsg1)" features "$(SIG a)"; then
   ok "resign: a signed commit, rev+1, on top of the unsigned open record"
-else no "SPEC resign (rc=$rc): $(orec refs/qargi/features/rsg1; out; cat "$T/ste" 2>&1)"; fi
+else no "SPEC resign (rc=$rc): $(orec refs/crown/features/rsg1; out; cat "$T/ste" 2>&1)"; fi
 jq -e --arg w "$WORDS" 'select(.verb == "marshal:resign" and .approved == $w)' "$(S a)/audit.log" >/dev/null 2>&1 && ok "resign: audited as marshal:resign with the words" || no "SPEC resign audit line: $(tail -3 "$(S a)/audit.log")"
 XE rs marshal status rsg1; grep -qw signed <(out) && ok "resign: a strict reader shows the re-signed record" || no "SPEC strict reads the re-signed record: $(out)"
 
 # ============================================================ (12) a vanished ref warns, a finished one does not
 XE a marshal claim del1 --as alice >/dev/null 2>&1; XE a marshal claim fin1 --as alice >/dev/null 2>&1
 for who in ra rs; do XE $who marshal status --all --brief >/dev/null 2>&1; done
-OG update-ref -d refs/qargi/features/del1; XE a marshal finish fin1 --as alice >/dev/null 2>&1
+OG update-ref -d refs/crown/features/del1; XE a marshal finish fin1 --as alice >/dev/null 2>&1
 for who in ra rs; do
   XE $who marshal status --all --brief
   grep -i warn "$T/e" | grep -qF del1 && ok "deleted ref: $who warns that features/del1 vanished without a done record" || no "SPEC a ref that vanishes without a done/ record warns ($who): $(out)"
@@ -662,7 +662,7 @@ XE a marshal claim rot1 --as alice >/dev/null 2>&1; XE a marshal claim rot2 --as
 XE ra marshal status rot1 >/dev/null 2>&1; XE rs marshal status rot1 >/dev/null 2>&1
 NEEDLE_A_BEFORE=$NEEDLE_A
 rm -f "$T"/m/a/c/credentials/marshal_*
-OWN a key init --principal "$PA2"; cp "$T/o" "$T/ki.a2"; LA2=$(grep -m1 'namespaces="qargi-marshal" ssh-ed25519 ' "$T/ki.a2" | sed 's/^[[:space:]]*//')
+OWN a key init --principal "$PA2"; cp "$T/o" "$T/ki.a2"; LA2=$(grep -m1 'namespaces="crown-marshal" ssh-ed25519 ' "$T/ki.a2" | sed 's/^[[:space:]]*//')
 [ -f "$(KEY a)" ] && [ -n "$LA2" ] && ok "rotation: after the old key file is removed key init makes the new key" || no "SPEC key init after the removal of the old key (line '$LA2'): $(out)"
 ensure_key a "$PA2"; [ -n "$LA2" ] || LA2=$(lineof a "$PA2")
 NEEDLE_A2=$(sed -n 3p "$(KEY a)" 2>/dev/null)
@@ -670,9 +670,9 @@ for m in a ra rs; do OWN "$m" signers add --line "$LA2" >/dev/null 2>&1; OWN "$m
 adv_invalid ra rot1 '"id":"alice"' "a record signed only by the removed old key (advisory)"
 strict_ignored rs rot2 '"id":"alice"' "a never-read record signed only by the removed old key (strict)"
 XE a marshal renew rot1 --as alice; r1=$?; XE a marshal renew rot2 --as alice; r2=$?
-if [ $r1 = 0 ] && [ $r2 = 0 ] && [ "$(jsf refs/qargi/features/rot1 .signer)" = "$PA2" ] && vok "$(oref refs/qargi/features/rot1)" features "$(SIG a)" && vok "$(oref refs/qargi/features/rot2)" features "$(SIG a)"; then
+if [ $r1 = 0 ] && [ $r2 = 0 ] && [ "$(jsf refs/crown/features/rot1 .signer)" = "$PA2" ] && vok "$(oref refs/crown/features/rot1)" features "$(SIG a)" && vok "$(oref refs/crown/features/rot2)" features "$(SIG a)"; then
   ok "rotation: a renewal re-signs with the new key (signer $PA2)"
-else no "SPEC rotation, renewal re-signs (rc $r1 $r2): $(orec refs/qargi/features/rot1; out)"; fi
+else no "SPEC rotation, renewal re-signs (rc $r1 $r2): $(orec refs/crown/features/rot1; out)"; fi
 XE ra marshal status rot1; ra_out=$(out); j=$(js rs rot2); XE rs marshal status rot2
 { grep -qw signed <<<"$ra_out" && ! grep -q INVALID <<<"$ra_out" && [[ $j == *'"id":"alice"'* ]] && ! grep -qi warn "$T/e"; } && ok "rotation: after the renewal both readers show the records valid again" || no "SPEC rotation, valid again: $ra_out; $(out)"
 
@@ -708,8 +708,8 @@ for nd in "$NEEDLE_A_BEFORE" "$NEEDLE_A2"; do
   for g in "$ORIGIN" "$T"/m/*/app/.git; do git --git-dir="$g" cat-file --batch-all-objects --batch 2>/dev/null | grep -qaF -e "$nd" && leaks="$leaks objects-of-$g"; done
 done
 [ $N_OK = 1 ] && [ -z "$leaks" ] && ok "key: no line of either private key is in a ref or object, the state, the audit log, a key-init output, the git shim log or the ssh-keygen argument log" || no "SPEC the private key must stay in its file (readable needles: $N_OK; found in:$leaks)"
-grep -q -- '-Y' "$SKLOG" && ok "ssh-keygen shim log: qargi used ssh-keygen -Y (the signature goes through the OpenSSH tool)" || no "SPEC signing and verifying go through ssh-keygen -Y; shim log: $(head -c 300 "$SKLOG")"
-grep -q -- '-Y sign' "$SKLOG" && grep -q -- '-Y verify' "$SKLOG" && ! grep -E -- '-Y sign.* -n [^q]|-Y verify.* -n [^q]' "$SKLOG" | grep -q . && ok "ssh-keygen shim log: the namespace is always qargi-marshal" || no "SPEC ssh-keygen was called with another namespace: $(grep -E -- '-n [^q]' "$SKLOG" | head -3)"
+grep -q -- '-Y' "$SKLOG" && ok "ssh-keygen shim log: crown used ssh-keygen -Y (the signature goes through the OpenSSH tool)" || no "SPEC signing and verifying go through ssh-keygen -Y; shim log: $(head -c 300 "$SKLOG")"
+grep -q -- '-Y sign' "$SKLOG" && grep -q -- '-Y verify' "$SKLOG" && ! grep -E -- '-Y sign.* -n [^q]|-Y verify.* -n [^q]' "$SKLOG" | grep -q . && ok "ssh-keygen shim log: the namespace is always crown-marshal" || no "SPEC ssh-keygen was called with another namespace: $(grep -E -- '-n [^q]' "$SKLOG" | head -3)"
 [ "$(stat -c %a "$(KEY a)" 2>/dev/null)" = 600 ] && [ "$(stat -c %a "$(KEY b)" 2>/dev/null)" = 600 ] && ok "key: both key files are still mode 0600 after all the runs" || no "SPEC key mode 0600: $(stat -c %a "$(KEY a)" "$(KEY b)" 2>&1)"
 
 # ============================================================ (16) the review fixes: the result of the world they ran in

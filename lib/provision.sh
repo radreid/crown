@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision the cloud resources for a qargi instance with `ant apply`:
+# Provision the cloud resources for a crown instance with `ant apply`:
 # environment, agent, memory store and deployment, then register the instance.
 #
 #   provision.sh plan  NAME [--model M] [--effort E] [--apt "pkg pkg"] [--networking unrestricted|limited] [--force]
@@ -54,11 +54,11 @@ export PLAN_ARG
 [ -n "$NAME" ] || { [ -n "$PROJECT" ] && NAME=$PROJECT-$ROLE; }
 [ -n "$NAME" ] || usage_die "give NAME (<project>-<role>) or --project P [--role R]"
 split_instance "$NAME"
-# The project's stored answers (qargi project init) give the defaults; flags win.
+# The project's stored answers (crown project init) give the defaults; flags win.
 PCFG=$DA_CONF/projects/$PROJECT.json
 MEMBERS=''   # the role agents a lead may spawn, as a YAML list (only for ROLE=lead)
 if [ -f "$PCFG" ] && [ "$ROLE" = lead ]; then
-  jq -e '(.teams // {}) | length > 0' "$PCFG" >/dev/null || die "project $PROJECT defines no teams (qargi project show $PROJECT); a lead needs at least one"
+  jq -e '(.teams // {}) | length > 0' "$PCFG" >/dev/null || die "project $PROJECT defines no teams (crown project show $PROJECT); a lead needs at least one"
   cfg() { jq -r "$1" "$PCFG"; }
   MODEL=${MODEL:-$(cfg '.lead.model')}; EFFORT=${EFFORT:-$(cfg '.lead.effort')}
   APT=''; SKILLS=''
@@ -66,7 +66,7 @@ if [ -f "$PCFG" ] && [ "$ROLE" = lead ]; then
   MEMORY_STORE=${MEMORY_STORE:-$(cfg '.memory.memory_store // ""')}; REFERENCE_STORE=${REFERENCE_STORE:-$(cfg '.memory.reference_store // ""')}
   for m in $(jq -r '[.teams[].members[]] | unique[]' "$PCFG"); do
     mi=$(jq -c --arg n "$PROJECT-$m" '.[$n] // empty' "$REG" 2>/dev/null)
-    [ -n "$mi" ] && [ "$(jq -r .location <<<"$mi")" = cloud ] || die "the team needs a registered cloud instance $PROJECT-$m: provision it first (qargi provision plan $PROJECT-$m)"
+    [ -n "$mi" ] && [ "$(jq -r .location <<<"$mi")" = cloud ] || die "the team needs a registered cloud instance $PROJECT-$m: provision it first (crown provision plan $PROJECT-$m)"
     MEMBERS+="    - {type: agent, id: $(jq -r .agent.id <<<"$mi"), version: $(jq -r '.agent.version_pinned // .agent.version' <<<"$mi")}"$'\n'
   done
 elif [ -f "$PCFG" ] && is_base "$ROLE"; then
@@ -79,7 +79,7 @@ elif [ -f "$PCFG" ] && is_base "$ROLE"; then
   SKILLS=$(jq -r --arg r "$ROLE" --argjson abil "$(class_abilities "$ROLE" "$PCFG")" '[(.roles[$r].skills // [])[], ($abil[] as $a | (.roles[$a].skills // [])[])] | unique | join(" ")' "$PCFG")
   MEMORY_STORE=${MEMORY_STORE:-$(cfg '.memory.memory_store // ""')}; REFERENCE_STORE=${REFERENCE_STORE:-$(cfg '.memory.reference_store // ""')}
 elif [ -f "$PCFG" ]; then
-  jq -e --arg r "$ROLE" '.roles[$r]' "$PCFG" >/dev/null || die "role '$ROLE' is not enabled for project $PROJECT (qargi project show $PROJECT)"
+  jq -e --arg r "$ROLE" '.roles[$r]' "$PCFG" >/dev/null || die "role '$ROLE' is not enabled for project $PROJECT (crown project show $PROJECT)"
   cfg() { jq -r --arg r "$ROLE" "$1" "$PCFG"; }
   MODEL=${MODEL:-$(cfg '.roles[$r].model // ""')}; EFFORT=${EFFORT:-$(cfg '.roles[$r].effort')}
   [ -n "$APT_SET" ] || APT=$(cfg '.roles[$r].apt | join(" ")')
@@ -96,7 +96,7 @@ if [ -f "$PCFG" ]; then
 fi
 if [ -z "$MODEL" ]; then   # the balanced model of the project's provider on the cloud surface (models.provider; no default, a project with none for it is refused with exit 2)
   _prov=$(project_provider "$PROJECT" cloud) || exit $?
-  MODEL=$(python3 -I "$here/provider.py" model "$_prov" cloud balanced) || die "models.provider '$_prov' has no descriptor (qargi provider list), or none for the cloud surface"
+  MODEL=$(python3 -I "$here/provider.py" model "$_prov" cloud balanced) || die "models.provider '$_prov' has no descriptor (crown provider list), or none for the cloud surface"
 fi
 if is_base "$ROLE"; then EFFORT=${EFFORT:-medium}; fi   # a base runs the balanced tier at medium effort until a session overrides it
 EFFORT=${EFFORT:-high}; BUDGET=${BUDGET:-500}
@@ -170,7 +170,7 @@ vaults = sorted({v for t in mcp for v in t.get("vault_ids", [])})
 vault_yaml = "vault_ids: [%s]" % ", ".join(vaults)
 shutil.rmtree(out + "/skills", ignore_errors=True)
 if os.path.isdir(packs_out + "/skills") and custom: shutil.copytree(packs_out + "/skills", out + "/skills")
-sub = {"{{MCP_SERVERS}}": mcp_servers, "{{MCP_TOOLS}}": mcp_tools, "{{VAULT_IDS}}": vault_yaml, "{{SKILLS}}": skills_yaml, "{{PROJECT}}": project, "{{MULTIAGENT}}": ("multiagent:\n  type: coordinator\n  agents:\n" + members.rstrip("\n")) if members else "", "{{DESCRIPTION}}": ("Team lead for the qargi cloud backend of %s. Delegates one task to its role agents as threads, collects their reports, and never edits the repository." % project) if role == "lead" else "Task-scoped %s agent for the qargi cloud backend (one task, own clone, returns patches, never pushes)." % role, "{{ENVIRONMENT_REF}}": env_ref, "{{AGENT_NAME}}": agent_name, "{{ENV_NAME}}": env_name, "{{DEPLOYMENT_NAME}}": dep_name, "{{RESOURCES}}": resources, "{{NAME}}": name, "{{MODEL}}": model, "{{EFFORT}}": effort,
+sub = {"{{MCP_SERVERS}}": mcp_servers, "{{MCP_TOOLS}}": mcp_tools, "{{VAULT_IDS}}": vault_yaml, "{{SKILLS}}": skills_yaml, "{{PROJECT}}": project, "{{MULTIAGENT}}": ("multiagent:\n  type: coordinator\n  agents:\n" + members.rstrip("\n")) if members else "", "{{DESCRIPTION}}": ("Team lead for the crown cloud backend of %s. Delegates one task to its role agents as threads, collects their reports, and never edits the repository." % project) if role == "lead" else "Task-scoped %s agent for the crown cloud backend (one task, own clone, returns patches, never pushes)." % role, "{{ENVIRONMENT_REF}}": env_ref, "{{AGENT_NAME}}": agent_name, "{{ENV_NAME}}": env_name, "{{DEPLOYMENT_NAME}}": dep_name, "{{RESOURCES}}": resources, "{{NAME}}": name, "{{MODEL}}": model, "{{EFFORT}}": effort,
        "{{APT}}": apt, "{{PIP}}": pip, "{{GO}}": go, "{{NETWORKING}}": net, "{{BUDGET}}": budget,
        "{{NETWORKING_YAML}}": "{type: limited, allow_package_managers: true, allow_mcp_servers: true}" if net == "limited" else "{type: unrestricted}",
        "{{TOOL_CONFIGS}}": "".join("\n      - {name: %s, enabled: false}" % x for x in tools_off.split()) if tools_off.split() else " []"}
@@ -197,30 +197,30 @@ plan_hash() {
     [ -z "$FORCE" ] || printf 'force\n'; } | plan_token
 }
 
-# The project's bootstrap command (qargi env show), printed as text for the owner to paste into the environment's setup script. It is
+# The project's bootstrap command (crown env show), printed as text for the owner to paste into the environment's setup script. It is
 # only printed: the setup script lives with the cloud runtime, runs there before a session, and nothing here runs the command.
 setup_note() {
   local cmd
   [ -f "$PCFG" ] && [ "$ROLE" != lead ] || return 0
   cmd=$(python3 -I "$here/env.py" show --project "$PROJECT" --json 2>/dev/null </dev/null | jq -r '.commands.bootstrap_command.command // empty' 2>/dev/null) || return 0
   [ -n "$cmd" ] || return 0
-  echo "suggested setup script for the cloud environment (qargi does not run it; paste it into the environment's setup script yourself, after reading qargi env plan --project $PROJECT):"
+  echo "suggested setup script for the cloud environment (crown does not run it; paste it into the environment's setup script yourself, after reading crown env plan --project $PROJECT):"
   echo "    $cmd"
 }
 
 # New stores get the canon layout and each enabled role's skeleton. The stores' ids are
-# recorded in the project's stored answers so `qargi canon` finds them.
+# recorded in the project's stored answers so `crown canon` finds them.
 canonise() {
   if [ ! -f "$PCFG" ]; then
-    echo "qargi: warning: no stored answers for $PROJECT, so the new stores are empty; run /qargi-project, then: qargi canon apply $PROJECT --approved \"...\"" >&2
+    echo "crown: warning: no stored answers for $PROJECT, so the new stores are empty; run /crown-project, then: crown canon apply $PROJECT --approved \"...\"" >&2
     return 0
   fi
   [ -z "${store:-}" ] || "$here/project.sh" set "$PROJECT" memory.memory_store "$store" >/dev/null
   [ -z "${refstore:-}" ] || "$here/project.sh" set "$PROJECT" memory.reference_store "$refstore" >/dev/null
-  QARGI_NESTED=1 "$here/canon.sh" apply "$PROJECT" --approved "provisioning $NAME" >/dev/null || echo "qargi: warning: could not bring the new stores to the canon" >&2
+  CROWN_NESTED=1 "$here/canon.sh" apply "$PROJECT" --approved "provisioning $NAME" >/dev/null || echo "crown: warning: could not bring the new stores to the canon" >&2
   local r
   for r in shared $(jq -r '.roles | keys[]' "$PCFG"); do
-    QARGI_NESTED=1 "$here/canon.sh" seed-role "$PROJECT" --role "$r" --approved "provisioning $NAME" >/dev/null || echo "qargi: warning: could not seed role $r" >&2
+    CROWN_NESTED=1 "$here/canon.sh" seed-role "$PROJECT" --role "$r" --approved "provisioning $NAME" >/dev/null || echo "crown: warning: could not seed role $r" >&2
   done
 }
 
@@ -242,7 +242,7 @@ case $verb in
     need_asked
     [ -n "$APPROVED" ] || die "apply needs --approved \"<the user's go-ahead for the plan shown by: plan $NAME>\""
     render
-    QARGI_NESTED='' need_plan "$(plan_hash)"; audit_log provision-apply "$NAME${FORCE:+ force}"
+    CROWN_NESTED='' need_plan "$(plan_hash)"; audit_log provision-apply "$NAME${FORCE:+ force}"
     if [ -n "$FORCE" ]; then
       (cd "$W" && ant apply --yes --force --lock-file "$LOCK" "${FILES[@]}") || die "ant apply failed"
     else

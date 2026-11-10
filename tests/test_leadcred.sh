@@ -6,9 +6,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s FAKE=$T/fake
+export CROWN_CONF=$T/c CROWN_STATE=$T/s FAKE=$T/fake
 mkdir -p "$T/c/projects" "$T/s" "$T/bin" "$FAKE"
 TOK=github_pat_11AAAAAA0abcdefghijklmnopqrstuvwxyz0123456789SECRETVALUE
 # fake curl: GitHub answers by path with the body, a newline and the status (FAKE_ADMIN=true makes branch

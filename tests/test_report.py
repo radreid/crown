@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""qargi report: the figures from a fixture tracker and fixture local run directories. Offline; no cloud, no real state.
+"""crown report: the figures from a fixture tracker and fixture local run directories. Offline; no cloud, no real state.
 Run: python3 tests/test_report.py"""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import json, os, subprocess, sys, tempfile, unittest
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import report as R  # noqa: E402
 
@@ -78,11 +78,11 @@ class Pure(unittest.TestCase):
 
     def test_an_interrupted_session_is_not_counted_as_finished(self):
         t = tracker()
-        t["s5"]["interrupt_sent_at"] = ts(15)       # fresh-review ended with end_turn, but after a qargi stop
+        t["s5"]["interrupt_sent_at"] = ts(15)       # fresh-review ended with end_turn, but after a crown stop
         rep = R.summarize(t, NOW)
         i = rep["total"]["idle"]
-        self.assertEqual((i["finished"], i["stopped_by_qargi"]), (1, 1))
-        self.assertIn("stopped by qargi (interrupt sent, end_turn): 1", R.render(rep))
+        self.assertEqual((i["finished"], i["stopped_by_crown"]), (1, 1))
+        self.assertIn("stopped by crown (interrupt sent, end_turn): 1", R.render(rep))
 
     def test_filters(self):
         self.assertEqual(list(R.summarize(tracker(), NOW, instance="acme-write")["instances"]), ["acme-write"])
@@ -148,8 +148,8 @@ class Local(unittest.TestCase):
         self.root = os.path.join(self.t, "scratch")
         os.makedirs(self.state)
         os.makedirs(self.root)
-        self.env = dict(os.environ, QARGI_STATE=self.state, QARGI_CONF=os.path.join(self.t, "c"))
-        self.env.pop("QARGI_RUNS_ROOT", None)
+        self.env = dict(os.environ, CROWN_STATE=self.state, CROWN_CONF=os.path.join(self.t, "c"))
+        self.env.pop("CROWN_RUNS_ROOT", None)
 
     def report(self, *a):
         return subprocess.run([BIN, "report", *a], capture_output=True, text=True, env=self.env, stdin=subprocess.DEVNULL)
@@ -161,11 +161,11 @@ class Local(unittest.TestCase):
 
     def fixture(self):
         return {
-            "done": make_run(self.root, "qargi.done", 90, '{"status":"DONE"}', "x" * 10, "done-job"),
-            "blocked": make_run(self.root, "qargi.blocked", 80, '{"status":"BLOCKED"}', "", "blocked-job"),
-            "broken": make_run(self.root, "qargi.broken", 70, "{not json", None, "broken-job"),
-            "busy": make_run(self.root, "qargi.busy", 3, None, "y" * 2048, "busy-job"),
-            "quiet": make_run(self.root, "qargi.quiet", 45, None, "z" * 100, "quiet-job"),
+            "done": make_run(self.root, "crown.done", 90, '{"status":"DONE"}', "x" * 10, "done-job"),
+            "blocked": make_run(self.root, "crown.blocked", 80, '{"status":"BLOCKED"}', "", "blocked-job"),
+            "broken": make_run(self.root, "crown.broken", 70, "{not json", None, "broken-job"),
+            "busy": make_run(self.root, "crown.busy", 3, None, "y" * 2048, "busy-job"),
+            "quiet": make_run(self.root, "crown.quiet", 45, None, "z" * 100, "quiet-job"),
         }
 
     def test_the_states_of_local_runs(self):
@@ -182,9 +182,9 @@ class Local(unittest.TestCase):
         self.assertNotIn("done-job", out)      # finished runs are counted, not listed
         data = json.loads(self.report("--runs-root", self.root, "--json").stdout)["local"]
         states = {os.path.basename(x["run"]): x["state"] for x in data["runs"]}
-        self.assertEqual(states["qargi.done"], "finished DONE")
-        self.assertEqual(states["qargi.blocked"], "finished BLOCKED")
-        self.assertEqual(states["qargi.broken"], "manifest unreadable")
+        self.assertEqual(states["crown.done"], "finished DONE")
+        self.assertEqual(states["crown.blocked"], "finished BLOCKED")
+        self.assertEqual(states["crown.broken"], "manifest unreadable")
         self.assertEqual(data["counts"]["finished_other"], 1)
         self.assertEqual(next(x for x in data["runs"] if x["label"] == "quiet-job")["log_bytes"], 100)
 
@@ -194,7 +194,7 @@ class Local(unittest.TestCase):
         self.assertIn("possibly stalled 2", self.report("--runs-root", self.root, "--local-stale-after", "2m").stdout)
 
     def test_activity_in_the_clone_counts_as_still_changing(self):
-        run = make_run(self.root, "qargi.work", 60, None, "l", "work")
+        run = make_run(self.root, "crown.work", 60, None, "l", "work")
         with open(os.path.join(run, "clone", "edited.py"), "w") as f:
             f.write("x")
         out = self.report("--runs-root", self.root).stdout
@@ -202,9 +202,9 @@ class Local(unittest.TestCase):
         self.assertIn("possibly stalled 0", out)
 
     def test_the_registry_lists_runs_and_notes_a_removed_directory(self):
-        busy = make_run(self.root, "qargi.busy", 2, None, "l", "from-registry")
+        busy = make_run(self.root, "crown.busy", 2, None, "l", "from-registry")
         self.register(busy, "from-registry", 10)
-        self.register(os.path.join(self.root, "qargi.gone"), "gone-job", 500)
+        self.register(os.path.join(self.root, "crown.gone"), "gone-job", 500)
         out = self.report().stdout      # no --runs-root: only the registry
         self.assertIn("from-registry", out)
         self.assertIn("directory gone 1", out)
@@ -213,22 +213,22 @@ class Local(unittest.TestCase):
         self.assertIn("gone-job", out)
 
     def test_a_vanished_run_is_named_with_its_saved_copy_and_a_cleaned_one_is_not_listed(self):
-        self.register(os.path.join(self.root, "qargi.vanish"), "vanished-job", 30)
-        os.makedirs(os.path.join(self.state, "runs", "qargi.vanish", "out"))
+        self.register(os.path.join(self.root, "crown.vanish"), "vanished-job", 30)
+        os.makedirs(os.path.join(self.state, "runs", "crown.vanish", "out"))
         with open(os.path.join(self.state, "local-runs.jsonl"), "a") as f:
-            f.write(json.dumps({"run": os.path.join(self.root, "qargi.clean"), "slug": "cleaned-job", "ability": "build", "base": "main",
+            f.write(json.dumps({"run": os.path.join(self.root, "crown.clean"), "slug": "cleaned-job", "ability": "build", "base": "main",
                                 "started": ts(40, datetime.now(timezone.utc)), "cleaned": ts(5, datetime.now(timezone.utc))}) + "\n")
         out = self.report().stdout
         self.assertIn("directory gone 1", out)
         self.assertIn("vanished-job", out)
-        self.assertIn("review apply --from-saved qargi.vanish", out)
+        self.assertIn("review apply --from-saved crown.vanish", out)
         self.assertNotIn("cleaned-job", out)
         rep = json.loads(self.report("--json").stdout)
-        self.assertEqual([r["saved"] for r in rep["local"]["runs"]], [os.path.join(self.state, "runs", "qargi.vanish")])
+        self.assertEqual([r["saved"] for r in rep["local"]["runs"]], [os.path.join(self.state, "runs", "crown.vanish")])
 
     def test_since_and_instance(self):
-        self.register(make_run(self.root, "qargi.busy", 2, None, "l", "recent"), "recent", 10)
-        self.register(make_run(self.root, "qargi.old", 2, None, "l", "ancient"), "ancient", 100000)
+        self.register(make_run(self.root, "crown.busy", 2, None, "l", "recent"), "recent", 10)
+        self.register(make_run(self.root, "crown.old", 2, None, "l", "ancient"), "ancient", 100000)
         out = self.report("--since", (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")).stdout
         self.assertIn("recent", out)
         self.assertNotIn("ancient", out)

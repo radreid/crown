@@ -11,10 +11,10 @@
 #     different texts fails, unless tests/skill-dup-allowlist.txt lists it (`SHA12 file, file`, sorted) with exactly the texts it
 #     stands in: a sentence allowed in two texts fails when a third has it. An entry whose sentence is no longer duplicated, or
 #     no longer in those texts, fails: edit or delete it.
-#  3. Verbs. Every `qargi X Y` example in backticks (and every line of a code block that starts with `qargi `) must name a
+#  3. Verbs. Every `crown X Y` example in backticks (and every line of a code block that starts with `crown `) must name a
 #     command of lib/commands.py (the table tests/test_help.py checks against the scripts) and, when that command has verbs,
 #     one of its verbs. Words that are placeholders (NAME, <x>, [x]), flags and quoted text end the example; `a|b` stands for
-#     both. A miss fails unless tests/skill-verbs-allowlist.txt lists it (`qargi X Y`, sorted); a stale entry fails too.
+#     both. A miss fails unless tests/skill-verbs-allowlist.txt lists it (`crown X Y`, sorted); a stale entry fails too.
 #  4. Reference files. Every .md under skills/*/ other than SKILL.md is loaded on demand, so its first line must start with
 #     `Load when ` (the model decides from that line alone whether to read it), and the SKILL.md of its skill must send a session
 #     there: its path inside the skill, as a markdown link or inside backticks, on a line that also says "load" (any case), or
@@ -27,7 +27,7 @@
 #     so a bigger text cannot be made to pass by editing the number alone. A new line (no value at the merge base), an unchanged
 #     one and a lowered one need no comment. The check itself is tried on small files each time the test runs.
 #
-# The notes of a runtime's definition (lib/providers/*.json, `notes`) are loaded on demand by `qargi provider notes`. All its topics
+# The notes of a runtime's definition (lib/providers/*.json, `notes`) are loaded on demand by `crown provider notes`. All its topics
 # together are one text here, listed as `lib/providers/NAME.json:notes` with the words of the topic texts. They are not scanned for
 # vendor words (tests/test_neutral.sh): a runtime's definition is where its vendor is named.
 #
@@ -174,7 +174,7 @@ def entries(path, key):
 
 def blocks(text):
     """The prose of a text as blocks (paragraphs, list items, headings, table rows), fenced code left out; and the
-    lines of the code blocks that start with `qargi `."""
+    lines of the code blocks that start with `crown `."""
     prose, code, cur, fenced = [], [], [], False
 
     def flush():
@@ -188,7 +188,7 @@ def blocks(text):
             fenced = not fenced
             continue
         if fenced:
-            if s.startswith("qargi "):
+            if s.startswith("crown "):
                 code.append(re.sub(r"\s+#.*$", "", s))
             continue
         if not s:
@@ -248,7 +248,7 @@ def words(tok):
 
 
 def pairs(span):
-    for m in re.finditer(r"(?:^|(?<=[\s(]))qargi\s+(\S+)(?:\s+(\S+))?", span):
+    for m in re.finditer(r"(?:^|(?<=[\s(]))crown\s+(\S+)(?:\s+(\S+))?", span):
         cmds = words(m.group(1))
         if cmds is None:
             continue
@@ -265,7 +265,7 @@ for t, span in spans:
         spec = C.COMMANDS.get(c)
         vs = spec.get("verbs") if spec else None
         if spec is None or (v is not None and isinstance(vs, dict) and v not in vs):
-            miss.setdefault("qargi %s%s" % (c, " " + v if v and spec else ""), set()).add(t)
+            miss.setdefault("crown %s%s" % (c, " " + v if v and spec else ""), set()).add(t)
 allowed = entries(verbs_file, lambda line: line.strip())
 new = sorted(k for k in miss if k not in allowed)
 for k in new:
@@ -273,7 +273,7 @@ for k in new:
 for k in sorted(set(allowed) - set(miss)):
     say(False, "stale entry in %s (the example is gone or now resolves; delete the line): %s" % (verbs_file, k))
 if not new and set(allowed) <= set(miss):
-    say(True, "all %d `qargi X Y` examples name a command and verb of lib/commands.py, apart from the %d of %s" % (checked, len(allowed), verbs_file))
+    say(True, "all %d `crown X Y` examples name a command and verb of lib/commands.py, apart from the %d of %s" % (checked, len(allowed), verbs_file))
 sys.exit(1 if bad else 0)
 PY
 # the member pack uses the word gates for the declared gates only (the lead's), and calls the checks of the profile for the touched paths what they are

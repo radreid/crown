@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# qargi project attach: reads an existing repository, changes nothing in it, stores the answers only after approval.
+# crown project attach: reads an existing repository, changes nothing in it, stores the answers only after approval.
 # Run: tests/test_attach.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s
-unset QARGI_PROJECT
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s
+unset CROWN_PROJECT
 mkdir -p "$HOME" "$T/c"
 G="git -c user.name=t -c user.email=t@example.net"
 R=$T/repo; git init -q -b main "$R"
@@ -32,7 +32,7 @@ $DA project show widgettool >/dev/null 2>&1 && $DA project validate widgettool >
 # a repository with its own .claude/skills: a hint after the gaps, nothing else
 mkdir -p "$R/.claude/skills/one" "$R/.claude/skills/two" "$R/.claude/skills/not-a-skill"; echo x > "$R/.claude/skills/one/SKILL.md"; echo x > "$R/.claude/skills/two/SKILL.md"
 out=$($DA project attach "$R" 2>&1)
-grep -qx "repo has its own .claude/skills (2 skills): qargi packs link widgettool offers to use the library's instead and shows which are new" <<<"$out" && ok "own skills in the repository get a hint naming the project" || no "hint: $out"
+grep -qx "repo has its own .claude/skills (2 skills): crown packs link widgettool offers to use the library's instead and shows which are new" <<<"$out" && ok "own skills in the repository get a hint naming the project" || no "hint: $out"
 [ "$(grep -n "^repo has its own" <<<"$out" | cut -d: -f1)" -gt "$(grep -n -- "^gaps against" <<<"$out" | cut -d: -f1)" ] && ok "the hint comes after the gaps" || no "hint position"
 rm -rf "$R/.claude"; out=$($DA project attach "$R" 2>&1)
 ! grep -q "repo has its own" <<<"$out" && ok "no hint without skills" || no "hint without skills"

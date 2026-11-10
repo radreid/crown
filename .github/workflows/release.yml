@@ -1,6 +1,6 @@
 # A GitHub release for every release tag. A tag like 1.2.3 pushed to the repository publishes a release whose notes are that
 # version's section of CHANGELOG.md and whose files are the source archive of the tag and its checksum. Nothing else runs here:
-# the tag itself is made by the release process (qargi release finish, then push), and only a tag on master's history counts.
+# the tag itself is made by the release process (crown release finish, then push), and only a tag on master's history counts.
 # A tag that was pushed before this workflow existed is published by running it by hand with that tag (workflow_dispatch).
 name: release
 
@@ -46,12 +46,12 @@ jobs:
         run: |
           mkdir -p dist
           bash lib/changelog_section.sh "$TAG" > dist/notes.md
-          git archive --format=tar.gz --prefix="qargi-$TAG/" -o "dist/qargi-$TAG.tar.gz" "refs/tags/$TAG"
-          (cd dist && sha256sum "qargi-$TAG.tar.gz" > "qargi-$TAG.tar.gz.sha256")
+          git archive --format=tar.gz --prefix="crown-$TAG/" -o "dist/crown-$TAG.tar.gz" "refs/tags/$TAG"
+          (cd dist && sha256sum "crown-$TAG.tar.gz" > "crown-$TAG.tar.gz.sha256")
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then echo "release $TAG exists: left as it is"; exit 0; fi
-          gh release create "$TAG" --verify-tag --title "qargi $TAG" --notes-file dist/notes.md \
-            "dist/qargi-$TAG.tar.gz" "dist/qargi-$TAG.tar.gz.sha256"
+          gh release create "$TAG" --verify-tag --title "crown $TAG" --notes-file dist/notes.md \
+            "dist/crown-$TAG.tar.gz" "dist/crown-$TAG.tar.gz.sha256"

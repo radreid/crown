@@ -20,22 +20,22 @@ A lead is LIVE when now - renewed_at < ttl minutes, STALE otherwise. The ttl is 
 passed in with --ttl.
 
 Environment (read here and nowhere else):
-  QARGI_LEAD              the identity when --as is not given (a session id); else user@host (anonymous: warns only)
-  QARGI_MARSHAL_NOW       epoch seconds to use as "now" (tests inject the clock with it)
-  QARGI_MARSHAL_AUDIT_OUT a file to write the one-line audit detail of a takeover into (marshal.sh appends it to the audit log)
+  CROWN_LEAD              the identity when --as is not given (a session id); else user@host (anonymous: warns only)
+  CROWN_MARSHAL_NOW       epoch seconds to use as "now" (tests inject the clock with it)
+  CROWN_MARSHAL_AUDIT_OUT a file to write the one-line audit detail of a takeover into (marshal.sh appends it to the audit log)
 
 Backends. The records above are the LOCAL backend: this machine only, the default. With --backend refs --remote R (or, when
 --backend is not given, a switch file $STATE/marshal/<project>.enabled {backend, remote, ...} written by the marshal enable verb)
-the records are commits on refs/qargi/features/<name> of the project's remote R (lib/marshal_refs.py): every write is a
+the records are commits on refs/crown/features/<name> of the project's remote R (lib/marshal_refs.py): every write is a
 compare-and-swap push, the local file keeps the flock and holds a claim that has not reached the remote yet (state: provisional),
 and a lease is stale when the ref's oid stayed unchanged for ttl minutes on this machine's own monotonic clock (never the lead's
 wall clock). A lost race is one refresh and a second decision, then a refusal. A read verb fetches (--no-fetch: not; inside a member
 run: never) and never pushes; a verb that changes the marshal exits 2 inside a member run. An unreachable remote is reported as
 "remote not checked": reads continue on the cache, a claim stays provisional and the next verb completes or drops it.
-Environment: QARGI_REMOTE_TIMEOUT (seconds for a fetch or push, default 10) and QARGI_MARSHAL_MONO (the monotonic clock; tests).
+Environment: CROWN_REMOTE_TIMEOUT (seconds for a fetch or push, default 10) and CROWN_MARSHAL_MONO (the monotonic clock; tests).
 
 Integrity. The switch file also holds `integrity`: off (the default, everything above), advisory or strict. Writes are signed with
-this machine's key ($QARGI_CONF/credentials/marshal_ed25519, lib/marshal_sign.py) whenever the mode is not off and the key exists
+this machine's key ($CROWN_CONF/credentials/marshal_ed25519, lib/marshal_sign.py) whenever the mode is not off and the key exists
 (strict refuses to write without one). A reader in advisory or strict verifies every record against the allowed signers file
 ($STATE/marshal/<project>.signers) and tags it signed, unsigned or INVALID ("cannot verify" for a sig_v it does not know). Advisory
 uses every record and shows the tag; strict ignores what is not signed, with a warning, and falls back to the last accepted record
@@ -77,12 +77,12 @@ class Unreachable(Refuse):
 
 
 def now():
-    v = os.environ.get("QARGI_MARSHAL_NOW")
+    v = os.environ.get("CROWN_MARSHAL_NOW")
     if v:
         try:
             return int(float(v))
         except ValueError:
-            raise Refuse("QARGI_MARSHAL_NOW is not a number of seconds")
+            raise Refuse("CROWN_MARSHAL_NOW is not a number of seconds")
     return int(time.time())
 
 
@@ -115,7 +115,7 @@ class Ctx:
         self.ttl = a.ttl if a.ttl and a.ttl > 0 else 15
         user = pwd.getpwuid(os.getuid()).pw_name
         host = socket.gethostname()
-        given = a.as_id or os.environ.get("QARGI_LEAD") or ""
+        given = a.as_id or os.environ.get("CROWN_LEAD") or ""
         self.anon = not given
         self.id = given or "%s@%s" % (user, host)
         if not ID_RE.match(self.id):
@@ -144,7 +144,7 @@ class Ctx:
 
     def warn_anon(self):
         if self.anon:
-            print("qargi: warning: anonymous identity %s (every session on this host is the same lead): set QARGI_LEAD or pass --as" % self.id, file=sys.stderr)
+            print("crown: warning: anonymous identity %s (every session on this host is the same lead): set CROWN_LEAD or pass --as" % self.id, file=sys.stderr)
 
 
 # ---- records -------------------------------------------------------------------------------------------------------
@@ -200,21 +200,21 @@ def succession_problem(ctx, name, rec, old):
         return None
     st, mins = lease(ctx, rec)
     if st == "live":
-        return "the lease of %s on %s is still live (renewed %s min ago, ttl %d): the old session may still be running; wait until it is stale, or ask the owner for qargi marshal takeover" % (
+        return "the lease of %s on %s is still live (renewed %s min ago, ttl %d): the old session may still be running; wait until it is stale, or ask the owner for crown marshal takeover" % (
             clean(old), name, "?" if mins is None else mins, ctx.ttl)
     for what, theirs, mine_ in (("host", ld.get("host"), ctx.host), ("user", ld.get("user"), ctx.user)):
         if theirs != mine_:
-            return "the old lead ran on another %s (%s, not %s); only the owner's qargi marshal takeover covers that" % (what, clean(str(theirs))[:60], mine_)
+            return "the old lead ran on another %s (%s, not %s); only the owner's crown marshal takeover covers that" % (what, clean(str(theirs))[:60], mine_)
     if not ld.get("worktree"):
-        return "the old lead record names no work tree (it was made before records carried one); only the owner's qargi marshal takeover covers that"
+        return "the old lead record names no work tree (it was made before records carried one); only the owner's crown marshal takeover covers that"
     if ld["worktree"] != ctx.worktree_key:
-        return "the old lead ran in another work tree; only the owner's qargi marshal takeover covers that"
+        return "the old lead ran in another work tree; only the owner's crown marshal takeover covers that"
     return None
 
 
 def note_audit(text):
     """The one-line audit detail of a succession or takeover, for lib/marshal.sh to append to the audit log."""
-    out = os.environ.get("QARGI_MARSHAL_AUDIT_OUT")
+    out = os.environ.get("CROWN_MARSHAL_AUDIT_OUT")
     if out:
         with open(out, "w") as f:
             f.write(text)
@@ -247,7 +247,7 @@ def led_by_msg(ctx, name, rec, tail=""):
     ld = lead_of(rec)
     base = "feature %s is led by %s (%s %s min ago, ttl %d)" % (name, clean(ld["id"]), ctx.be.renewed_word, "?" if mins is None else mins, ctx.ttl)
     if st == "stale":
-        base += "; the lease is stale: use qargi marshal takeover %s --approved WORDS" % name
+        base += "; the lease is stale: use crown marshal takeover %s --approved WORDS" % name
     return base + tail
 
 
@@ -543,7 +543,7 @@ class Integrity:
                         S.hw_record(self.marks_path, name, rec["rev"], oid)
                     view[name] = base[name] = cur
                     continue
-                self.notes.append((name, "ignoring refs/qargi/features/%s on the remote: %s" % (name, w)))
+                self.notes.append((name, "ignoring refs/crown/features/%s on the remote: %s" % (name, w)))
                 fb = self.fallback(name, marks, oid, persist and only in (None, name))
                 if fb:
                     view[name] = base[name] = fb
@@ -552,9 +552,9 @@ class Integrity:
                 continue
             view[name] = base[name] = cur       # advisory uses what is there: a write builds on the head that was read, and the timer follows it
             if tag in self.BAD:
-                self.notes.append((name, "refs/qargi/features/%s is %s%s (integrity advisory: the record is still used)" % (name, tag, (": " + why) if why else "")))
+                self.notes.append((name, "refs/crown/features/%s is %s%s (integrity advisory: the record is still used)" % (name, tag, (": " + why) if why else "")))
         for ref, _ in ignored:
-            if not ref.startswith("refs/qargi/features/"):
+            if not ref.startswith("refs/crown/features/"):
                 continue
             name = ref.rsplit("/", 1)[1]
             if not R.name_ok(name) or name in view:
@@ -567,7 +567,7 @@ class Integrity:
         cleared = set()
         for name, (oid, rec) in done.items():
             m = marks.get(name)
-            if m is None or self.tags.get(("done", name), ("unsigned",))[0] != "signed" or "refs/qargi/features/" + name in heads:
+            if m is None or self.tags.get(("done", name), ("unsigned",))[0] != "signed" or "refs/crown/features/" + name in heads:
                 continue                         # the mark of a feature that is open again (a reused name) is that feature's, whatever done/ says
             fo = rec.get("features_oid")         # a done record ends the feature this machine accepted only when it says so, signed
             if fo == m[1] or (isinstance(fo, str) and S.OID_RE.fullmatch(fo) and self.descends(name, m[1], fo)):
@@ -576,14 +576,14 @@ class Integrity:
                     S.hw_drop(self.marks_path, name)
         for name in sorted(marks):
             unsigned_done = name in done and self.tags.get(("done", name), ("unsigned",))[0] != "signed"      # advisory uses it as it is, as before
-            if "refs/qargi/features/" + name not in heads and name not in cleared and not unsigned_done:
-                self.notes.append((name, "refs/qargi/features/%s vanished from the remote and there is no done/%s that ends the record this machine accepted: it was deleted or rewound" % (name, name)))
+            if "refs/crown/features/" + name not in heads and name not in cleared and not unsigned_done:
+                self.notes.append((name, "refs/crown/features/%s vanished from the remote and there is no done/%s that ends the record this machine accepted: it was deleted or rewound" % (name, name)))
         return view, base, bad
 
 
 class RefsBackend:
-    """The records are commits on refs/qargi/features/NAME of the project's remote (lib/marshal_refs.py); the repository's own
-    refs/qargi/ is their cache. The local file $STATE/features/<project>-<name>.json keeps the flock and holds a claim that has
+    """The records are commits on refs/crown/features/NAME of the project's remote (lib/marshal_refs.py); the repository's own
+    refs/crown/ is their cache. The local file $STATE/features/<project>-<name>.json keeps the flock and holds a claim that has
     not reached the remote yet (state: provisional). The lease is the time an oid stayed unchanged on THIS machine's monotonic
     clock, never a wall-clock comparison. A read verb fetches (unless --no-fetch or inside a member run) and never pushes."""
     refs = True
@@ -621,7 +621,7 @@ class RefsBackend:
             heads = self.heads = {}
             guard = Integrity(self, ctx) if self.integrity != "off" else None
             feats, done, ignored = R.read(ctx.repo, sane, guard.verify if guard else None, heads)
-            bad = {r.rsplit("/", 1)[1] for r, _ in ignored if r.startswith("refs/qargi/features/") and R.name_ok(r.rsplit("/", 1)[1])}
+            bad = {r.rsplit("/", 1)[1] for r, _ in ignored if r.startswith("refs/crown/features/") and R.name_ok(r.rsplit("/", 1)[1])}
             if guard:
                 view, based, bad = guard.settle(feats, done, ignored, heads, not self.member, ctx.name)
                 notes = guard.notes
@@ -638,12 +638,12 @@ class RefsBackend:
         for ref, w in ignored:
             if (ref, w) not in self.warned and (only is None or ref.rsplit("/", 1)[-1] == only):
                 self.warned.add((ref, w))
-                print("qargi: warning: ignoring %s on the remote: %s" % (clean(ref), clean(w)), file=sys.stderr)
+                print("crown: warning: ignoring %s on the remote: %s" % (clean(ref), clean(w)), file=sys.stderr)
         for n, w in notes:
             if ("", w) not in self.warned and (only is None or n == only):
                 self.warned.add(("", w))
-                print("qargi: warning: %s" % clean(w), file=sys.stderr)
-        bad_done = {r.rsplit("/", 1)[1] for r, _ in ignored if r.startswith("refs/qargi/done/") and R.name_ok(r.rsplit("/", 1)[1])}
+                print("crown: warning: %s" % clean(w), file=sys.stderr)
+        bad_done = {r.rsplit("/", 1)[1] for r, _ in ignored if r.startswith("refs/crown/done/") and R.name_ok(r.rsplit("/", 1)[1])}
         for e in list(view.values()) + [b for n, b in based.items() if b is not view.get(n)]:
             e["_age"] = ages.get(e["feature"], 0)
         dn = {}
@@ -657,7 +657,7 @@ class RefsBackend:
         if self.snap is None:
             why = self.load(ctx, ctx.fetch_ok)
             if why is not None:
-                print("qargi: remote not checked (%s): showing what this machine fetched last" % why, file=sys.stderr)
+                print("crown: remote not checked (%s): showing what this machine fetched last" % why, file=sys.stderr)
         return self.snap
 
     # -- reading
@@ -703,7 +703,7 @@ class RefsBackend:
         return new
 
     def done_oid(self, name):
-        """The oid of refs/qargi/done/<name> in the cache just read, or None."""
+        """The oid of refs/crown/done/<name> in the cache just read, or None."""
         return (self.snap.done.get(name) or {}).get("_oid")
 
     def mirror(self, ctx, name, rec, state=None):
@@ -722,7 +722,7 @@ class RefsBackend:
             return None
         sg = self.R.signer_for(ctx.conf, ctx.project)
         if sg is None and self.integrity == "strict":
-            raise Refuse("integrity is strict but this machine has no signing key, so its records would be ignored: qargi marshal key init, then trust the line it prints on every machine (qargi marshal signers add)")
+            raise Refuse("integrity is strict but this machine has no signing key, so its records would be ignored: crown marshal key init, then trust the line it prints on every machine (crown marshal signers add)")
         return sg
 
     def accepted(self, ctx, name, rev, oid):
@@ -731,14 +731,14 @@ class RefsBackend:
             try:
                 self.R.sign_mod().hw_record(os.path.join(ctx.state, "features", ".accepted-%s.json" % ctx.project), name, rev, oid)
             except self.R.sign_mod().SignError as e:
-                print("qargi: warning: the high-water mark was not updated: %s" % clean(str(e))[:200], file=sys.stderr)
+                print("crown: warning: the high-water mark was not updated: %s" % clean(str(e))[:200], file=sys.stderr)
 
     def push_one(self, ctx, name, new, remote_oid, parent=None, sign=None):
         """Commit new on top of `parent` (default: the remote's commit) and push it with a lease on the remote's commit (create-only when
         there is none) -> (status, why). The parent differs from the lease when the head is junk and the commit builds on the last accepted
         record: the push then replaces the junk."""
         R = self.R
-        ref = "refs/qargi/features/" + name
+        ref = "refs/crown/features/" + name
         try:
             commit = R.write(ctx.repo, new, parent or remote_oid, "marshal: %s rev %s" % (name, new.get("rev")), sign)
         except OSError as e:
@@ -772,8 +772,8 @@ class RefsBackend:
             why = self.load(ctx, True)
             snap = self.snap
             if name in snap.bad:
-                raise Refuse("refs/qargi/features/%s exists on the remote but holds no valid record (see the warning above): ask whoever owns the remote to remove it%s" % (
-                    name, "; an unsigned record from before integrity was switched on is signed by the owner with: qargi marshal resign %s --approved WORDS" % name if self.integrity == "strict" else ""))
+                raise Refuse("refs/crown/features/%s exists on the remote but holds no valid record (see the warning above): ask whoever owns the remote to remove it%s" % (
+                    name, "; an unsigned record from before integrity was switched on is signed by the owner with: crown marshal resign %s --approved WORDS" % name if self.integrity == "strict" else ""))
             remote = snap.base.get(name)
             prov = self.provisional(ctx, name)
             if prov is not None and why is None:
@@ -782,7 +782,7 @@ class RefsBackend:
                 # feature meanwhile (pushing it would bring a finished feature back to life next to its done/ ref)
                 if remote is None and self.done_oid(name) not in (None, prov.get("done_seen")):
                     os.unlink(path)
-                    print("qargi: the provisional claim of %s was dropped, not pushed: the feature was finished on the remote meanwhile (refs/qargi/done/%s exists)" % (name, name), file=sys.stderr)
+                    print("crown: the provisional claim of %s was dropped, not pushed: the feature was finished on the remote meanwhile (refs/crown/done/%s exists)" % (name, name), file=sys.stderr)
                     prov = None
                 elif remote is None:
                     st, last = self.push_one(ctx, name, {k: v for k, v in prov.items() if k not in NOTE_KEYS and k not in ("sig_v", "signer")}, None, None, signer)
@@ -806,7 +806,7 @@ class RefsBackend:
                 if not (create and remote is None):
                     raise Unreachable("remote not checked (%s): feature %s was not changed; try again when the remote is reachable" % (why, name))
                 self.mirror(ctx, name, self.stamp(ctx, name, new, rec), "provisional")
-                print("qargi: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (why, name), file=sys.stderr)
+                print("crown: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (why, name), file=sys.stderr)
                 return res
             new, res = fn(rec)
             if new is None:
@@ -817,7 +817,7 @@ class RefsBackend:
             finishing = new.get("status") == "finished"
             wrote_prov = False
             if finishing and name in snap.bad_done:
-                raise Refuse("refs/qargi/done/%s exists on the remote but holds no valid record (see the warning above): ask whoever owns the remote to remove it, then finish again" % name)
+                raise Refuse("refs/crown/done/%s exists on the remote but holds no valid record (see the warning above): ask whoever owns the remote to remove it, then finish again" % name)
             if finishing:
                 try:
                     st, last, _ = R.finish(ctx.repo, self.remote, name, new, remote_oid, (snap.done.get(name) or {}).get("_oid"), signer, parent_oid)
@@ -848,7 +848,7 @@ class RefsBackend:
                 return res
             if st == "unreachable":
                 if wrote_prov:
-                    print("qargi: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (last, name), file=sys.stderr)
+                    print("crown: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (last, name), file=sys.stderr)
                     return res
                 raise Unreachable("remote not checked (%s): feature %s was not changed; try again when the remote is reachable" % (last, name))
             if retried:                                           # rejected twice
@@ -860,7 +860,7 @@ class RefsBackend:
 
 
 def resign_target(be, ctx, name):
-    """The head of refs/qargi/features/NAME as resign sees it -> (head oid, record), or (head oid, None) when it is signed already.
+    """The head of refs/crown/features/NAME as resign sees it -> (head oid, record), or (head oid, None) when it is signed already.
     Refuses a head that is not an unsigned valid record, and, when this machine has accepted a record of NAME, an unsigned head
     that is not that record's lead's (or is older than it): resign turns what is there into a trusted record, so it never does that
     for a record a stranger put on top of one the owner saw."""
@@ -868,19 +868,19 @@ def resign_target(be, ctx, name):
     why = be.load(ctx, True)
     if why is not None:
         raise Unreachable("remote not checked (%s): feature %s was not changed; try again when the remote is reachable" % (why, name))
-    head = be.heads.get("refs/qargi/features/" + name)
+    head = be.heads.get("refs/crown/features/" + name)
     if head is None:
-        raise Refuse("no open feature %s on the remote (no refs/qargi/features/%s)" % (name, name))
+        raise Refuse("no open feature %s on the remote (no refs/crown/features/%s)" % (name, name))
     rec, w = R.read_one(ctx.repo, head, name)
     if rec is None or sane(rec):
-        raise Refuse("refs/qargi/features/%s holds no valid record (%s): nothing to sign" % (name, w or sane(rec)))
+        raise Refuse("refs/crown/features/%s holds no valid record (%s): nothing to sign" % (name, w or sane(rec)))
     info = R.commit_info(ctx.repo, head)
     guard = Integrity(be, ctx)
     tag, w = guard.classify("features", name, rec, info[0], info[1]) if info else ("INVALID", "its commit cannot be read")
     if tag == "signed":
         return head, None
     if tag != "unsigned":
-        raise Refuse("refs/qargi/features/%s is %s (%s): resign only signs an unsigned record" % (name, tag, clean(w)[:200]))
+        raise Refuse("refs/crown/features/%s is %s (%s): resign only signs an unsigned record" % (name, tag, clean(w)[:200]))
     m = guard.marks().get(name)
     if m:
         acc, _ = R.read_one(ctx.repo, m[1], name)
@@ -888,21 +888,21 @@ def resign_target(be, ctx, name):
             raise Refuse("this machine accepted a record of %s but cannot read it any more, so it cannot tell whether the unsigned head is that record's successor: resign refused" % name)
         al, hl = lead_of(acc), lead_of(rec)
         if (al or {}).get("id") != (hl or {}).get("id"):
-            raise Refuse("refs/qargi/features/%s is unsigned and its lead (%s) is not the lead of the record this machine accepted (%s): resign signs only the accepted lead's own unsigned writes; a record someone else put there is not signed" % (
+            raise Refuse("refs/crown/features/%s is unsigned and its lead (%s) is not the lead of the record this machine accepted (%s): resign signs only the accepted lead's own unsigned writes; a record someone else put there is not signed" % (
                 name, clean((hl or {}).get("id") or "none")[:80], clean((al or {}).get("id") or "none")[:80]))
         if isinstance(acc.get("rev"), int) and isinstance(rec.get("rev"), int) and rec["rev"] < acc["rev"]:
-            raise Refuse("refs/qargi/features/%s is unsigned and at rev %d, below the rev %d this machine accepted: resign refused" % (name, rec["rev"], acc["rev"]))
+            raise Refuse("refs/crown/features/%s is unsigned and at rev %d, below the rev %d this machine accepted: resign refused" % (name, rec["rev"], acc["rev"]))
     return head, rec
 
 
 def refs_resign(be, ctx, name, expect=None, show=False):
-    """Sign the unsigned head of refs/qargi/features/NAME: a signed commit on top of it, rev + 1, the record otherwise as it is
+    """Sign the unsigned head of refs/crown/features/NAME: a signed commit on top of it, rev + 1, the record otherwise as it is
     -> the new rev, or None when the head is signed already. show: nothing is changed, the answer is what would be signed
     ({head, rev, lead, goal}, or None when signed already). expect: the head the plan showed; another head is refused."""
     R = be.R
     sg = R.signer_for(ctx.conf, ctx.project)
     if sg is None:
-        raise Refuse("this machine has no signing key: qargi marshal key init")
+        raise Refuse("this machine has no signing key: crown marshal key init")
     path = ctx.path(name)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path + ".lock", "a") as lk:
@@ -915,7 +915,7 @@ def refs_resign(be, ctx, name, expect=None, show=False):
                 return {"head": head, "rev": rec.get("rev") if isinstance(rec.get("rev"), int) else 0,
                         "lead": (lead_of(rec) or {}).get("id") or "none", "goal": " ".join(clean(str(rec.get("goal") or "")).split())[:200]}
             if expect is not None and head != expect:
-                raise Refuse("refs/qargi/features/%s changed since the plan was shown: run the plan again, show it to the user, then apply it" % name)
+                raise Refuse("refs/crown/features/%s changed since the plan was shown: run the plan again, show it to the user, then apply it" % name)
             new = be.stamp(ctx, name, rec, rec)
             st, last = be.push_one(ctx, name, new, head, head, sg)
             if st == "ok":
@@ -1240,7 +1240,7 @@ def v_status(ctx, a):
             print(json.dumps({"project": ctx.project, "features": objs, "agent_unattributed": ua}, indent=1))
         return
     if not items:
-        print("no open features (qargi feature start NAME)")
+        print("no open features (crown feature start NAME)")
         return
     for i, (n, d, rec) in enumerate(items):
         if a.brief:
@@ -1270,7 +1270,7 @@ def v_claim(ctx, a):
     check_name(a.name)
     ctx.warn_anon()
     if not branch_exists(ctx, a.name):
-        raise Refuse("no branch feature/%s: start it first (qargi feature start %s)" % (a.name, a.name))
+        raise Refuse("no branch feature/%s: start it first (crown feature start %s)" % (a.name, a.name))
 
     def fn(rec):
         ld = lead_of(rec)
@@ -1342,7 +1342,7 @@ def v_start(ctx, a):
 def mine(ctx, name, rec, what):
     ld = lead_of(rec)
     if rec is None:
-        raise Refuse("no record for feature %s (claim it: qargi marshal claim %s)" % (name, name))
+        raise Refuse("no record for feature %s (claim it: crown marshal claim %s)" % (name, name))
     if not ld or ld["id"] != ctx.id:
         who = "led by %s" % clean(ld["id"]) if ld else "without a lead"
         raise Refuse("you (%s) are not the lead of %s, which is %s; %s" % (ctx.id, name, who, what))
@@ -1399,7 +1399,7 @@ def v_release(ctx, a):
         r["updated_by"] = ctx.id
         return r, True
     if update(ctx, a.name, fn):
-        print("released %s; the next lead takes it with: qargi marshal take %s" % (a.name, a.name))
+        print("released %s; the next lead takes it with: crown marshal take %s" % (a.name, a.name))
     else:
         print("nothing to release: %s has no lead (finished, abandoned or released)" % a.name)
 
@@ -1411,7 +1411,7 @@ def v_take(ctx, a):
     def fn(rec):
         rec = unled(ctx, a.name, rec)
         if rec is None:
-            raise Refuse("no record for feature %s (claim it: qargi marshal claim %s)" % (a.name, a.name))
+            raise Refuse("no record for feature %s (claim it: crown marshal claim %s)" % (a.name, a.name))
         ld = lead_of(rec)
         if ld and ld["id"] == ctx.id:
             r = fresh(ctx, a.name, rec)
@@ -1439,7 +1439,7 @@ def v_takeover(ctx, a):
     def fn(rec):
         rec = unled(ctx, a.name, rec)
         if rec is None:
-            raise Refuse("no record for feature %s (claim it: qargi marshal claim %s)" % (a.name, a.name))
+            raise Refuse("no record for feature %s (claim it: crown marshal claim %s)" % (a.name, a.name))
         st, mins = lease(ctx, rec)
         if st == "live":
             age = ctx.be.age(ctx, rec)
@@ -1483,7 +1483,7 @@ def v_finish(ctx, a):
 def v_resign(ctx, a):
     check_name(a.name)
     if not ctx.be.refs:
-        raise Refuse("resign applies to the shared refs backend (qargi marshal enable)")
+        raise Refuse("resign applies to the shared refs backend (crown marshal enable)")
     if a.show:                      # the plan of lib/marshal.sh: what resign would sign, nothing changed
         info = refs_resign(ctx.be, ctx, a.name, show=True)
         if info is None:
@@ -1505,11 +1505,11 @@ def warnings_for(ctx, d, rec_exists):
     if d["ghost"]:
         w.append("feature %s was abandoned: its branch feature/%s is gone" % (d["feature"], d["feature"]))
     elif d["lead"] and d["lease"] == "stale" and d["lead"]["id"] != ctx.id:
-        w.append("the lead of %s (%s) is stale (renewed %s min ago, ttl %d): qargi marshal takeover %s --approved WORDS" % (
+        w.append("the lead of %s (%s) is stale (renewed %s min ago, ttl %d): crown marshal takeover %s --approved WORDS" % (
             d["feature"], d["lead"]["id"], "?" if d["minutes_since_renewal"] is None else d["minutes_since_renewal"], ctx.ttl, d["feature"]))
         ld = d["lead"]
         if ld.get("host") == ctx.host and ld.get("user") == ctx.user and ld.get("worktree") == ctx.worktree_key:
-            w.append("you look like the restarted session of that lead (same host, user and work tree): qargi marshal claim %s --as-successor-of %s continues as the lead without a takeover" % (d["feature"], ld["id"]))
+            w.append("you look like the restarted session of that lead (same host, user and work tree): crown marshal claim %s --as-successor-of %s continues as the lead without a takeover" % (d["feature"], ld["id"]))
     elif not d["lead"] and (rec_exists or d["branch"]) and d["status"] not in ("finished", "abandoned"):
         w.append("feature %s has no lead (%s): claim or take it" % (d["feature"], d["status"]))
     for o, fs in d.get("overlap", {}).items():
@@ -1538,7 +1538,7 @@ def renew_own(ctx, name, rec):
     try:
         return update(ctx, name, fn) or rec
     except Refuse as e:
-        print("qargi: warning: the lease of %s was not renewed (%s)" % (name, e), file=sys.stderr)
+        print("crown: warning: the lease of %s was not renewed (%s)" % (name, e), file=sys.stderr)
         return rec
 
 
@@ -1560,7 +1560,7 @@ def v_check(ctx, a):
             rec = renew_own(ctx, a.name, rec)
         d = describe(ctx, a.name, rec, {})
         for w in warnings_for(ctx, d, rec is not None):
-            print("qargi: warning: " + w, file=sys.stderr)
+            print("crown: warning: " + w, file=sys.stderr)
         if ld and ld["id"] == ctx.id:
             print("yours")
         elif ld:
@@ -1572,13 +1572,13 @@ def v_check(ctx, a):
     for n, d, rec in items:
         print(brief_line(d))
         for w in warnings_for(ctx, d, True):
-            print("qargi: warning: " + w, file=sys.stderr)
+            print("crown: warning: " + w, file=sys.stderr)
     if not items:
         print("no open features")
 
 
 def usage_exit(msg):
-    print("qargi: " + msg, file=sys.stderr)
+    print("crown: " + msg, file=sys.stderr)
     return 2
 
 
@@ -1599,7 +1599,7 @@ def choose_backend(a):
             raise Refuse("the marshal switch %s is not a JSON object; fix it, or remove it with the marshal disable verb" % p)
         be, remote, integrity = sw.get("backend"), sw.get("remote"), sw.get("integrity", "off")
         if integrity not in ("off", "advisory", "strict"):
-            raise Refuse("the integrity %r in the marshal switch %s is unknown (off, advisory or strict); fix it with: qargi marshal enable --integrity MODE" % (clean(str(integrity))[:40], p))
+            raise Refuse("the integrity %r in the marshal switch %s is unknown (off, advisory or strict); fix it with: crown marshal enable --integrity MODE" % (clean(str(integrity))[:40], p))
     if be == "local":
         return LocalBackend()
     if be == "refs":
@@ -1644,10 +1644,10 @@ def main(argv):
             return usage_exit("marshal %s is not available in a member run: a member never changes the shared marshal or pushes; the lead does" % a.verb)
         globals()["v_" + a.verb](ctx, a)
     except Unreachable as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 3
     except Refuse as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 2

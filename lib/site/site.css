@@ -1,4 +1,4 @@
-/* qargi documentation: one stylesheet, system fonts, no inline styles. Light and dark follow the reader's
+/* crown documentation: one stylesheet, system fonts, no inline styles. Light and dark follow the reader's
    system setting (prefers-color-scheme). Text contrast is at least 4.5:1 in both. */
 :root {
   color-scheme: light dark;

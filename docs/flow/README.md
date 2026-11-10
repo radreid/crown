@@ -32,16 +32,16 @@ Memory belongs to the project, not the instance: every instance of a project
 mounts the same recipes store and reference store (read-only), so what one agent
 learns serves the next. Agents write to the recipes store only under their own
 `roles/<role>/` folder; `shared/` is curated and a note reaches it by promotion
-(`qargi canon promote --approved`) or by the person. Provisioning attaches existing stores of
-that name and creates them only for a new project. `qargi instances normalize
+(`crown canon promote --approved`) or by the person. Provisioning attaches existing stores of
+that name and creates them only for a new project. `crown instances normalize
 NAME` renames an existing instance's resources to match, and `instances show`
-lists the deviations. The role list can be extended with `QARGI_ROLES`.
+lists the deviations. The role list can be extended with `CROWN_ROLES`.
 
 ## Roles and members
 
 A role is named by its activity. Each of the four work roles is defined by the text
 of its role, `roles/<role>/ROLE.md`, the single source: a member gets that text with the
-task block (`qargi local prepare` writes it, as `qargi role prompt ROLE` prints it) and a
+task block (`crown local prepare` writes it, as `crown role prompt ROLE` prints it) and a
 cloud agent of that role carries it in its prompt. A member keeps the Skill tool for the
 packs attached to it, not for its role:
 
@@ -51,45 +51,45 @@ packs attached to it, not for its role:
 | `write` | `roles/write/ROLE.md` | writes the operational documentation on its own branch |
 | `review` | `roles/review/ROLE.md` | reads a change, runs its checks and reports a verdict; changes no file |
 | `test` | `roles/test/ROLE.md` | writes and repairs tests, proves them failing first and stable |
-| `lead` | `/qargi-team` | runs a team of members on one task |
+| `lead` | `/crown-team` | runs a team of members on one task |
 
-The members are yours to name: `qargi agent add forge --roles build,test --project P` renders
-the one member definition qargi ships through the project's local runtime into that runtime's own
+The members are yours to name: `crown agent add forge --roles build,test --project P` renders
+the one member definition crown ships through the project's local runtime into that runtime's own
 file (for Claude Code `forge.md`, in the repository's agents directory, hidden from git, or in the
-project's member render once `qargi project link` is applied), with the roles it serves (all
+project's member render once `crown project link` is applied), with the roles it serves (all
 four by default; `worker` and `reviewer`, the two base names, default to their base's roles). Every member belongs to a project: `agent add` requires `--project NAME`, and the runtime is that project's `models.provider.local`; with none, `agent add` refuses, and so does a runtime that keeps no agent files. Nothing is written to the runtime's user-level directory (`~/.claude/agents`). `agent list` and `agent models` flag a member `STALE` when the definition, the model catalog or the renderer changed since it was written and `DRIFT` when its file was edited by hand; `agent refresh NAME` writes it again. Two base members cover
 the two guard classes: `worker` (build, write and test; write class) and `reviewer` (review; read-only). Models and efforts
-come from profiles, not from more members (see [Choosing models](../members-and-providers/models.md)). `qargi agent for build` prints one line,
-`MEMBER MODEL EFFORT PROFILE`, and dispatch spawns that member with that model and effort; `qargi agent list`, `rename`,
+come from profiles, not from more members (see [Choosing models](../members-and-providers/models.md)). `crown agent for build` prints one line,
+`MEMBER MODEL EFFORT PROFILE`, and dispatch spawns that member with that model and effort; `crown agent list`, `rename`,
 `refresh` (re-render from the current definition) and `remove` manage the members. Dispatch resolves only the project's base
-members: a member named otherwise serves nobody, and `qargi agent models` flags it.
+members: a member named otherwise serves nobody, and `crown agent models` flags it.
 
 A role is a directory with `role.json` (its class, write or read-only, and a description) and
-`ROLE.md` (its instructions). The four above ship with qargi; `review` is read-only. Add your own
-under `~/.qargi/config/roles/NAME/` (one lower-case token, never `lead`). The class decides what the
-guard allows; the text of a role cannot change it. `qargi role list` shows the roles and where they
+`ROLE.md` (its instructions). The four above ship with crown; `review` is read-only. Add your own
+under `~/.crown/config/roles/NAME/` (one lower-case token, never `lead`). The class decides what the
+guard allows; the text of a role cannot change it. `crown role list` shows the roles and where they
 live, `role show NAME` prints one, `role prompt NAME` prints its instructions as a task block carries
-them, and `role check [NAME]` validates one role or all. `qargi local prepare --role ROLE` prepares a
+them, and `role check [NAME]` validates one role or all. `crown local prepare --role ROLE` prepares a
 local run for that role (default `build`): a read-only role keeps the clone unchanged.
 
 ## Methodologies
 
 A methodology is the way a project is developed and released, as data: its branches, versioning and
 changelog, test tiers, CI, release steps, deployment options and the generic files a new project
-starts with. One ships, `gitflow`; add your own under `~/.qargi/config/methodologies/NAME/`
-(`methodology.json` and a `scaffold/` directory). `qargi methodology list` shows them, `show NAME`
+starts with. One ships, `gitflow`; add your own under `~/.crown/config/methodologies/NAME/`
+(`methodology.json` and a `scaffold/` directory). `crown methodology list` shows them, `show NAME`
 prints one, and `check [NAME]` validates one or all. These verbs only read.
 
-- `qargi project new NAME [--dir DIR] [--param test_command='make test'] [--url URL]` starts a new
+- `crown project new NAME [--dir DIR] [--param test_command='make test'] [--url URL]` starts a new
   project on the methodology's branches with its generic files.
-- `qargi project attach [DIR]` reads an existing repository, shows the answers it would store and the
+- `crown project attach [DIR]` reads an existing repository, shows the answers it would store and the
   gaps against the methodology, and changes nothing in the repository.
-- `qargi project adopt PROJECT` closes the safe gaps of an attached repository: it creates the missing long-lived
+- `crown project adopt PROJECT` closes the safe gaps of an attached repository: it creates the missing long-lived
   branches locally and writes the missing methodology files as one commit on `agent/adopt-<methodology>` for you to review.
   It never overwrites a file or pushes; changelog format, tag format and CI content stay yours.
 
 Each prints a plan and a token; they write only when you apply it with `--plan TOKEN --approved "<your
-words>"` (`qargi help approvals`). With `--json` on any of these (or any other gated verb) the plan comes as one JSON object,
+words>"` (`crown help approvals`). With `--json` on any of these (or any other gated verb) the plan comes as one JSON object,
 `{"verb", "plan", "token", "apply", "exit"}`, so a lead reads the token and the command that applies it instead of scraping the text; `apply`
 holds the call without `--json` plus `--plan TOKEN --approved "<the user's go-ahead>"`, and the words are the person's to fill in. A call with
 no plan token (it ran, or refused) gives `plan` and `token` as `null` and the text in `output`; the exit status is the verb's. `--json` never

@@ -2,7 +2,7 @@
 
 The canon is the one layout every project's memory stores and agent skillset
 follow. It is versioned. The current version is **2**. A store records the
-version it conforms to in `/CANON.md`; `qargi canon` compares a store with
+version it conforms to in `/CANON.md`; `crown canon` compares a store with
 the current canon and, with approval, brings it in line without losing content.
 
 ## Stores
@@ -14,9 +14,9 @@ One pair per project:
 | `<project>-memory` | memory | read-write | verified how-to facts, role history |
 | `<project>-reference` | reference | read-only | curated rules, workflow, conventions |
 
-A project may hold several memory-kind stores, called tiers; structural files repeat per tier, a note lives in one; see `qargi memory tiers`.
+A project may hold several memory-kind stores, called tiers; structural files repeat per tier, a note lives in one; see `crown memory tiers`.
 
-A note moves between tiers only by an explicit `qargi memory move`, never by copying it by hand: the note is written into the target tier with its origin in `Sources:`, its index row follows it, and the original goes to `/_archive/<date>/` of the first tier, so a note stays in one tier and nothing is deleted.
+A note moves between tiers only by an explicit `crown memory move`, never by copying it by hand: the note is written into the target tier with its origin in `Sources:`, its index row follows it, and the original goes to `/_archive/<date>/` of the first tier, so a note stays in one tier and nothing is deleted.
 
 Both stores share one shape: `shared/` for what every role needs, and
 `roles/<role>/` for what only that role loads.
@@ -30,9 +30,9 @@ Both stores share one shape: `shared/` for what every role needs, and
 /roles/<role>/...          that role's files
 /_conflicts/<date>/...     content the reconciler could not place without losing
                            something; a curator resolves it, then deletes it
-/_archive/<date>/...       optional: notes `qargi memory split` moved out of the store;
+/_archive/<date>/...       optional: notes `crown memory split` moved out of the store;
                            the Sources: line records where each came from, and
-                           `qargi memory merge` moves them back
+                           `crown memory merge` moves them back
 ```
 
 `/_archive/` is tolerated, not required, and does not change the canon version:
@@ -114,8 +114,8 @@ written as four numbers after a space looks like an address). In a memory store 
 that suggests backlog or planning material warns; a reference store may hold plans on
 purpose.
 
-The reconciler's mechanical checks are the whole of this list; `qargi canon check`
-runs it, and so does `qargi memory lint`.
+The reconciler's mechanical checks are the whole of this list; `crown canon check`
+runs it, and so does `crown memory lint`.
 
 ## Role rules
 
@@ -123,7 +123,7 @@ runs it, and so does `qargi memory lint`.
   member's task block (`ROLE: build (class write)`). An agent loads `/README.md`,
   `/shared/INDEX.md` and `/roles/<its role>/INDEX.md`, then only what the task
   needs, and never reads or writes under another role's folder. `shared/` is written only by
-  promotion (`qargi canon promote`) or by the person; an agent proposes.
+  promotion (`crown canon promote`) or by the person; an agent proposes.
 - Roles come from the fixed list (`build`, `review`, `write`, `test`, plus `lead`) and from the
   project's stored answers. A role folder for a role the project does not use is a
   deviation. A cloud base agent (`<project>-worker`, `<project>-reviewer`) is not a role: it
@@ -131,12 +131,12 @@ runs it, and so does `qargi memory lint`.
 - This isolation is hygiene, not a trust boundary: a store mounts whole, so an agent can
   read or write another role's folder if it ignores its instructions. If a role must be
   truly separate, give it its own stores.
-- It is by convention and made auditable, not enforced: `qargi canon audit`
+- It is by convention and made auditable, not enforced: `crown canon audit`
   reads the memory version history and reports a session titled for one role
   (`<project>-<role>-<task>`) writing under another role's folder. It reads the
   role from the session title, so a base session (`<project>-worker-<task>`) is
   not attributed to a role yet.
-- Promote content that turns out to serve every role with `qargi canon
+- Promote content that turns out to serve every role with `crown canon
   promote`; never copy it.
 
 ## Skillset
@@ -145,14 +145,14 @@ Per role, `canon/layout.json` lists the Anthropic skills the agent carries (`pdf
 for write) and the custom skills the tool ships for that role. The ability itself
 is defined by the role text, `roles/<role>/ROLE.md`, not by a skill: a member gets it
 with its task block, and a cloud agent carries it in the prompt. The project's stored
-answers choose among them and `qargi provision` attaches them to the agent.
+answers choose among them and `crown provision` attaches them to the agent.
 Checking an existing agent's skills against its role is not done by the
 reconciler yet; the layout manifest is where that will read from.
 
 ## Reconciling
 
-`qargi canon plan` reads a store, determines the canon version it conforms
-to (an empty store is `empty` and is set up from the seed; one that this qargi does not
+`crown canon plan` reads a store, determines the canon version it conforms
+to (an empty store is `empty` and is set up from the seed; one that this crown does not
 read is `unknown`), and prints every step needed to reach the current version. `apply` runs the same
 plan with approval. Rules the reconciler always follows:
 
@@ -179,10 +179,10 @@ plan with approval. Rules the reconciler always follows:
 
 ## Older stores
 
-This qargi reads canon 2 and sets up an empty store; it keeps no migration from an
+This crown reads canon 2 and sets up an empty store; it keeps no migration from an
 older state. A store with no `/CANON.md` that is not empty (the layouts before the
 canon, a half-moved store), one whose marker names an earlier version, and one whose
-marker is newer than this qargi knows are all `unknown`: `canon check` fails it,
+marker is newer than this crown knows are all `unknown`: `canon check` fails it,
 `canon plan` says so and plans nothing, and `canon apply` changes nothing. To bring
 such a store in, move its notes into the layout by hand. A note without a `Check:` or `Verified:` where its kind needs one is
 reported by `canon check`, not invented.

@@ -15,7 +15,7 @@ It is correct unless $CONFORMANCE_BROKEN names a fault, one of
   nonote       an effort with no control gives null and no note               (case 2)
   nodef        the read-only definition carries no barrier                    (case 9)
 Unset or anything else: no fault. It serves resolve itself from its own definition, hands dispatch-local and barrier-check
-to the claude-code adapter of the checkout, and serves the cloud verbs through $QARGI_TRANSPORT. Never ship it."""
+to the claude-code adapter of the checkout, and serves the cloud verbs through $CROWN_TRANSPORT. Never ship it."""
 import json
 import os
 import subprocess
@@ -49,7 +49,7 @@ def real(verb, raw):
 
 
 def transport(args, body=""):
-    t = os.environ.get("QARGI_TRANSPORT")
+    t = os.environ.get("CROWN_TRANSPORT")
     if not t:
         raise Reply(4, "no transport")
     r = subprocess.run([t] + args, input=body, capture_output=True, text=True)
@@ -161,7 +161,7 @@ def run(verb, raw):
         r = transport(["GET", "/sessions/%s/events" % sid])
         return {"session_id": sid, "state": "completed", "artifacts": r.get("artifacts", []), "output": r.get("output")}
     if verb == "stop":
-        log = os.environ.get("QARGI_STUB_LOG")
+        log = os.environ.get("CROWN_STUB_LOG")
         if FAULT == "stoptwice" and log and os.path.isfile(log):
             with open(log) as f:
                 if any(("/sessions/%s/stop" % sid) in line for line in f):

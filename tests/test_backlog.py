@@ -71,13 +71,13 @@ class Remove(unittest.TestCase):
             path = os.path.join(d, "backlog.md")
             with open(path, "w") as f:
                 f.write(text)
-            os.environ["QARGI_NOW"] = "2026-11-08"
+            os.environ["CROWN_NOW"] = "2026-11-08"
             old_out, sys.stdout = sys.stdout, io.StringIO()
             try:
                 B.cmd_apply(path, ident, "shown by a test")
             finally:
                 sys.stdout = old_out
-                del os.environ["QARGI_NOW"]
+                del os.environ["CROWN_NOW"]
             with open(path) as f:
                 rest = f.read()
             with open(os.path.join(d, "backlog-archive-2026-11.md")) as f:

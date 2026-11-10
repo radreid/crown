@@ -1,4 +1,4 @@
-# The lines of lib/ (apart from lib/providers/) and bin/ that name the runtime qargi was first built for. tests/test_neutral.sh reads this
+# The lines of lib/ (apart from lib/providers/) and bin/ that name the runtime crown was first built for. tests/test_neutral.sh reads this
 # file: every hit of claude|anthropic|\bant\b|skilloverrides|\.claude|subagent must match an entry, and every entry must match a hit.
 # So this list can only shrink: when a line is made neutral (or moves into a runtime's definition under lib/providers/), delete its entry.
 #
@@ -98,7 +98,7 @@ lib/tiercontext.py:"--checkout", "--ant"\)
 lib/tiercontext.py:get\("--ant", "ant"\)
 lib/tiercontext.py:ant, time\.time
 
-# lib/cloud.py: qargi cloud binds a project to an ant profile and a workspace
+# lib/cloud.py: crown cloud binds a project to an ant profile and a workspace
 lib/cloud.py:which `ant` profile
 lib/cloud.py:exports ANTHROPIC_PROFILE
 lib/cloud.py:`ant` uses its active profile
@@ -117,16 +117,16 @@ lib/cloud.py:ant profile set does not rebind
 lib/cloud.py:no binding \(ant's active profile\)
 lib/cloud.py:\["ant", "auth", "login"
 
-# bin/qargi: the project's cloud binding exports the profile variable for the command
-bin/qargi:ant runs under the project's profile
-bin/qargi:if \[ -n "\$\{ANTHROPIC_PROFILE
-bin/qargi:export ANTHROPIC_PROFILE=
-bin/qargi:echo "qargi: project .* uses ant profile
+# bin/crown: the project's cloud binding exports the profile variable for the command
+bin/crown:ant runs under the project's profile
+bin/crown:if \[ -n "\$\{ANTHROPIC_PROFILE
+bin/crown:export ANTHROPIC_PROFILE=
+bin/crown:echo "crown: project .* uses ant profile
 
 # lib/project.sh: the cloud answer names an ant profile
 lib/project.sh:an ant profile name
 
-# lib/commands.py: the help of qargi cloud and the --force of the cloud apply
+# lib/commands.py: the help of crown cloud and the --force of the cloud apply
 lib/commands.py:Which ant profile
 lib/commands.py:an ant profile and the workspace
 lib/commands.py:then runs ant under that profile
@@ -141,7 +141,7 @@ lib/commands.py:\(ant apply --force\)
 lib/conformance/hermetic.sh:ANTHROPIC_\* or
 lib/conformance/hermetic.sh:first `ant` and
 lib/conformance/hermetic.sh:`claude` on PATH
-lib/conformance/hermetic.sh:ANTHROPIC_\*\|QARGI_
+lib/conformance/hermetic.sh:ANTHROPIC_\*\|CROWN_
 lib/conformance/hermetic.sh:for _t in ant claude
 
 # ======================================================================================================================================
@@ -163,12 +163,12 @@ lib/guard.py:and those of Claude Code\.
 lib/guard.py:# of Claude Code is kept here
 lib/guard.py:os\.path\.join\(home, "\.claude", "plugins"\)
 lib/guard.py:"anthropic"\)\)   # the ant profiles
-lib/guard.py:~/\.claude/skills/qargi-\* are links
+lib/guard.py:~/\.claude/skills/crown-\* are links
 lib/guard.py:so a \.claude/skills there is the work product
 lib/guard.py:\.claude/skills and \.claude/agents for Claude Code
 lib/guard.py:rm -rf \.claude, with \.claude/skills in it
 lib/guard.py:hook = CLAUDE_HOOK
-# lib/guard.py: the lead's own session files and the ant profiles the guard protects (paths of the runtime qargi was first built for and of its login tool)
+# lib/guard.py: the lead's own session files and the ant profiles the guard protects (paths of the runtime crown was first built for and of its login tool)
 lib/guard.py:~/\.config/anthropic, the lead's own git configuration
 lib/guard.py:the clone and `git init` of the home directory included\) and the lead's session files
 lib/guard.py:commands/, hooks/, ~/\.claude\.json
@@ -205,7 +205,7 @@ lib/supervise.py:verb == "subagent-stop"
 lib/supervise.py:cannot message a Claude Code subagent
 lib/supervise.py:SubagentStart
 lib/supervise.py:Claude Code settings\.json
-bin/qargi:hook:subagent-start
+bin/crown:hook:subagent-start
 
 # lib/commands.py: help text that names the local runtime
 lib/commands.py:claude-code renders for a local session
@@ -253,7 +253,7 @@ lib/tiercontext.py:nothing in them overrides the user or CLAUDE\.md
 # lib/conformance/run.sh: the usage names the shipped runtimes
 lib/conformance/run.sh:claude-code, claude-platform
 
-# lib/paths.py: XDG_CONFIG_HOME is not used for qargi data; ant keeps its login under it
+# lib/paths.py: XDG_CONFIG_HOME is not used for crown data; ant keeps its login under it
 lib/paths.py:the ant CLI keeps its login
 
 # ======================================================================================================================================
@@ -266,7 +266,7 @@ lib/memory.sh:sk-ant-
 lib/canon.py:sk-ant-
 lib/conformance/review.py:sk-ant-
 
-# the catalog of skills a vendor publishes, for `qargi discover --online` (a catalog source in data, backlog item a)
+# the catalog of skills a vendor publishes, for `crown discover --online` (a catalog source in data, backlog item a)
 lib/discover.py:repository could not be listed
 lib/discover.py:anthropics/skills
 lib/discover.py:--online, the official MCP registry and Anthropic

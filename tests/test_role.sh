@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Roles: qargi role list|show|prompt|check, your own roles, the class a role gives a member and a local run, and the
+# Roles: crown role list|show|prompt|check, your own roles, the class a role gives a member and a local run, and the
 # role text in a cloud prompt. Run: tests/test_role.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s QARGI_RUN_TMP=$T
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T
 mkdir -p "$HOME" "$T/c/projects"
 # there is no default provider: pbase is the project in effect, and its models.provider renders the members below, which belong to it
 git init -q "$T/repop"
 jq -n --arg p "$T/repop" '{schema:1,project:"pbase",repo:{url:"https://github.com/example/pbase",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/pbase.json"
-export QARGI_PROJECT=pbase
+export CROWN_PROJECT=pbase
 
 out=$($DA role list 2>&1)
 for r in build write review test; do grep -q "^$r " <<<"$out" || no "list lacks $r: $out"; done
@@ -39,7 +39,7 @@ $DA role check probe >/dev/null 2>&1 && no "an unknown class passed" || ok "an u
 printf '{"class":"write","description":"Poke."}\n' > "$T/c/roles/probe/role.json"
 
 # members serve roles of yours; the class decides the guard
-$DA agent add looker --project pbase --roles audit >/dev/null 2>&1 && grep -q 'command: qargi __guard --class read-only$' "$T/repop/.claude/agents/looker.md" && ok "a member of only read-only roles is read-only by class" || no "looker"
+$DA agent add looker --project pbase --roles audit >/dev/null 2>&1 && grep -q 'command: crown __guard --class read-only$' "$T/repop/.claude/agents/looker.md" && ok "a member of only read-only roles is read-only by class" || no "looker"
 $DA agent add mixed --project pbase --roles audit,probe >/dev/null 2>&1 && ! grep -q -- '--class' "$T/repop/.claude/agents/mixed.md" && ok "a member with a write role names no class" || no "mixed"
 $DA agent add audit --project pbase >/dev/null 2>&1 && no "a member took a role's name" || ok "a member cannot be named after a role"
 $DA agent for audit >/dev/null 2>&1 && no "a member of another name served a role of yours: $($DA agent for audit)" || ok "agent for finds no member for a role of yours when only members of other names serve it"

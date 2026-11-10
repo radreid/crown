@@ -12,14 +12,14 @@ cd "$(dirname "$0")/.." || exit 1
 fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 T=$(mktemp -d -p "$HERMETIC"); export TMPDIR=$T
-mkdir -p "$QARGI_CONF/projects" "$QARGI_STATE"
-echo '{}' > "$QARGI_CONF/projects/demo.json"   # verbs that look the project up before they read their options
+mkdir -p "$CROWN_CONF/projects" "$CROWN_STATE"
+echo '{}' > "$CROWN_CONF/projects/demo.json"   # verbs that look the project up before they read their options
 
 # run_last "verb words" OPTION: prints the output and exit status of the command with OPTION as its last word
 run_last() {
   local out rc
   # shellcheck disable=SC2086
-  out=$(timeout 10 ./bin/qargi $1 "$2" 2>&1 </dev/null); rc=$?
+  out=$(timeout 10 ./bin/crown $1 "$2" 2>&1 </dev/null); rc=$?
   printf '%s\n%s' "$rc" "$out"
 }
 needs_value() { # "verb words" OPTION: true when the command ends with exit 2 and "OPTION needs a value"
@@ -97,7 +97,7 @@ for w in "cloud" "discover search" "discover recommend" "discover install" "expo
 missing_arg() { # "verb words": no argument it needs -> exit 2 and a message
   local out rc
   # shellcheck disable=SC2086
-  out=$(timeout 10 ./bin/qargi $1 2>&1 </dev/null); rc=$?
+  out=$(timeout 10 ./bin/crown $1 2>&1 </dev/null); rc=$?
   if [ "$rc" = 2 ] && [ -n "$out" ]; then ok "exit 2: $1 (no argument)"; else no "$1 (no argument): exit $rc: $out"; fi
 }
 for w in "watch" "collect" "instances show" "instances remove" "project set demo" "team check" "agent rename" "agent refresh" "agent remove" "memory get" "provider accept" "role show"; do missing_arg "$w"; done

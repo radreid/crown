@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi discover: find, recommend and install tools for the roles of a project.
+"""crown discover: find, recommend and install tools for the roles of a project.
 
   discover.py sources
   discover.py search QUERY [--kind K] [--role R] [--online]
@@ -10,8 +10,8 @@
 A tool is a skill, an MCP server, a package for the sandbox or a built-in tool of the agent. The catalog
 (catalog/tools.json, reviewed with the repository) is searched first, then the local library, then, with
 --online, the official MCP registry and Anthropic's skills repository. Installing never skips a gate: a skill or
-an MCP server goes through `qargi skill|tool import` (the review, then your approval of exactly that content),
-is linked at the scope you choose, and may be applied to existing cloud agents (`qargi packs apply`, again with
+an MCP server goes through `crown skill|tool import` (the review, then your approval of exactly that content),
+is linked at the scope you choose, and may be applied to existing cloud agents (`crown packs apply`, again with
 its plan shown first). Nothing found online is installed on trust.
 
 Every pack declares the providers that can use it (compatible_providers: runtime names, family names, or "any"). A catalog entry may
@@ -26,10 +26,10 @@ import packs_compat as C  # noqa: E402  whether a project's provider can use a p
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-CATALOG = os.environ.get("QARGI_CATALOG") or os.path.join(ROOT, "catalog", "tools.json")
+CATALOG = os.environ.get("CROWN_CATALOG") or os.path.join(ROOT, "catalog", "tools.json")
 CONF = P.conf()
 STATE = P.state()
-MEMBERS = os.path.join(CONF, "agents.json")   # the members you named (qargi agent add)
+MEMBERS = os.path.join(CONF, "agents.json")   # the members you named (crown agent add)
 
 
 def agent_files(role=None, project=None):
@@ -53,9 +53,9 @@ def tools_line(path):
         return None
     m = re.search(r"(?m)^tools:\s*(.*)$", head)
     return [t.strip() for t in m.group(1).split(",") if t.strip()] if m else None
-QARGI = os.path.join(ROOT, "bin", "qargi")
-TTY_IN = os.environ.get("QARGI_TTY_IN", "/dev/tty")
-TTY_OUT = os.environ.get("QARGI_TTY_OUT", "/dev/tty")
+CROWN = os.path.join(ROOT, "bin", "crown")
+TTY_IN = os.environ.get("CROWN_TTY_IN", "/dev/tty")
+TTY_OUT = os.environ.get("CROWN_TTY_OUT", "/dev/tty")
 KINDS = ("skill", "mcp", "package", "agent-tool")
 LEVELS = {"necessary": 3, "recommended": 2, "optional": 1}
 SCOPES = ("user", "user-role", "project", "project-role")
@@ -69,7 +69,7 @@ def F(name):
 
 
 def die(msg, code=1):
-    print("qargi: " + msg, file=sys.stderr)
+    print("crown: " + msg, file=sys.stderr)
     raise SystemExit(code)
 
 
@@ -106,7 +106,7 @@ def interactive():
 def ask(prompt, default=""):
     tin, tout = tty()
     if not tin:
-        die("install is interactive: run it in a terminal (from Claude Code: ! qargi discover install ...), or use --dry-run")
+        die("install is interactive: run it in a terminal (from Claude Code: ! crown discover install ...), or use --dry-run")
     tout.write(prompt + (" [%s] " % default if default else " "))
     tout.flush()
     line = tin.readline()
@@ -181,7 +181,7 @@ def online_entries(query):
         need_secret = any(h.get("isSecret") for r in remotes for h in (r.get("headers") or []))
         out.append({"id": "mcp-registry:" + sv.get("name", "?"), "kind": "mcp", "name": sv.get("name", "?"), "summary": (sv.get("description") or "")[:140],
                     "tags": [], "roles": {}, "stack": [], "risk": "high" if need_secret else "medium", "source": "mcp-registry",
-                    "risk_note": "found online, not reviewed by qargi; the registry does not list the server's tools, so you must write the allowlist yourself",
+                    "risk_note": "found online, not reviewed by crown; the registry does not list the server's tools, so you must write the allowlist yourself",
                     "install": {"name": re.sub(r"[^a-z0-9-]+", "-", sv.get("name", "x").lower()).strip("-")[:40], "url": (remotes[0].get("url") if remotes else ""),
                                 "tools": {}, "needs_secret": need_secret, "repository": (sv.get("repository") or {}).get("url", "")}})
     listing = fetch(SKILLS_API)
@@ -189,7 +189,7 @@ def online_entries(query):
         notes.append("Anthropic's skills repository could not be listed")
     for d in listing or []:
         if d.get("type") == "dir" and (not q or q.lower() in d["name"].lower()):
-            out.append({"id": "anthropic-skills:" + d["name"], "kind": "skill", "name": d["name"], "summary": "Anthropic skill (found online, not reviewed by qargi)",
+            out.append({"id": "anthropic-skills:" + d["name"], "kind": "skill", "name": d["name"], "summary": "Anthropic skill (found online, not reviewed by crown)",
                         "tags": [], "roles": {}, "stack": [], "risk": "medium", "source": "anthropic-skills",
                         "install": {"url": SKILLS_URL, "path": "skills/" + d["name"], "name": d["name"]}})
     return out, notes
@@ -231,7 +231,7 @@ def project_answers(p):
 
 
 def infer_project():
-    p = os.environ.get("QARGI_PROJECT")
+    p = os.environ.get("CROWN_PROJECT")
     if p:
         return p
     here = os.path.realpath(os.getcwd())
@@ -266,8 +266,8 @@ def detect_stack(answers):
 
 def run_q(args, extra_env=None):
     env = dict(os.environ, **(extra_env or {}))
-    env.pop("QARGI_NESTED", None)
-    r = subprocess.run([QARGI] + args, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
+    env.pop("CROWN_NESTED", None)
+    r = subprocess.run([CROWN] + args, capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL)
     return r.returncode, (r.stdout + r.stderr)
 
 
@@ -295,7 +295,7 @@ def already_has(e, project, role):
         have = set((answers.get("roles", {}).get(role) or {}).get("apt") or [])
         return all(p in have for p in (e.get("install") or {}).get("packages", []))
     if e["kind"] == "agent-tool":
-        files = [os.environ["QARGI_AGENT_FILE"]] if os.environ.get("QARGI_AGENT_FILE") else agent_files(role, project)
+        files = [os.environ["CROWN_AGENT_FILE"]] if os.environ.get("CROWN_AGENT_FILE") else agent_files(role, project)
         return bool(files) and all((e.get("install") or {}).get("tool") in (tools_line(f) or []) for f in files)
     return False
 
@@ -324,7 +324,7 @@ def cmd_search(args):
         if a == F("kind"): kind = args[i + 1]; i += 2
         elif a == F("role"): role = args[i + 1]; i += 2
         elif a == F("online"): online = True; i += 1
-        elif a.startswith("-"): die("unknown option %s (qargi help discover search)" % a, 2)
+        elif a.startswith("-"): die("unknown option %s (crown help discover search)" % a, 2)
         else: query.append(a); i += 1
     if kind and kind not in KINDS:
         die("--kind is one of: %s" % ", ".join(KINDS))
@@ -351,7 +351,7 @@ def cmd_search(args):
     for n in notes:
         print("note: " + n, file=sys.stderr)
     if rows:
-        print("\nDetails: qargi discover show ID    Install: qargi discover install ID")
+        print("\nDetails: crown discover show ID    Install: crown discover install ID")
     return 0
 
 
@@ -361,7 +361,7 @@ def cmd_recommend(args):
     while i < len(args):
         a = args[i]
         if a == F("role"): role = args[i + 1]; i += 2
-        elif a.startswith("-"): die("unknown option %s (qargi help discover recommend)" % a, 2)
+        elif a.startswith("-"): die("unknown option %s (crown help discover recommend)" % a, 2)
         else: project = a; i += 1
     project = project or infer_project()
     if not project or project not in project_names():
@@ -396,13 +396,13 @@ def cmd_recommend(args):
         if not rows:
             print("  nothing to add")
     if shown:
-        print("\nInstall one: qargi discover install ID --project %s --role ROLE" % project)
+        print("\nInstall one: crown discover install ID --project %s --role ROLE" % project)
     return 0
 
 
 def cmd_show(args):
     if not args:
-        die("show needs an ID (qargi discover search ...)")
+        die("show needs an ID (crown discover search ...)")
     e = find_entry(args[0])
     if not e:
         die("no entry '%s' (search the catalog, or --online, first)" % args[0])
@@ -447,7 +447,7 @@ def approval():
 
 
 def step_import(kind, source_args, name):
-    """Run `qargi skill|tool import`, show the review, ask, then store exactly that content."""
+    """Run `crown skill|tool import`, show the review, ask, then store exactly that content."""
     rc, out = run_q([kind, "import"] + source_args)
     print(out.rstrip())
     m = re.search(r"plan token: ([0-9a-f]+)", out)
@@ -485,16 +485,16 @@ def cmd_install(args):
         a = args[i]
         if a in (F("scope"), F("project"), F("role"), F("compatible")): opts[a[2:]] = args[i + 1]; i += 2
         elif a == F("dry-run"): dry = True; i += 1
-        elif a.startswith("-"): die("unknown option %s (qargi help discover install)" % a, 2)
+        elif a.startswith("-"): die("unknown option %s (crown help discover install)" % a, 2)
         elif ident is None: ident = a; i += 1
         else: die("one ID at a time")
     if not ident:
-        die("install needs an ID (qargi discover search ...)")
+        die("install needs an ID (crown discover search ...)")
     e = find_entry(ident)
     if not e:
-        die("no entry '%s' (search first; online entries are found with: qargi discover search QUERY --online)" % ident)
+        die("no entry '%s' (search first; online entries are found with: crown discover search QUERY --online)" % ident)
     if e.get("installed"):
-        die("%s is in your library already: link it with: qargi skill|tool link NAME --scope S" % ident)
+        die("%s is in your library already: link it with: crown skill|tool link NAME --scope S" % ident)
     inst = e.get("install") or {}
     print("Install %s (%s, risk %s)" % (e["id"], e["kind"], e.get("risk", "?")))
     print("  " + (e.get("summary") or ""))
@@ -503,12 +503,12 @@ def cmd_install(args):
     if dry:
         print("\nPlan: %s" % {"skill": "import the skill (review, your approval), link it at the scope you choose, offer to apply it to the cloud agents it reaches",
                               "mcp": "write the server as a tool pack (review, your approval), link it at the scope you choose, offer to apply it",
-                              "package": "add the package(s) to the role's apt list in the project answers (the environment is rebuilt by qargi provision)",
+                              "package": "add the package(s) to the role's apt list in the project answers (the environment is rebuilt by crown provision)",
                               "agent-tool": "add the tool to the tools line of the local agent definition"}[e["kind"]])
         print("(dry run: nothing changed)")
         return 0
     if not interactive():
-        die("install is interactive: run it in a terminal (from Claude Code: ! qargi discover install %s), or use --dry-run" % ident)
+        die("install is interactive: run it in a terminal (from Claude Code: ! crown discover install %s), or use --dry-run" % ident)
     if opts.get("project") and e["kind"] in ("skill", "mcp"):
         why = compat_note(e, opts["project"])
         if why:
@@ -531,13 +531,13 @@ def cmd_install(args):
                 out = os.path.join(os.getcwd(), name + ".tool.json")
                 with open(out, "w") as f:
                     json.dump({"name": name, "url": inst.get("url", ""), "vault_ids": [], "tools": {"REPLACE_WITH_A_TOOL_NAME": "always_ask"}}, f, indent=2)
-                print("\nqargi does not know which tools this server exposes, and a tool pack must list them, each with a policy.")
+                print("\ncrown does not know which tools this server exposes, and a tool pack must list them, each with a policy.")
                 print("Wrote a draft: %s" % out)
                 print("Edit it (the server's tool names; write-like tools stay always_ask; credentials are vault ids, never secrets), then:")
-                print("  qargi tool import %s --compatible %s" % (out, pick_compat(e, opts, asking=False) or "LIST"))
-                print("  qargi tool link %s --scope S [--project P] [--role R]" % name)
+                print("  crown tool import %s --compatible %s" % (out, pick_compat(e, opts, asking=False) or "LIST"))
+                print("  crown tool link %s --scope S [--project P] [--role R]" % name)
                 if inst.get("needs_secret"):
-                    print("It needs a credential: create a vault credential for it first (qargi help credential).")
+                    print("It needs a credential: create a vault credential for it first (crown help credential).")
                 return 0
             tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
             json.dump({"name": name, "url": inst["url"], "vault_ids": inst.get("vault_ids", []), "tools": inst["tools"], **({"write_ok": True} if inst.get("write_ok") else {})}, tmp, indent=2)
@@ -576,13 +576,13 @@ def cmd_install(args):
         rc, out = run_q(["project", "set", project, "roles.%s.apt" % role, json.dumps(new)])
         print(out.rstrip())
         if rc == 0:
-            print("The sandbox is rebuilt when the instance is provisioned or its environment changed: qargi provision plan %s-%s" % (project, role))
+            print("The sandbox is rebuilt when the instance is provisioned or its environment changed: crown provision plan %s-%s" % (project, role))
         return rc
     if kind == "agent-tool":
         tool = inst["tool"]
-        files = [os.environ["QARGI_AGENT_FILE"]] if os.environ.get("QARGI_AGENT_FILE") else agent_files(opts.get("role"), opts.get("project"))
+        files = [os.environ["CROWN_AGENT_FILE"]] if os.environ.get("CROWN_AGENT_FILE") else agent_files(opts.get("role"), opts.get("project"))
         if not files:
-            die("no member serves that ability yet: qargi agent add NAME --project P first")
+            die("no member serves that ability yet: crown agent add NAME --project P first")
         todo = [f for f in files if tool not in (tools_line(f) or [tool])]
         if not todo:
             print("Every local agent in scope has %s already. Nothing changed." % tool)
@@ -591,7 +591,7 @@ def cmd_install(args):
         for f in todo:
             cur = tools_line(f)
             print("%s\n  tools: %s\n       -> %s" % (f, ", ".join(cur), ", ".join(cur + [tool])))
-        print("This changes what those members may call (the git wrapper, the guard hook and `qargi local verify` still apply).")
+        print("This changes what those members may call (the git wrapper, the guard hook and `crown local verify` still apply).")
         if not confirm("Edit %d file(s)?" % len(todo)):
             print("Nothing changed.")
             return 1
@@ -602,20 +602,20 @@ def cmd_install(args):
             cur = [t.strip() for t in m.group(2).split(",") if t.strip()]
             with open(f, "w") as fh:
                 fh.write(text[:m.start(2)] + ", ".join(cur + [tool]) + text[m.end(2):])
-        print("Done. A member you add later starts from the shipped definition, which already has the tools qargi relies on.")
+        print("Done. A member you add later starts from the shipped definition, which already has the tools crown relies on.")
         return 0
     die("cannot install a '%s' entry" % kind)
 
 
 def apply_to_cloud(project, role, scope):
-    """Offer `qargi packs apply` for the cloud instances the link reaches (plan shown first, then asked)."""
+    """Offer `crown packs apply` for the cloud instances the link reaches (plan shown first, then asked)."""
     inst = jload(os.path.join(CONF, "instances.json"), {})
     names = sorted(n for n, v in inst.items() if v.get("location") == "cloud" and n.endswith("-" + role) and (scope in ("user", "user-role") or n.startswith(project + "-")))
     for n in names:
         if not confirm("\nApply it to the existing cloud agent %s now? (shows the plan first)" % n):
-            print("Later: qargi packs apply %s --asked \"...\"" % n)
+            print("Later: crown packs apply %s --asked \"...\"" % n)
             continue
-        asked = "interactive: qargi discover install, confirmed at the terminal"
+        asked = "interactive: crown discover install, confirmed at the terminal"
         rc, out = run_q(["packs", "apply", n, F("asked"), asked])
         print(out.rstrip())
         m = re.search(r"plan token: ([0-9a-f]+)", out)
@@ -631,7 +631,7 @@ def main(argv):
     v, rest = argv[0], argv[1:]
     fn = {"sources": cmd_sources, "search": cmd_search, "recommend": cmd_recommend, "show": cmd_show, "install": cmd_install}.get(v)
     if not fn:
-        print("qargi: unknown discover verb '%s' (qargi help discover)" % v, file=sys.stderr)
+        print("crown: unknown discover verb '%s' (crown help discover)" % v, file=sys.stderr)
         return 2
     return fn(rest)
 

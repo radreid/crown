@@ -113,7 +113,7 @@ for n in a1 a2 a3 a4 a5 a6 bad hang leak slow env; do
   echo "full | par | $t | 1 | sh tests/test_$n.sh"
 done > "$S/tests/suite.txt"
 t=$SECONDS; out=$(R -j 4 --only 'hang|env'); took=$((SECONDS - t))
-grep -q '^TIMEOUT: sh tests/test_hang.sh was stopped after 2s$' <<<"$out" && grep -q '^FAILED: sh tests/test_hang.sh$' <<<"$out" && grep -q '^log: .*qargi-suite-logs' <<<"$out" && ok "a step over its timeout is stopped, named TIMEOUT and FAILED, with its log path" || no "timeout: $out"
+grep -q '^TIMEOUT: sh tests/test_hang.sh was stopped after 2s$' <<<"$out" && grep -q '^FAILED: sh tests/test_hang.sh$' <<<"$out" && grep -q '^log: .*crown-suite-logs' <<<"$out" && ok "a step over its timeout is stopped, named TIMEOUT and FAILED, with its log path" || no "timeout: $out"
 [ "$took" -le 12 ] && ok "and it was stopped on time (${took}s of a 30 s sleep)" || no "timeout took ${took}s"
 grep -q '^stdin: \[\]$' <<<"$out" && ok "a step has no standard input" || no "stdin: $out"
 grep -qE '^[0-9 ]*$' <<<"$(grep -A1 '^stdin' <<<"$out" | tail -1)" && [ "$(grep -A1 '^stdin' <<<"$out" | tail -1 | wc -w)" -le 4 ] && ok "and no open file but 0, 1, 2 (and the one ls reads with)" || no "fds: $(grep -A1 '^stdin' <<<"$out")"

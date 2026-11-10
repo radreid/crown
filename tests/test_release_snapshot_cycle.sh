@@ -8,9 +8,9 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export HOME=$T/home QARGI_CONF=$T/c QARGI_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export HOME=$T/home CROWN_CONF=$T/c CROWN_STATE=$T/s TMPDIR=$T/tmp GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
 mkdir -p "$HOME" "$T/c/projects" "$T/s" "$T/tmp"
 REL="$DA release"; tok() { sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p'; }
 # rstart ARGS: release start through its plan (a token) and the approval; a refusal of the plan is printed and fails
@@ -22,7 +22,7 @@ cat > "$T/gh" <<G
 echo "\$*" >> "$T/gh.log"
 case "\$*" in *"pr create"*) echo https://github.com/acme/snap/pull/1;; *"pr checks"*) printf 'suite\tpass\t1m\turl\n';; *"release view"*) echo "release not found" >&2; exit 1;; esac
 G
-chmod +x "$T/gh"; export QARGI_GH=$T/gh
+chmod +x "$T/gh"; export CROWN_GH=$T/gh
 
 # the project: develop has real history (a feature merged with --no-ff among plain commits), master is one parentless snapshot of an older tree
 R=$T/snap; O=$T/snap.git
@@ -43,7 +43,7 @@ git -C "$R" remote add origin "$O"; git -C "$R" push -q origin develop master
 printf '#!/bin/sh\necho "$2 $3 $1" >> "%s/updates.log"\n' "$T" > "$O/hooks/update"; chmod +x "$O/hooks/update"
 git -C "$R" checkout -q -b parked
 jq -n --arg p "$R" '{schema:1, project:"snap", methodology:"gitflow", repo:{url:"https://github.com/acme/snap.git", path:$p, long_lived:["master","develop"]}, test_command:"true"}' > "$T/c/projects/snap.json"
-export QARGI_PROJECT=snap
+export CROWN_PROJECT=snap
 
 git -C "$R" merge-base master develop >/dev/null 2>&1 && no "the fixture's master shares history with develop" || ok "the fixture: master is a parentless snapshot, develop has history, no merge base"
 [ "$(git -C "$R" rev-list --count develop)" -ge 5 ] && [ "$(git -C "$R" rev-list --count --parents master | wc -l)" = 1 ] && [ -z "$(git -C "$R" rev-list --max-parents=0 master | grep -x "$(git -C "$R" rev-list --max-parents=0 develop)")" ] && ok "develop has $(git -C "$R" rev-list --count develop) commits, master one" || no "fixture shape"

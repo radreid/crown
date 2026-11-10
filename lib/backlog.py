@@ -18,7 +18,7 @@ Headings, paragraphs and anything inside a fenced code block are not items.
                                        (NAME-archive-YYYY-MM.md, created when absent), then remove the item from FILE
   backlog.py named FILE                read commit messages on standard input; print the ids of the open items they name, comma separated
 
-The date is today's (local), or the day of QARGI_NOW when that is set (tests). Exit 1 with a message on standard error for anything it
+The date is today's (local), or the day of CROWN_NOW when that is set (tests). Exit 1 with a message on standard error for anything it
 cannot do; nothing is written then.
 """
 import hashlib
@@ -103,7 +103,7 @@ def archive_path(path):
 
 
 def today():
-    now = os.environ.get("QARGI_NOW", "")
+    now = os.environ.get("CROWN_NOW", "")
     m = re.match(r"(\d{4})-(\d{2})-(\d{2})", now)
     if m:
         try:
@@ -121,7 +121,7 @@ def pick(path, ident):
     items = parse(lines)
     hits = [it for it in items if it["id"] == ident]
     if not hits:
-        raise BacklogError("no open item [%s] in %s (qargi backlog list shows them)" % (ident, path))
+        raise BacklogError("no open item [%s] in %s (crown backlog list shows them)" % (ident, path))
     if len(hits) > 1:
         raise BacklogError("the id [%s] is used by %d items (lines %s) in %s: make the ids unique first" % (ident, len(hits), ", ".join(str(h["line"]) for h in hits), path))
     return lines, hits[0]
@@ -252,10 +252,10 @@ def main(argv):
         print(__doc__, file=sys.stderr)
         return 2
     except BacklogError as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
     except OSError as e:
-        print("qargi: backlog: %s" % e, file=sys.stderr)
+        print("crown: backlog: %s" % e, file=sys.stderr)
         return 1
 
 

@@ -7,12 +7,12 @@ The checker must report each mistake below with its line number.
 ## Commands
 
 ```bash
-qargi project init acme --answers acme.json
-qargi project frobnicate acme
-qargi agent add forge --no-such-option build
+crown project init acme --answers acme.json
+crown project frobnicate acme
+crown agent add forge --no-such-option build
 ```
 
-Inline: `qargi nonesuch run` is wrong, `--also-missing` is no qargi command line, and `qargi project init` is right.
+Inline: `crown nonesuch run` is wrong, `--also-missing` is no crown command line, and `crown project init` is right.
 
 ## Links
 

@@ -293,7 +293,7 @@
    "id": "pkg-gnupg",
    "kind": "package",
    "name": "gnupg",
-   "summary": "Encrypt and verify files (signed releases, qargi export archives)",
+   "summary": "Encrypt and verify files (signed releases, crown export archives)",
    "tags": [
     "gpg",
     "encryption",
@@ -491,7 +491,7 @@
    },
    "stack": [],
    "risk": "low",
-   "risk_note": "runs a shell command like Bash does; the git wrapper and qargi local verify still apply",
+   "risk_note": "runs a shell command like Bash does; the git wrapper and crown local verify still apply",
    "install": {
     "target": "local",
     "tool": "Monitor"

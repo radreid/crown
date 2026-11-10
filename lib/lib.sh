@@ -1,39 +1,39 @@
 #!/usr/bin/env bash
-# Shared helpers for the qargi skill. Registry and tracker live outside
-# the repository, under ~/.qargi/config and ~/.qargi/state.
+# Shared helpers for the crown skill. Registry and tracker live outside
+# the repository, under ~/.crown/config and ~/.crown/state.
 set -u
 
 # Where the data lives (lib/paths.py does the same for the Python scripts; keep the two in step; its docstring has the
-# whole story): QARGI_CONF and QARGI_STATE name a directory (tests do), else QARGI_HOME/config and QARGI_HOME/state,
-# else ~/.qargi/config and ~/.qargi/state. XDG_CONFIG_HOME and XDG_STATE_HOME are not used for qargi's data (the ant
+# whole story): CROWN_CONF and CROWN_STATE name a directory (tests do), else CROWN_HOME/config and CROWN_HOME/state,
+# else ~/.crown/config and ~/.crown/state. XDG_CONFIG_HOME and XDG_STATE_HOME are not used for crown's data (the ant
 # CLI keeps its login in the former).
 # A dev run (a checkout other than the one install.sh recorded in the live <config>/install.json, with nothing named)
-# keeps its data in <tool root>/.qargi instead, so a branch checkout never touches live data.
-QARGI_TOOL=$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")
-DA_ROOT=${QARGI_HOME:-$HOME/.qargi}
-if [ -z "${QARGI_CONF:-}${QARGI_STATE:-}${QARGI_HOME:-}" ] && [ -f "$HOME/.qargi/config/install.json" ]; then
-  _rec=$(jq -r '.tool_root // empty' "$HOME/.qargi/config/install.json" 2>/dev/null) || _rec=''
-  if [ -n "$_rec" ] && [ "$(readlink -f "$_rec")" != "$QARGI_TOOL" ]; then DA_ROOT=$QARGI_TOOL/.qargi; fi
+# keeps its data in <tool root>/.crown instead, so a branch checkout never touches live data.
+CROWN_TOOL=$(dirname "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")
+DA_ROOT=${CROWN_HOME:-$HOME/.crown}
+if [ -z "${CROWN_CONF:-}${CROWN_STATE:-}${CROWN_HOME:-}" ] && [ -f "$HOME/.crown/config/install.json" ]; then
+  _rec=$(jq -r '.tool_root // empty' "$HOME/.crown/config/install.json" 2>/dev/null) || _rec=''
+  if [ -n "$_rec" ] && [ "$(readlink -f "$_rec")" != "$CROWN_TOOL" ]; then DA_ROOT=$CROWN_TOOL/.crown; fi
 fi
-DA_CONF=${QARGI_CONF:-$DA_ROOT/config}
-DA_STATE=${QARGI_STATE:-$DA_ROOT/state}
+DA_CONF=${CROWN_CONF:-$DA_ROOT/config}
+DA_STATE=${CROWN_STATE:-$DA_ROOT/state}
 REG=$DA_CONF/instances.json
 TRK=$DA_STATE/sessions.json
-MEMBERS_FILE=$DA_CONF/agents.json   # the members you named (qargi agent add): {"schema": 2, "projects": {PROJECT: {NAME: {roles, file, model, effort, ...}}}}
+MEMBERS_FILE=$DA_CONF/agents.json   # the members you named (crown agent add): {"schema": 2, "projects": {PROJECT: {NAME: {roles, file, model, effort, ...}}}}
 export BETA=managed-agents-2026-04-01
 
-# The first load makes the directories (mode 700) and the three files. DA_NOSETUP, set in the environment of a read-only caller (qargi doctor and the
+# The first load makes the directories (mode 700) and the three files. DA_NOSETUP, set in the environment of a read-only caller (crown doctor and the
 # scripts it runs), skips all of it: nothing is created or changed, and a file that is not there stays not there.
 if [ -z "${DA_NOSETUP:-}" ]; then
   mkdir -p "$DA_CONF" "$DA_STATE"
   chmod 700 "$DA_CONF" "$DA_STATE"
-  [ -n "${QARGI_CONF:-}${QARGI_STATE:-}" ] || chmod 700 "$DA_ROOT"
+  [ -n "${CROWN_CONF:-}${CROWN_STATE:-}" ] || chmod 700 "$DA_ROOT"
   for f in "$REG" "$TRK"; do
     [ -f "$f" ] || { echo '{}' > "$f"; chmod 600 "$f"; }
   done
   [ -f "$MEMBERS_FILE" ] || { echo '{"schema":2,"projects":{}}' > "$MEMBERS_FILE"; chmod 600 "$MEMBERS_FILE"; }
 fi
-members_shape_ok() { # -> 0 when agents.json is in the current shape: {} or {"schema": 2, "projects": {P: {NAME: record}}} (qargi agent and qargi upgrade ask)
+members_shape_ok() { # -> 0 when agents.json is in the current shape: {} or {"schema": 2, "projects": {P: {NAME: record}}} (crown agent and crown upgrade ask)
   jq -e 'type == "object" and (length == 0 or (.schema == 2 and ((keys - ["schema", "projects"]) | length) == 0 and (.projects | type) == "object"
     and (.projects | all(.[]; type == "object" and all(.[]; type == "object")))))' "$MEMBERS_FILE" >/dev/null 2>&1
 }
@@ -45,13 +45,13 @@ members_shape_ok() { # -> 0 when agents.json is in the current shape: {} or {"sc
 # and the deployment belong to a role: <project>-<role>, <project>-deployment-<role>.
 # An instance is <project>-<role>; a session is named <instance>-<task-slug>.
 # A role is a directory with role.json (its class, write or read-only, and a description) and ROLE.md (its instructions).
-# Four ship with qargi (build, write, review, test; <tool>/roles); you add your own under <config>/roles. Role names are one
+# Four ship with crown (build, write, review, test; <tool>/roles); you add your own under <config>/roles. Role names are one
 # lower-case token, unique across both places, and never "lead", "worker" or "reviewer" (the last two are the cloud bases).
 ROLE_BUILTIN="build review write test"
 role_dir() { # name -> the directory of the role, or fails (a base name is never a role, whatever directory carries it)
   local d
   ! is_base "$1" || return 1
-  for d in "$QARGI_TOOL/roles/$1" "$DA_CONF/roles/$1"; do
+  for d in "$CROWN_TOOL/roles/$1" "$DA_CONF/roles/$1"; do
     if [ -f "$d/role.json" ] && [ -f "$d/ROLE.md" ]; then echo "$d"; return 0; fi
   done
   return 1
@@ -71,10 +71,10 @@ role_class() { # name -> write | read-only (lead: coordinator)
   jq -r '.class // "write"' "$d/role.json"
 }
 # The two cloud bases are instance names too: worker (write) and reviewer (read-only), from the bases of model-defaults.json.
-_QARGI_DEFAULTS=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/model-defaults.json
+_CROWN_DEFAULTS=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/model-defaults.json
 base_class() { # name -> the class of a base (worker, reviewer), or fails when the name is not a base
-  [ -f "$_QARGI_DEFAULTS" ] || return 1
-  jq -er --arg n "$1" '.bases[$n].class // empty' "$_QARGI_DEFAULTS" 2>/dev/null
+  [ -f "$_CROWN_DEFAULTS" ] || return 1
+  jq -er --arg n "$1" '.bases[$n].class // empty' "$_CROWN_DEFAULTS" 2>/dev/null
 }
 is_base() { base_class "$1" >/dev/null; }
 instance_class() { # name -> write | read-only | coordinator; never fails, and a name or a class it does not know is read-only
@@ -85,7 +85,7 @@ instance_class() { # name -> write | read-only | coordinator; never fails, and a
 }
 class_abilities() { # BASE [PROJECT_JSON] -> a JSON array: the abilities of a base, and those of the project's own profiles that use it
   local f=${2:-}; [ -f "$f" ] && jq -e . "$f" >/dev/null 2>&1 || f=''
-  jq -nc --arg b "$1" --slurpfile d "$_QARGI_DEFAULTS" --argjson p "$([ -n "$f" ] && cat "$f" || echo '{}')" \
+  jq -nc --arg b "$1" --slurpfile d "$_CROWN_DEFAULTS" --argjson p "$([ -n "$f" ] && cat "$f" || echo '{}')" \
     '(($d[0].bases[$b].abilities // []) + [($p.profiles // {})[] | select(.base == $b) | (.abilities // [])[]]) | unique' 2>/dev/null || echo '[]'
 }
 # run_class RUN [FILE_DIR] -> the class of a local run: write or read-only. The lead's registry says (prepare records it: the run directory is a member's to
@@ -115,7 +115,7 @@ out_has_report() {
 #   reg_get DIR FIELD   the text of FIELD in the registry's line for DIR (empty when absent or not a string)
 #   reg_json DIR FILTER the compact JSON a jq FILTER makes of the registry's line for DIR (nothing when the run is not in it)
 #   reg_record DIR      run_record from the registry alone, for a run whose directory is gone (its saved copy: local verify --saved)
-#   reg_id ID           the run directory of the registry whose name is ID (qargi.XXXXXX), when exactly one has it
+#   reg_id ID           the run directory of the registry whose name is ID (crown.XXXXXX), when exactly one has it
 #   reg_edit DIR drop|cleaned   rewrites the registry under its lock: drops the lines of DIR, or marks them cleaned (a time), mode 600
 # The line also holds what prepare took from the lead's answers, the one copy that verify, clean and review apply believe: the class of the run (class:
 # write or read-only), the stored project of its repository (project) and answers, an object with the answers that decide what verification accepts (runs.owned_refs, repo.long_lived,
@@ -163,14 +163,14 @@ reg_mark() {
 }
 reg_record() {
   RUN_REPO='' RUN_URL='' RUN_CRED='' RUN_PROJ='' RUN_ANS=''
-  reg_has "$1" || { echo "qargi: $1 is not in the lead's registry ($DA_STATE/local-runs.jsonl): only a run made by qargi local prepare on this machine is trusted" >&2; return 1; }
+  reg_has "$1" || { echo "crown: $1 is not in the lead's registry ($DA_STATE/local-runs.jsonl): only a run made by crown local prepare on this machine is trusted" >&2; return 1; }
   RUN_REPO=$(reg_get "$1" repo); RUN_URL=$(reg_get "$1" url); RUN_CRED=$(reg_get "$1" cred)
   RUN_PROJ=$(reg_get "$1" project); RUN_ANS=$(reg_json "$1" 'if (.answers | type) == "object" then .answers else empty end')
-  [ -n "$RUN_REPO" ] || [ -n "$RUN_URL" ] || { echo "qargi: the lead's registry names no repository for $1 (a run prepared by an earlier version): it cannot be verified" >&2; return 1; }
+  [ -n "$RUN_REPO" ] || [ -n "$RUN_URL" ] || { echo "crown: the lead's registry names no repository for $1 (a run prepared by an earlier version): it cannot be verified" >&2; return 1; }
 }
 reg_id() {
   local d hit='' n=0
-  case $1 in qargi.??????) ;; *) return 1;; esac
+  case $1 in crown.??????) ;; *) return 1;; esac
   for d in ${LRUNS_ORDER[@]+"${LRUNS_ORDER[@]}"}; do [ "${d##*/}" != "$1" ] || { hit=$d; n=$((n + 1)); }; done
   [ "$n" = 1 ] && printf '%s\n' "$hit"
 }
@@ -202,12 +202,12 @@ run_record() {
   for name in repo.path repo.url cred.path; do
     case $name in repo.path) want=$RUN_REPO;; repo.url) want=$RUN_URL;; *) want=$RUN_CRED;; esac
     if [ -z "$want" ]; then
-      [ ! -e "$run/$name" ] && [ ! -L "$run/$name" ] || { echo "qargi: $run/$name exists but the lead's registry records none: the run directory was changed after prepare" >&2; return 1; }
+      [ ! -e "$run/$name" ] && [ ! -L "$run/$name" ] || { echo "crown: $run/$name exists but the lead's registry records none: the run directory was changed after prepare" >&2; return 1; }
       continue
     fi
-    [ -f "$run/$name" ] && [ ! -L "$run/$name" ] || { echo "qargi: $run/$name is missing or not a plain file, and the lead's registry records $want: the run directory was changed after prepare" >&2; return 1; }
+    [ -f "$run/$name" ] && [ ! -L "$run/$name" ] || { echo "crown: $run/$name is missing or not a plain file, and the lead's registry records $want: the run directory was changed after prepare" >&2; return 1; }
     got=$(cat -- "$run/$name" 2>/dev/null || true)
-    [ "$got" = "$want" ] || { echo "qargi: $run/$name says '$got' but the lead's registry says '$want': the run directory was changed after prepare, nothing was run against it" >&2; return 1; }
+    [ "$got" = "$want" ] || { echo "crown: $run/$name says '$got' but the lead's registry says '$want': the run directory was changed after prepare, nothing was run against it" >&2; return 1; }
   done
 }
 # project_of REPO URL -> the stored project whose repo.path (or repo.url) is the one given; nothing when there is none
@@ -237,7 +237,7 @@ run_project() {
   if [ -n "$(reg_json "$1" 'if (.answers | type) == "object" then 1 else empty end')" ]; then reg_get "$1" project
   else project_of "$(reg_get "$1" repo)" "$(reg_get "$1" url)"; fi
 }
-DA_ROLES=${QARGI_ROLES:-$(role_names | tr '\n' ' ' | sed 's/ $//')}
+DA_ROLES=${CROWN_ROLES:-$(role_names | tr '\n' ' ' | sed 's/ $//')}
 valid_project() { printf '%s' "$1" | grep -Eq '^[a-z][a-z0-9]{0,23}$'; }
 # "lead" is the team coordinator: an instance role of its own, defined by the project's teams, not a work role.
 valid_role() { local r; for r in $DA_ROLES lead; do [ "$r" = "$1" ] && return 0; done; return 1; }
@@ -253,15 +253,15 @@ split_instance() {
 # project_provider PROJECT [SURFACE]: prints the runtime the project uses on a surface (local or cloud): models.provider in its answers is a
 # name (a runtime, or a family with exactly one runtime on the surface) or an object {local, cloud}. Every verb passes the surface it runs
 # on (members run on local, instances and sessions on cloud). There is no default: a project with no provider, a surface its answers leave
-# unset, an unknown project or none at all is refused by lib/provider.py `of`, which prints the one message (qargi: project P has no
-# [local|cloud] provider: set one with qargi project set P models.provider[.SURFACE] NAME) and exits 2; a single name that was resolved
+# unset, an unknown project or none at all is refused by lib/provider.py `of`, which prints the one message (crown: project P has no
+# [local|cloud] provider: set one with crown project set P models.provider[.SURFACE] NAME) and exits 2; a single name that was resolved
 # through its family is noted on stderr. Without a surface it answers only when models.provider is one name or names the same runtime for
 # both surfaces. Run in $(...) the helper cannot end its caller, so every caller propagates the status:
 #   prov=$(project_provider "$p" local) || exit $?
 project_provider() { # project-or-empty [surface]
   local p
   p=$(python3 -I "$(dirname "${BASH_SOURCE[0]}")/provider.py" of "${1:-}" --conf "$DA_CONF" ${2:+--surface "$2"} </dev/null) || return $?
-  printf '%s' "$p" | grep -Eq '^[a-z][a-z0-9-]*$' || { echo "qargi: models.provider '$p' is not a provider name (lower-case letters, digits and '-')" >&2; return 1; }
+  printf '%s' "$p" | grep -Eq '^[a-z][a-z0-9-]*$' || { echo "crown: models.provider '$p' is not a provider name (lower-case letters, digits and '-')" >&2; return 1; }
   echo "$p"
 }
 # project_provider_if_set PROJECT SURFACE: like project_provider for a caller that adds something only when a provider is set. No project, a project
@@ -271,7 +271,7 @@ project_provider() { # project-or-empty [surface]
 project_provider_if_set() { # project-or-empty surface
   local p
   p=$(python3 -I "$(dirname "${BASH_SOURCE[0]}")/provider.py" of-if-set "${1:-}" --conf "$DA_CONF" --surface "$2" </dev/null) || return $?
-  [ -z "$p" ] || printf '%s' "$p" | grep -Eq '^[a-z][a-z0-9-]*$' || { echo "qargi: models.provider '$p' is not a provider name (lower-case letters, digits and '-')" >&2; return 1; }
+  [ -z "$p" ] || printf '%s' "$p" | grep -Eq '^[a-z][a-z0-9-]*$' || { echo "crown: models.provider '$p' is not a provider name (lower-case letters, digits and '-')" >&2; return 1; }
   [ -z "$p" ] || echo "$p"
 }
 # cloud_note PROJECT TOPIC: the notes topic TOPIC of the definition of the runtime the project uses on the cloud surface (output-dir and
@@ -281,7 +281,7 @@ cloud_note() { # project topic
   python3 -I "$(dirname "${BASH_SOURCE[0]}")/provider.py" notes "$2" --project "$1" --surface cloud </dev/null
 }
 # barrier_guard SURFACE PROJECT-or-empty: a read-only role is about to run on SURFACE. Exits 2 with the reason and the
-# `qargi provider accept` command when the project's provider has no read-only barrier there and the project did not accept
+# `crown provider accept` command when the project's provider has no read-only barrier there and the project did not accept
 # that; a partial barrier passes and prints its note on stderr. (lib/provider.py require-barrier decides.)
 barrier_guard() {
   local rc=0 prov
@@ -295,9 +295,9 @@ mem_index() {
   ant beta:memory-stores:memories list --memory-store-id "$1" --path-prefix / --view basic --max-items -1 </dev/null 2>/dev/null \
     | jq -c 'select(.type=="memory") | {path, id}'
 }
-# mem_dump STORE: JSON lines of every memory of a store, with content (QARGI_CANON_FIXTURE_DIR replaces the cloud in tests).
+# mem_dump STORE: JSON lines of every memory of a store, with content (CROWN_CANON_FIXTURE_DIR replaces the cloud in tests).
 mem_dump() {
-  if [ -n "${QARGI_CANON_FIXTURE_DIR:-}" ]; then cat "$QARGI_CANON_FIXTURE_DIR/$1.jsonl"; return; fi
+  if [ -n "${CROWN_CANON_FIXTURE_DIR:-}" ]; then cat "$CROWN_CANON_FIXTURE_DIR/$1.jsonl"; return; fi
   ant beta:memory-stores:memories list --memory-store-id "$1" --path-prefix / --view full --max-items -1 </dev/null 2>/dev/null \
     | jq -c 'select(.type=="memory") | {type, id, path, content, content_sha256}'
 }
@@ -344,14 +344,14 @@ res_name() {
   esac
 }
 
-die() { echo "qargi: $*" >&2; exit 1; }
-usage_die() { echo "qargi: $*" >&2; exit 2; }   # a usage error (unknown option, missing argument, a usage line): exit 2, as the manual page promises
+die() { echo "crown: $*" >&2; exit 1; }
+usage_die() { echo "crown: $*" >&2; exit 2; }   # a usage error (unknown option, missing argument, a usage line): exit 2, as the manual page promises
 need_val() { # OPTION "$#" -> exit 2 when a valued option is the last word: call it first in each valued branch of an option loop
-  [ "$2" -ge 2 ] || { echo "qargi: $1 needs a value" >&2; exit 2; }
+  [ "$2" -ge 2 ] || { echo "crown: $1 needs a value" >&2; exit 2; }
 }
 run_clean() { # DIR COMMAND...: runs a command in DIR without the project's cloud binding: a suite, a release check or a scrub must not see it
   local dir=$1; shift
-  (cd "$dir" && env -u ANTHROPIC_PROFILE -u QARGI_CLOUD_WORKSPACE -u QARGI_CLOUD_PROJECT "$@")
+  (cd "$dir" && env -u ANTHROPIC_PROFILE -u CROWN_CLOUD_WORKSPACE -u CROWN_CLOUD_PROJECT "$@")
 }
 
 # Cloud verbs that create or drive a session need --asked "<what the user
@@ -360,7 +360,7 @@ run_clean() { # DIR COMMAND...: runs a command in DIR without the project's clou
 audit_log() { # verb [detail]
   local f=$DA_STATE/audit.log
   # AUDIT_ORIGIN (set by the supervisor only) adds an origin field, so its lines can be told from the owner's
-  jq -nc --arg t "$(now)" --arg v "$1" --arg d "${2:-}" --arg a "${ASKED:-}" --arg p "${APPROVED:-}" --arg n "${QARGI_NESTED:-}" --arg o "${AUDIT_ORIGIN:-}" \
+  jq -nc --arg t "$(now)" --arg v "$1" --arg d "${2:-}" --arg a "${ASKED:-}" --arg p "${APPROVED:-}" --arg n "${CROWN_NESTED:-}" --arg o "${AUDIT_ORIGIN:-}" \
     '{ts:$t, verb:$v, detail:$d, asked:$a, approved:$p, nested:($n != "")} + (if $o == "" then {} else {origin:$o} end)' >> "$f"
   chmod 600 "$f" 2>/dev/null || true
 }
@@ -370,7 +370,7 @@ audit_log() { # verb [detail]
 # apply (provisioning seeding its stores) skip it.
 plan_token() { sha256sum | cut -c1-12; }
 need_plan() { # expected-token; the caller's --plan value is $PLAN_ARG
-  [ -z "${QARGI_NESTED:-}" ] || return 0
+  [ -z "${CROWN_NESTED:-}" ] || return 0
   [ "${PLAN_ARG:-}" = "$1" ] || die "the plan changed or --plan is missing: run the plan, show it to the user, then apply exactly that with --plan $1"
 }
 
@@ -392,11 +392,11 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 # A cloud call that fails on an expired login should say so.
 ant_ok() {
-  ant auth status >/dev/null 2>&1 || die "ant is not logged in (run: ant auth login${QARGI_CLOUD_PROJECT:+, or: qargi cloud login $QARGI_CLOUD_PROJECT})"
-  # a project bound to a workspace (qargi cloud): the profile in use must still reach it, so nothing lands in another one
-  if [ -n "${QARGI_CLOUD_WORKSPACE:-}" ]; then
-    [ "$(python3 -I "$(dirname "${BASH_SOURCE[0]}")/cloud.py" workspace "${ANTHROPIC_PROFILE:-default}" 2>/dev/null)" = "$QARGI_CLOUD_WORKSPACE" ] \
-      || die "ant profile ${ANTHROPIC_PROFILE:-?} does not reach workspace $QARGI_CLOUD_WORKSPACE, which project ${QARGI_CLOUD_PROJECT:-?} is bound to: qargi cloud check ${QARGI_CLOUD_PROJECT:-}"
+  ant auth status >/dev/null 2>&1 || die "ant is not logged in (run: ant auth login${CROWN_CLOUD_PROJECT:+, or: crown cloud login $CROWN_CLOUD_PROJECT})"
+  # a project bound to a workspace (crown cloud): the profile in use must still reach it, so nothing lands in another one
+  if [ -n "${CROWN_CLOUD_WORKSPACE:-}" ]; then
+    [ "$(python3 -I "$(dirname "${BASH_SOURCE[0]}")/cloud.py" workspace "${ANTHROPIC_PROFILE:-default}" 2>/dev/null)" = "$CROWN_CLOUD_WORKSPACE" ] \
+      || die "ant profile ${ANTHROPIC_PROFILE:-?} does not reach workspace $CROWN_CLOUD_WORKSPACE, which project ${CROWN_CLOUD_PROJECT:-?} is bound to: crown cloud check ${CROWN_CLOUD_PROJECT:-}"
   fi
 }
 
@@ -418,7 +418,7 @@ idle_stop() { # sid
 
 # Refresh one tracker row from the API. stop_reason is the type of the last session.status_idle event while the
 # session is idle (end_turn, requires_action, retries_exhausted, budget_reached) and empty otherwise; stop_event_ids
-# are the events a requires_action waits on. An interrupt (qargi stop) also ends with end_turn: see interrupt_sent_at.
+# are the events a requires_action waits on. An interrupt (crown stop) also ends with end_turn: see interrupt_sent_at.
 trk_refresh() {
   local sid=$1 s stop=''
   s=$(ant beta:sessions retrieve --session-id "$sid" 2>/dev/null) || return 1
@@ -434,10 +434,10 @@ cred_file() { # project -> expanded credential file path, or empty
 }
 
 # git environment that authenticates over https with the token and nothing else.
-# Sets GIT_ASKPASS to lib/askpass.sh, which reads the file named by QARGI_ASKPASS_FILE at call time (the token is never in argv, and no
+# Sets GIT_ASKPASS to lib/askpass.sh, which reads the file named by CROWN_ASKPASS_FILE at call time (the token is never in argv, and no
 # helper file is made, so there is nothing to clean up).
 git_auth_env() { # credential-file -> exports for the caller's subshell
-  export QARGI_ASKPASS_FILE=$1 GIT_ASKPASS=$QARGI_TOOL/lib/askpass.sh GIT_TERMINAL_PROMPT=0 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_SSH_COMMAND=false
+  export CROWN_ASKPASS_FILE=$1 GIT_ASKPASS=$CROWN_TOOL/lib/askpass.sh GIT_TERMINAL_PROMPT=0 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_SSH_COMMAND=false
 }
 # url_key URL -> the one spelling of a repository URL that the ref journal records and `local verify` compares: https://HOST/PATH with
 # no user or password, no trailing / and no .git (git@HOST:PATH and ssh://git@HOST/PATH give the same); a local path stays a path
@@ -489,7 +489,7 @@ prompt_root() {
 cloud_contract() { # [project]
   local ct prov; ct=$(prompt_root)/contract
   cat "$ct/contract.md" "$ct/output-format.md" || return 1
-  prov=$(project_provider_if_set "${1:-}" cloud) || { echo "qargi: the prompt of a cloud agent of project ${1:-} cannot be made: its cloud provider does not resolve, so the contract addenda of its runtime would be left out" >&2; return 1; }
+  prov=$(project_provider_if_set "${1:-}" cloud) || { echo "crown: the prompt of a cloud agent of project ${1:-} cannot be made: its cloud provider does not resolve, so the contract addenda of its runtime would be left out" >&2; return 1; }
   [ -n "$prov" ] || return 0
   python3 -I "$(dirname "${BASH_SOURCE[0]}")/provider.py" addenda "$prov" cloud
 }

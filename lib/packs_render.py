@@ -50,7 +50,7 @@ SKIP = ".pack.json"
 
 
 def die(msg):
-    print("qargi: " + msg, file=sys.stderr)
+    print("crown: " + msg, file=sys.stderr)
     sys.exit(1)
 
 
@@ -287,12 +287,12 @@ def vet(inp, strict):
         elif not p["exists"]:
             bad.append("%s: linked but not in the library" % e)
         elif not p["review_ok"]:
-            bad.append("%s: fails its review (qargi %s check)" % (e, p["kind"]))
+            bad.append("%s: fails its review (crown %s check)" % (e, p["kind"]))
         elif p["approved"] and p["approved"] != p["sha256"]:
             bad.append("%s: library drift, changed since it was approved (%s -> %s); review it and seal it again"
                        % (e, p["approved"], p["sha256"]))
         elif not isinstance(p.get("compatible_providers"), list) or not p["compatible_providers"]:
-            bad.append("%s: declares no compatible_providers (qargi %s seal %s --compatible LIST)" % (e, p["kind"], p["name"]))
+            bad.append("%s: declares no compatible_providers (crown %s seal %s --compatible LIST)" % (e, p["kind"], p["name"]))
     seen = {}
     for p in inp["packs"]:
         seen.setdefault(p["name"], set()).add(p["kind"])
@@ -643,10 +643,10 @@ def cmd_check(inp):
                 sys.exit(1)
             print("ok   %s: packs.none is true, the project uses no project packs (nothing to render)" % inp["project"])
         else:
-            print("not applied: %s has no render yet (qargi packs apply --target %s %s)" % (inp["project"], inp["target"]["target"], inp["project"]))
+            print("not applied: %s has no render yet (crown packs apply --target %s %s)" % (inp["project"], inp["target"]["target"], inp["project"]))
         return
     if not os.path.isfile(mpath):
-        print("FAIL manifest missing: %s (run: qargi packs apply --target %s %s)" % (mpath, inp["target"]["target"], inp["project"]))
+        print("FAIL manifest missing: %s (run: crown packs apply --target %s %s)" % (mpath, inp["target"]["target"], inp["project"]))
         sys.exit(1)
     try:
         m = load(mpath)
@@ -656,7 +656,7 @@ def cmd_check(inp):
     err = valid_manifest(m)
     if err:
         print("FAIL manifest has the wrong shape: %s (%s)" % (err, mpath))
-        print("qargi: the manifest %s is malformed; re-apply to rewrite it" % mpath, file=sys.stderr)
+        print("crown: the manifest %s is malformed; re-apply to rewrite it" % mpath, file=sys.stderr)
         sys.exit(1)
     findings += ["library: " + b for b in vet(inp, False)]
     if m["project"] != inp["project"]:
@@ -733,7 +733,7 @@ def skipped_note(inp):
 
 
 def link_note(inp, live):
-    """One note line when the checkout exists and its skills directory is not linked to the render (qargi packs link). Never a finding."""
+    """One note line when the checkout exists and its skills directory is not linked to the render (crown packs link). Never a finding."""
     co = inp.get("checkout") or ""
     if not co or not os.path.isabs(co) or not os.path.isdir(co):
         return
@@ -741,7 +741,7 @@ def link_note(inp, live):
     from packs_link import linked
     sk = inp["target"]["skills_dir"]
     if not linked(os.path.join(co, sk), os.path.join(live, sk)):
-        print("note: repo %s is not linked to the render (qargi packs link %s)" % (sk, inp["project"]))
+        print("note: repo %s is not linked to the render (crown packs link %s)" % (sk, inp["project"]))
 
 
 def main():
@@ -772,7 +772,7 @@ def main():
         else:
             die("unknown verb or missing argument: " + verb)
     except provider_module().Unsupported as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         sys.exit(3)
     except provider_module().ProviderError as e:
         die(str(e))

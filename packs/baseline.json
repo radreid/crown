@@ -39,7 +39,7 @@
     },
     {
       "kind": "skill",
-      "name": "qargi-contributing",
+      "name": "crown-contributing",
       "propose": "tracked tests/skill-budget.txt",
       "compatible_providers": ["any"]
     }

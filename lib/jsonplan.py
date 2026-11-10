@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""qargi ... --json: the plan of a gated verb as one JSON object, so the lead does not read a token out of text.
+"""crown ... --json: the plan of a gated verb as one JSON object, so the lead does not read a token out of text.
 
-bin/qargi hands every call that carries --json here (the one place; no verb knows about it). The call runs as it would without the flag,
+bin/crown hands every call that carries --json here (the one place; no verb knows about it). The call runs as it would without the flag,
 with the same standard input and error, and its standard output is captured and wrapped:
 
   a plan token in the output   {"verb": "packs seed", "plan": TEXT, "token": HEX, "apply": COMMAND LINE, "exit": N}
@@ -12,7 +12,7 @@ go-ahead>": the flag never supplies the approval, only the person's words do. A 
 not asking for a plan: it runs and its output is wrapped with a null token. A verb that has an option --json of its own
 (lib/commands.py) is left alone and sees the flag. The exit status is the verb's.
 
-Usage (from bin/qargi): jsonplan.py AREA ARGUMENT...   (the arguments with --json in them). The program it runs is the bin/qargi beside this lib, never a
+Usage (from bin/crown): jsonplan.py AREA ARGUMENT...   (the arguments with --json in them). The program it runs is the bin/crown beside this lib, never a
 name it is given: the guard judges the call by its words.
 """
 import json, os, re, shlex, subprocess, sys
@@ -60,18 +60,18 @@ def plan_text(out):
 
 
 def main(argv):
-    qargi, given = os.path.join(os.path.dirname(HERE), "bin", "qargi"), argv
+    crown, given = os.path.join(os.path.dirname(HERE), "bin", "crown"), argv
     args = [a for a in given if a != "--json"]
     name, spec, vspec = verb_name(args)
-    env = dict(os.environ, QARGI_NO_JSON_WRAP="1")          # bin/qargi takes it out again: nothing below this call sees it
+    env = dict(os.environ, CROWN_NO_JSON_WRAP="1")          # bin/crown takes it out again: nothing below this call sees it
     if has_own_json(spec, vspec):
-        os.execve(qargi, [qargi] + given, env)
-    r = subprocess.run([qargi] + args, stdout=subprocess.PIPE, env=env)
+        os.execve(crown, [crown] + given, env)
+    r = subprocess.run([crown] + args, stdout=subprocess.PIPE, env=env)
     out = r.stdout.decode("utf-8", "replace")
     code = r.returncode if r.returncode >= 0 else 128 - r.returncode
     m = None if carries_gate(args) else TOKEN.search(out)
     if m:
-        apply = " ".join(["qargi"] + [shlex.quote(a) for a in args] + ["--plan", m.group(1), "--approved", '"%s"' % GO_AHEAD])
+        apply = " ".join(["crown"] + [shlex.quote(a) for a in args] + ["--plan", m.group(1), "--approved", '"%s"' % GO_AHEAD])
         doc = {"verb": name, "plan": plan_text(out), "token": m.group(1), "apply": apply, "exit": code}
     else:
         doc = {"verb": name, "plan": None, "token": None, "output": out, "exit": code}

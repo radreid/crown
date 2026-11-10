@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pty_run.py CMD [ARG...]: run CMD with a pseudo-terminal as its stdin, stdout and stderr (so `[ -t 0 ]` holds in it), copy what it prints
 to this program's stdout, and exit with its status. Nothing is ever typed to it: a test uses this to stand in for a person's terminal
-without a real passphrase prompt. The tests of `qargi release sign` use it, because that verb refuses a stdin that is no terminal."""
+without a real passphrase prompt. The tests of `crown release sign` use it, because that verb refuses a stdin that is no terminal."""
 import os, pty, sys
 
 

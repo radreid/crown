@@ -1,5 +1,5 @@
 # Output files (in OUT)
-OUT is the output directory the task block gives. `qargi review check` and `qargi local clean` read OUT; write
+OUT is the output directory the task block gives. `crown review check` and `crown local clean` read OUT; write
 nothing of your result anywhere else.
 
 patches/NNNN-*.patch: one patch per commit, in order, from `git format-patch --binary

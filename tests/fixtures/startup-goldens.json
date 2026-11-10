@@ -1,5 +1,5 @@
 {
- "_": "The dispatcher's own output on the paths it owns, byte for byte, as tests/test_startup.py checks it; regenerate with python3 tests/test_startup.py --dump bin/qargi and copy the cases listed in CASES",
+ "_": "The dispatcher's own output on the paths it owns, byte for byte, as tests/test_startup.py checks it; regenerate with python3 tests/test_startup.py --dump bin/crown and copy the cases listed in CASES",
  "cases": [
   {
    "argv": [
@@ -9,7 +9,7 @@
    "name": "unknown command",
    "rc": 2,
    "setup": "none",
-   "stderr": "qargi: unknown command 'nosuch'. Try: qargi help\n",
+   "stderr": "crown: unknown command 'nosuch'. Try: crown help\n",
    "stdout": ""
   },
   {
@@ -21,7 +21,7 @@
    "name": "unknown verb",
    "rc": 2,
    "setup": "none",
-   "stderr": "qargi: usage: qargi role list|show|prompt|check ...\n",
+   "stderr": "crown: usage: crown role list|show|prompt|check ...\n",
    "stdout": ""
   },
   {
@@ -34,7 +34,7 @@
    "name": "unknown option",
    "rc": 2,
    "setup": "none",
-   "stderr": "qargi: unknown option --bogus\n",
+   "stderr": "crown: unknown option --bogus\n",
    "stdout": ""
   },
   {
@@ -46,7 +46,7 @@
    "name": "a verb's missing argument",
    "rc": 2,
    "setup": "none",
-   "stderr": "qargi: usage: qargi role show NAME\n",
+   "stderr": "crown: usage: crown role show NAME\n",
    "stdout": ""
   },
   {
@@ -58,7 +58,7 @@
    "name": "missing project, none stored",
    "rc": 2,
    "setup": "none",
-   "stderr": "qargi: which project? Give its name, run this inside its repository, or set QARGI_PROJECT. No project is stored yet: qargi help project.\n",
+   "stderr": "crown: which project? Give its name, run this inside its repository, or set CROWN_PROJECT. No project is stored yet: crown help project.\n",
    "stdout": ""
   },
   {
@@ -70,7 +70,7 @@
    "name": "missing project, one stored",
    "rc": 2,
    "setup": "project",
-   "stderr": "qargi: which project? Give its name, run this inside its repository, or set QARGI_PROJECT. Projects: alpha\n",
+   "stderr": "crown: which project? Give its name, run this inside its repository, or set CROWN_PROJECT. Projects: alpha\n",
    "stdout": ""
   },
   {
@@ -82,7 +82,7 @@
    "name": "no repository",
    "rc": 1,
    "setup": "inside",
-   "stderr": "qargi: the answers for alpha name no local repository (repo.path)\n",
+   "stderr": "crown: the answers for alpha name no local repository (repo.path)\n",
    "stdout": ""
   },
   {
@@ -97,7 +97,7 @@
    "name": "bad cloud binding",
    "rc": 1,
    "setup": "binding",
-   "stderr": "qargi: project alpha uses ant profile qargi (qargi cloud show), but ANTHROPIC_PROFILE is other; unset it or change the binding\n",
+   "stderr": "crown: project alpha uses ant profile crown (crown cloud show), but ANTHROPIC_PROFILE is other; unset it or change the binding\n",
    "stdout": ""
   },
   {
@@ -109,11 +109,11 @@
    "env": {
     "ANTHROPIC_PROFILE": "other"
    },
-   "name": "qargi cloud is exempt from the binding",
+   "name": "crown cloud is exempt from the binding",
    "rc": 0,
    "setup": "binding",
    "stderr": "",
-   "stdout": "alpha: profile qargi, workspace wrkspc_01QargiQargiQargi\n"
+   "stdout": "alpha: profile crown, workspace wrkspc_01CrownCrownCrown\n"
   }
  ]
 }

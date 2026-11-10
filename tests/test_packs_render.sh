@@ -7,8 +7,8 @@ cd "$(dirname "$0")/.." || exit 1
 . tests/hermetic.sh
 T=$(mktemp -d); fail=0
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-export QARGI_CONF=$T/c QARGI_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s"
-DA=./bin/qargi
+export CROWN_CONF=$T/c CROWN_STATE=$T/s; mkdir -p "$T/c/projects" "$T/s"
+DA=./bin/crown
 proj() { jq -n --arg p "$1" '{schema:1,project:$p,repo:{url:"https://github.com/example/x",path:"",long_lived:["main"]},
   roles:{build:{base:"@dispatcher",push:{mode:"none"},model:"claude-sonnet-5-5",effort:"high",apt:[],skills:[]},
          write:{base:"gh-pages",push:{mode:"none"},model:"claude-opus-5-5",effort:"medium",apt:[],skills:[]}},
@@ -154,13 +154,13 @@ out=$($DA packs check --target claude-code gamma 2>&1); rc=$?
 [ "$rc" = 0 ] && ok "check passes for it" || no "object-form check (rc=$rc): $out"
 jq '.models.provider = {cloud: "claude-platform"}' "$T/c/projects/gamma.json" > "$T/p.tmp" && mv "$T/p.tmp" "$T/c/projects/gamma.json"
 out=$($DA packs check --target claude-code gamma 2>&1); rc=$?
-[ "$rc" = 2 ] && [ "$out" = "qargi: project gamma has no local provider: set one with qargi project set gamma models.provider.local NAME" ] && ok "an object that names only a cloud runtime has no local provider: exit 2 and the fix" || no "cloud-only object (rc=$rc): $out"
+[ "$rc" = 2 ] && [ "$out" = "crown: project gamma has no local provider: set one with crown project set gamma models.provider.local NAME" ] && ok "an object that names only a cloud runtime has no local provider: exit 2 and the fix" || no "cloud-only object (rc=$rc): $out"
 # --- the renderer is neutral: the skills directory, the MCP file and entry, the permission rule and the settings file come from the
 # runtime's definition. fakert is a definition in a copy of the tool with its own names for all of them (a schema 2 file made from
 # claude-code's); it has no agent hooks, no adapter and a launch line of its own.
 ROOT=$PWD; TOOL=$T/tool; mkdir -p "$TOOL"
 copy_tool "$ROOT" "$TOOL"
-FX=$TOOL/bin/qargi
+FX=$TOOL/bin/crown
 mkfake() { # name jq-filter: a runtime made from claude-code's definition
   jq --arg n "$1" '.provider = $n | .family = null | .adapter = null | .adapter_verbs = [] | .resources.skills.project_dir = ".fk/skills" | .resources.skills.user_dir = "~/.fk/skills"
     | .resources.skills.exclusion = null | .resources.settings.files = [{scope:"user",path:"~/.fk/settings.json",format:"json"}] | .session.render_target = "fk-render"
@@ -219,8 +219,8 @@ out=$($FX packs check --target fk-render delta 2>&1); rc=$?
 jq '.models = {provider: "nomcp"}' "$T/c/projects/delta.json" > "$T/p.tmp" && mv "$T/p.tmp" "$T/c/projects/delta.json"
 # --- the render directory of an earlier version (<state>/claude) is not handled any more: no migrate-render verb, and a leftover directory
 # there is neither read nor changed by apply and check. The render of the runtime (<state>/render/PROJECT/RUNTIME) applies and checks as before.
-case $QARGI_STATE in "$T"/*) ok "the tests run in the test's own state directory, never the real one";; *) no "state is not temporary: $QARGI_STATE"; exit 1;; esac
-cd "$T" || exit 1; DA=$ROOT/bin/qargi
+case $CROWN_STATE in "$T"/*) ok "the tests run in the test's own state directory, never the real one";; *) no "state is not temporary: $CROWN_STATE"; exit 1;; esac
+cd "$T" || exit 1; DA=$ROOT/bin/crown
 out=$("$DA" packs migrate-render 2>&1); rc=$?
 { [ "$rc" != 0 ] && grep -q 'usage: packs.sh packs' <<<"$out" && ! grep -q 'migrate-render' <<<"${out#*usage}" && ! grep -q 'plan token' <<<"$out"; } && ok "packs migrate-render is an unknown verb: it fails with the usage, which does not name it" || no "migrate-render (rc=$rc): $out"
 { "$DA" packs --help; "$DA" help guard; } 2>&1 | grep -q 'migrate-render' && no "migrate-render is still in the packs help or the guard topic" || ok "the packs help and the guard topic do not name migrate-render"

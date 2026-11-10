@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qargi env plan and qargi env apply: look at, then run, a project's bootstrap. The lead's verbs; the member guard refuses both.
+"""crown env plan and crown env apply: look at, then run, a project's bootstrap. The lead's verbs; the member guard refuses both.
 A library for lib/env.py, which hands the verbs to this module. It does nothing when run.
 
   plan   run the dry-run command (make -n bootstrap, ...), show its output, print a plan token
@@ -7,18 +7,18 @@ A library for lib/env.py, which hands the verbs to this module. It does nothing 
 
 A dry run is not harmless. `make -n` still expands $(shell ...) and runs recipe lines marked + or holding $(MAKE), and the dry-run
 forms of the other runners evaluate project code in the same way. So the plan runs project code too, and is refused unless
---approve-exec names the dry-run command's executable. Read the project's files first; qargi cannot judge them.
+--approve-exec names the dry-run command's executable. Read the project's files first; crown cannot judge them.
 
 Both commands run as an argument vector, never through a shell, in the repository, with standard input from /dev/null (plan) and a
 minimal environment: PATH (absolute entries only), HOME, USER, LOGNAME, LANG, LC_ALL, LC_CTYPE, TERM, TZ and TMPDIR, nothing else (no token,
-no ssh agent, no MAKEFLAGS). The dry run has a time limit (QARGI_ENV_TIMEOUT seconds, default 120) and its output is capped at 1 MB.
+no ssh agent, no MAKEFLAGS). The dry run has a time limit (CROWN_ENV_TIMEOUT seconds, default 120) and its output is capped at 1 MB.
 
 The plan token is a hash over the dry-run output, the dry-run and bootstrap commands, the repository and its HEAD, and the host name.
 Apply runs the dry run again and refuses when the token is no longer the plan's. The lines and the executables the plan lists are read
 from the text of the output (best effort): a recipe can run more than its dry run shows, and a script it calls can call sudo.
 
 The tools the roles declare (roles.<role>.tools, lib/tools.py) are part of the plan: each go tool and binary is listed with its state here
-(ok, missing, wrong, or installed in a directory PATH lacks), the submodules with theirs (qargi local prepare checks those out in a member's
+(ok, missing, wrong, or installed in a directory PATH lacks), the submodules with theirs (crown local prepare checks those out in a member's
 clone; apply does nothing with them), and the token covers the list. After a bootstrap that exits 0, apply installs what is missing or wrong:
 `go install NAME@VERSION` for a go tool (go must then be named in --approve-exec), and for a binary the file at its URL, downloaded to a
 temporary name, kept only when its sha256 is the declared one, made executable and moved to ~/.local/bin/NAME. A tool that fails leaves the
@@ -28,7 +28,7 @@ Apply needs --plan, --approved, and --approve-exec naming the executables of the
 others the plan listed; a name that is none of them is refused). It refuses privileged lines (sudo, doas, pkexec, su, run0 in a command of
 the line) without --allow-root. The bootstrap command runs once with standard input, output and error inherited, so sudo can ask on your terminal;
 no password is read or kept. Apply leaves two lines in the audit log (start and result) and the record `env/NAME.json` in the state
-directory (mode 600). QARGI_DRY_RUN stops it before the bootstrap runs.
+directory (mode 600). CROWN_DRY_RUN stops it before the bootstrap runs.
 """
 import hashlib
 import json
@@ -61,8 +61,8 @@ KEYWORDS = ("if", "then", "else", "elif", "fi", "for", "while", "until", "do", "
 BUILTINS = ("echo", "printf", "cd", "test", "[", "[[", "export", "set", "unset", "true", "false", ":", "exit", "pwd", "read", "shift", "return",
             "trap", "umask", "wait", "local", "declare", "readonly", "alias", "type", "hash", "ulimit")
 SUDO_VALUE_OPTS = ("-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "-T")
-USAGE = {"plan": "usage: qargi env plan [--project P] [--repo DIR] --approve-exec NAME",
-         "apply": "usage: qargi env apply [--project P] [--repo DIR] --plan TOKEN --approved WORDS --approve-exec NAMES [--allow-root]"}
+USAGE = {"plan": "usage: crown env plan [--project P] [--repo DIR] --approve-exec NAME",
+         "apply": "usage: crown env apply [--project P] [--repo DIR] --plan TOKEN --approved WORDS --approve-exec NAMES [--allow-root]"}
 OPTS = {"plan": ((("--project", "--repo", "--approve-exec")), ()),
         "apply": ((("--project", "--repo", "--plan", "--approved", "--approve-exec")), ("--allow-root",))}
 
@@ -87,7 +87,7 @@ def library():
 
 def timeout():
     try:
-        n = int(os.environ.get("QARGI_ENV_TIMEOUT", ""))
+        n = int(os.environ.get("CROWN_ENV_TIMEOUT", ""))
     except ValueError:
         return TIMEOUT
     return n if n > 0 else TIMEOUT
@@ -143,7 +143,7 @@ def dry_run(argv, repo, env):
         except subprocess.TimeoutExpired:
             os.killpg(p.pid, signal.SIGKILL)
             p.wait()
-            raise Stop("the dry run did not finish in %d seconds and was stopped (QARGI_ENV_TIMEOUT changes the limit); no plan" % limit)
+            raise Stop("the dry run did not finish in %d seconds and was stopped (CROWN_ENV_TIMEOUT changes the limit); no plan" % limit)
         size = out.seek(0, 2)
         if size > CAP:
             raise Stop("the dry run printed more than %d KB; no plan" % (CAP // 1024))
@@ -269,7 +269,7 @@ def context(verb, opts):
     d = E.effective(repo, answers)
     dry, boot = d["commands"]["dry_run_command"]["command"], d["commands"]["bootstrap_command"]["command"]
     if not dry or not boot:
-        raise Stop("%s has no %s: add a bootstrap target (qargi env show) or set env.%s" % (
+        raise Stop("%s has no %s: add a bootstrap target (crown env show) or set env.%s" % (
             repo, "bootstrap target" if not boot else "dry-run command", "bootstrap_command" if not boot else "dry_run_command"), 2)
     env = child_env()
     return {"project": project, "repo": repo, "dry": dry, "boot": boot, "dry_argv": argv_of(dry, "dry-run"), "boot_argv": argv_of(boot, "bootstrap"),
@@ -319,7 +319,7 @@ def plan(argv):
     rows = tool_rows(ctx)
     say_tools(rows)
     need = sorted({ctx["dry_argv"][0], ctx["boot_argv"][0]} | exec_for(pending(rows)))
-    print("\nplan token: %s   (apply with: qargi env apply --plan %s --approved \"<the user's go-ahead after reading this plan>\" --approve-exec %s%s)"
+    print("\nplan token: %s   (apply with: crown env apply --plan %s --approved \"<the user's go-ahead after reading this plan>\" --approve-exec %s%s)"
           % (tok, tok, ",".join(vis(x) for x in need), " --allow-root" if priv else ""))
     return 0
 
@@ -381,14 +381,14 @@ def write_record(ctx, entry):
 def check_after(ctx):
     """Run `env check` (the project's doctor, so project code, as the bootstrap was) and return its exit status."""
     cmd = [sys.executable, "-I", os.path.join(HERE, "env.py"), "check", "--repo", ctx["repo"]] + (["--project", ctx["project"]] if ctx["project"] else [])
-    print("running: qargi env check", flush=True)
+    print("running: crown env check", flush=True)
     return subprocess.run(cmd, cwd=ctx["repo"], env=dict(os.environ)).returncode
 
 
 def apply(argv):
     opts = parse("apply", argv)
     if not opts.get("--plan") or not opts.get("--approved"):
-        raise Stop("env apply needs --plan TOKEN and --approved WORDS from a plan you showed to the person (qargi env plan --approve-exec NAME)\n" + USAGE["apply"], 2)
+        raise Stop("env apply needs --plan TOKEN and --approved WORDS from a plan you showed to the person (crown env plan --approve-exec NAME)\n" + USAGE["apply"], 2)
     ctx = context("apply", opts)
     L = library()
     named = set(L.exec_names(opts))
@@ -406,7 +406,7 @@ def apply(argv):
     a = analyse(text)
     tok = token_of(text, ctx)
     if opts["--plan"] != tok:
-        raise Stop("the plan changed since it was made (the dry-run output, the commands, HEAD or the host differ): run qargi env plan again and show it; nothing was run")
+        raise Stop("the plan changed since it was made (the dry-run output, the commands, HEAD or the host differ): run crown env plan again and show it; nothing was run")
     extra = sorted(named - required - set(a["executables"]))
     if extra:
         raise Stop("--approve-exec names %s, which %s neither the dry-run or bootstrap executable nor one the plan listed; nothing was run"
@@ -416,8 +416,8 @@ def apply(argv):
         raise Stop("the plan has %d privileged line(s) (first: %s) and --allow-root is not given; nothing was run" % (len(priv), vis(priv[0][1])), 2)
     say_command(ctx)
     say_tools(rows)
-    if os.environ.get("QARGI_DRY_RUN"):
-        print("QARGI_DRY_RUN is set: the plan matches and the bootstrap command would run now%s; it was not run"
+    if os.environ.get("CROWN_DRY_RUN"):
+        print("CROWN_DRY_RUN is set: the plan matches and the bootstrap command would run now%s; it was not run"
               % (", then %d tool install(s)" % len(todo) if todo else ""))
         return 0
     detail = "%s %s token %s head %s" % (record_name(ctx), ctx["boot"], tok, ctx["head"][:12])
@@ -429,7 +429,7 @@ def apply(argv):
     except KeyboardInterrupt:
         rc = 130
     except OSError as e:
-        print("qargi: could not run %s: %s" % (vis(ctx["boot_argv"][0]), e.strerror or "error"), file=sys.stderr)
+        print("crown: could not run %s: %s" % (vis(ctx["boot_argv"][0]), e.strerror or "error"), file=sys.stderr)
         rc = 127
     audit("env:apply-result", "%s exit %d" % (detail, rc), opts)
     done = install(todo, ctx) if rc == 0 else []
@@ -444,10 +444,10 @@ def apply(argv):
                            "tools": [{"kind": t["kind"], "name": t["name"], "version": t.get("version"), "exit": trc} for t, trc, _ in done]})
     print("recorded in %s" % f)
     if rc != 0:
-        print("qargi: the bootstrap command exited with status %d%s" % (rc, "; the %d tool install(s) were not run" % len(todo) if todo else ""), file=sys.stderr)
+        print("crown: the bootstrap command exited with status %d%s" % (rc, "; the %d tool install(s) were not run" % len(todo) if todo else ""), file=sys.stderr)
         return 1
     if failed:
-        print("qargi: %d tool(s) could not be installed: %s" % (len(failed), ", ".join(T.label(t) for t, _ in failed)), file=sys.stderr)
+        print("crown: %d tool(s) could not be installed: %s" % (len(failed), ", ".join(T.label(t) for t, _ in failed)), file=sys.stderr)
         return 1
     return check_after(ctx)
 
@@ -456,13 +456,13 @@ def main(verb, argv):
     try:
         return {"plan": plan, "apply": apply}[verb](argv)
     except Stop as e:
-        print(str(e) if str(e).startswith("usage") else "qargi: " + str(e), file=sys.stderr)
+        print(str(e) if str(e).startswith("usage") else "crown: " + str(e), file=sys.stderr)
         return e.code
     except library().Failure as e:
-        print("qargi: %s" % e, file=sys.stderr)
+        print("crown: %s" % e, file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
-    print("lib/env_apply.py is the library of qargi env plan and apply; run qargi env", file=sys.stderr)
+    print("lib/env_apply.py is the library of crown env plan and apply; run crown env", file=sys.stderr)
     sys.exit(2)

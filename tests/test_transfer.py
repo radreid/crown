@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""qargi export / import: offline, with a fake ant, real gpg in a throwaway home and scripted terminal answers."""
+"""crown export / import: offline, with a fake ant, real gpg in a throwaway home and scripted terminal answers."""
 import hermetic  # noqa: F401  (first: scrubs the caller's environment)
 import hashlib, io, json, os, shutil, stat, subprocess, sys, tarfile, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 
 FAKE_ANT = r'''#!/usr/bin/env python3
 import hashlib, json, os, sys
@@ -65,9 +65,9 @@ class Env(unittest.TestCase):
         with open(os.path.join(self.t, "bin", "ant"), "w") as f:
             f.write(FAKE_ANT)
         os.chmod(os.path.join(self.t, "bin", "ant"), 0o755)
-        self.env = dict(os.environ, QARGI_CONF=self.conf, QARGI_STATE=self.state, FAKE=self.fake, GNUPGHOME=os.path.join(self.t, "gnupg"),
+        self.env = dict(os.environ, CROWN_CONF=self.conf, CROWN_STATE=self.state, FAKE=self.fake, GNUPGHOME=os.path.join(self.t, "gnupg"),
                         PATH=os.path.join(self.t, "bin") + os.pathsep + os.environ["PATH"])
-        self.env.pop("QARGI_PROJECT", None)
+        self.env.pop("CROWN_PROJECT", None)
         self.seed(self.conf, self.state)
         self.put_store(self.fake, "memstore_A", {"/README.md": "memory readme", "/roles/build/x.md": "build note"})
         self.put_store(self.fake, "memstore_B", {"/README.md": "reference readme"})
@@ -110,18 +110,18 @@ class Env(unittest.TestCase):
             out[m["path"]] = m["content"]
         return out
 
-    def qargi(self, args, answers=None, env=None):
+    def crown(self, args, answers=None, env=None):
         e = dict(self.env, **(env or {}))
         if answers is not None:
             self.write(os.path.join(self.t, "in"), "".join(a + "\n" for a in answers))
             open(os.path.join(self.t, "out"), "w").close()
-            e["QARGI_TTY_IN"], e["QARGI_TTY_OUT"] = os.path.join(self.t, "in"), os.path.join(self.t, "out")
+            e["CROWN_TTY_IN"], e["CROWN_TTY_OUT"] = os.path.join(self.t, "in"), os.path.join(self.t, "out")
         else:
-            e["QARGI_TTY_IN"] = e["QARGI_TTY_OUT"] = "/nonexistent"
+            e["CROWN_TTY_IN"] = e["CROWN_TTY_OUT"] = "/nonexistent"
         return subprocess.run([BIN] + args, capture_output=True, text=True, env=e, cwd=self.t, stdin=subprocess.DEVNULL)
 
     def export(self, name="a.tar.gz", extra=()):
-        r = self.qargi(["export", "--only", "config,definitions,memories,state", "--no-encrypt", "--out", os.path.join(self.t, name)] + list(extra))
+        r = self.crown(["export", "--only", "config,definitions,memories,state", "--no-encrypt", "--out", os.path.join(self.t, name)] + list(extra))
         self.assertEqual(r.returncode, 0, r.stderr)
         return os.path.join(self.t, name)
 
@@ -135,7 +135,7 @@ class Env(unittest.TestCase):
         for d in (conf, state, fake):
             os.makedirs(d)
         self.write(os.path.join(conf, "projects", "alpha.json"), json.dumps({"project": "alpha", "memory": {"memory_store": "memstore_A", "reference_store": "memstore_B"}}))
-        return dict(QARGI_CONF=conf, QARGI_STATE=state, FAKE=fake), conf, state, fake
+        return dict(CROWN_CONF=conf, CROWN_STATE=state, FAKE=fake), conf, state, fake
 
 
 class Export(Env):
@@ -169,7 +169,7 @@ class Export(Env):
         self.assertFalse(any("alpha" in k for k in m))
 
     def test_credentials_need_a_password(self):
-        r = self.qargi(["export", "--only", "credentials", "--no-encrypt", "--out", os.path.join(self.t, "c.tgz")])
+        r = self.crown(["export", "--only", "credentials", "--no-encrypt", "--out", os.path.join(self.t, "c.tgz")])
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("give a password", r.stderr)
         self.assertFalse(os.path.exists(os.path.join(self.t, "c.tgz")))
@@ -177,7 +177,7 @@ class Export(Env):
     def test_encrypted_archive_is_not_readable_without_the_password(self):
         self.write(os.path.join(self.t, "pw"), "correct horse\n")
         out = os.path.join(self.t, "e.tar.gz.gpg")
-        r = self.qargi(["export", "--only", "config,credentials", "--password-file", os.path.join(self.t, "pw"), "--out", out])
+        r = self.crown(["export", "--only", "config,credentials", "--password-file", os.path.join(self.t, "pw"), "--out", out])
         self.assertEqual(r.returncode, 0, r.stderr)
         with open(out, "rb") as fh:
             raw = fh.read()
@@ -191,37 +191,37 @@ class Export(Env):
 
     def test_interactive_export_asks_what_and_for_a_password_twice(self):
         out = os.path.join(self.t, "i.tar.gz.gpg")
-        r = self.qargi(["export", "--out", out], answers=["alpha", "config, 3", "one", "two", "right", "right"])
+        r = self.crown(["export", "--out", out], answers=["alpha", "config, 3", "one", "two", "right", "right"])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("encrypted", r.stdout)
         said = rd(os.path.join(self.t, "out"))
         self.assertIn("credentials", said)           # the list of parts was shown
         self.assertNotIn("right", said)              # the password is never echoed
         self.assertIn("did not match", r.stderr)
-        r = self.qargi(["import", out, "--dry-run", "--password-file", self._pw("right")])
+        r = self.crown(["import", out, "--dry-run", "--password-file", self._pw("right")])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("config", r.stdout)
         self.assertIn("memories", r.stdout)
         self.assertNotIn("definitions   ", r.stdout)
 
     def test_needs_an_explicit_choice_without_a_terminal(self):
-        r = self.qargi(["export", "--only", "config", "--out", os.path.join(self.t, "n.tgz")])
+        r = self.crown(["export", "--only", "config", "--out", os.path.join(self.t, "n.tgz")])
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--no-encrypt", r.stderr)
-        r = self.qargi(["export", "--no-encrypt"])
+        r = self.crown(["export", "--no-encrypt"])
         self.assertIn("say what to export", r.stderr)
 
     def test_a_relative_file_name_and_the_default_name_work(self):
-        r = self.qargi(["export", "--only", "config", "--no-encrypt", "--out", "rel.tar.gz"])
+        r = self.crown(["export", "--only", "config", "--no-encrypt", "--out", "rel.tar.gz"])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue(os.path.exists(os.path.join(self.t, "rel.tar.gz")))
-        r = self.qargi(["export", "--only", "config", "--no-encrypt"])
+        r = self.crown(["export", "--only", "config", "--no-encrypt"])
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue(any(f.startswith("qargi-export-") and f.endswith(".tar.gz") for f in os.listdir(self.t)))
+        self.assertTrue(any(f.startswith("crown-export-") and f.endswith(".tar.gz") for f in os.listdir(self.t)))
 
     def test_never_overwrites_a_file(self):
         p = self.export()
-        r = self.qargi(["export", "--only", "config", "--no-encrypt", "--out", p])
+        r = self.crown(["export", "--only", "config", "--no-encrypt", "--out", p])
         self.assertNotEqual(r.returncode, 0)
 
     def _pw(self, text):
@@ -238,12 +238,12 @@ class Import(Env):
         return t, conf, state, fake
 
     def run_import(self, archive, answers, extra=(), env=None):
-        return self.qargi(["import", archive] + list(extra), answers=answers, env=env)
+        return self.crown(["import", archive] + list(extra), answers=answers, env=env)
 
     def test_dry_run_changes_nothing_and_needs_no_terminal(self):
         a = self.export()
         t, conf, state, fake = self.target()
-        r = self.qargi(["import", a, "--dry-run"], env=t)
+        r = self.crown(["import", a, "--dry-run"], env=t)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("dry run", r.stdout)
         self.assertRegex(r.stdout, r"memories +mode merge +add 3,")
@@ -256,7 +256,7 @@ class Import(Env):
 
     def test_refuses_to_change_anything_without_a_terminal(self):
         a = self.export()
-        r = self.qargi(["import", a])
+        r = self.crown(["import", a])
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--dry-run", r.stderr)
 
@@ -341,7 +341,7 @@ class Import(Env):
     def test_password_is_asked_for_and_retried(self):
         self.write(os.path.join(self.t, "pw"), "s3cret\n")
         enc = os.path.join(self.t, "e.gpg")
-        self.assertEqual(self.qargi(["export", "--only", "config", "--password-file", os.path.join(self.t, "pw"), "--out", enc]).returncode, 0)
+        self.assertEqual(self.crown(["export", "--only", "config", "--password-file", os.path.join(self.t, "pw"), "--out", enc]).returncode, 0)
         t, conf, state, fake = self.target()
         r = self.run_import(enc, ["wrong", "s3cret", "config", "alpha", "", "y"], env=t)
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
@@ -354,7 +354,7 @@ class Import(Env):
     def test_credentials_come_back_mode_600_and_their_value_is_never_printed(self):
         self.write(os.path.join(self.t, "pw"), "pw1\n")
         enc = os.path.join(self.t, "c.gpg")
-        self.assertEqual(self.qargi(["export", "--only", "credentials", "--password-file", os.path.join(self.t, "pw"), "--out", enc]).returncode, 0)
+        self.assertEqual(self.crown(["export", "--only", "credentials", "--password-file", os.path.join(self.t, "pw"), "--out", enc]).returncode, 0)
         t, conf, state, fake = self.target()
         r = self.run_import(enc, ["credentials", "alpha", "", "y"], extra=["--password-file", os.path.join(self.t, "pw")], env=t)
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
@@ -378,7 +378,7 @@ class Import(Env):
     def test_a_project_subset_and_a_part_subset(self):
         a = self.export()
         t, conf, state, fake = self.target()
-        r = self.qargi(["import", a, "--only", "config", "--project", "beta", "--mode", "overwrite", "--dry-run"], env=t)
+        r = self.crown(["import", a, "--only", "config", "--project", "beta", "--mode", "overwrite", "--dry-run"], env=t)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("beta", r.stdout)
         self.assertNotIn("alpha-build", r.stdout)
@@ -416,14 +416,14 @@ class RoundTrip(Env):
 
     def round_trip(self, only):
         arc = os.path.join(self.t, "rt-%s.gpg" % only.replace(",", "_"))
-        r = self.qargi(["export", "--only", only, "--project", "alpha", "--password-file", os.path.join(self.t, "pw"), "--out", arc])
+        r = self.crown(["export", "--only", only, "--project", "alpha", "--password-file", os.path.join(self.t, "pw"), "--out", arc])
         self.assertEqual(r.returncode, 0, r.stderr)
         for d in ("c2", "s2", "fake2"):
             shutil.rmtree(os.path.join(self.t, d), ignore_errors=True)
         t, conf, state, fake = self.fresh_target()
         self.put_store(fake, "memstore_A", {})
         self.put_store(fake, "memstore_B", {})
-        r = self.qargi(["import", arc, "--only", only, "--project", "alpha", "--mode", "overwrite", "--password-file", os.path.join(self.t, "pw")], answers=["y"], env=t)
+        r = self.crown(["import", arc, "--only", only, "--project", "alpha", "--mode", "overwrite", "--password-file", os.path.join(self.t, "pw")], answers=["y"], env=t)
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
         return conf, state, fake
 
@@ -458,14 +458,14 @@ class RoundTrip(Env):
 
     def test_export_refuses_a_name_that_import_would_refuse(self):
         self.write(os.path.join(self.conf, "packs/skills/example-skill/my notes.md"), "x")
-        r = self.qargi(["export", "--only", "config", "--no-encrypt", "--out", os.path.join(self.t, "no.tar.gz")])
+        r = self.crown(["export", "--only", "config", "--no-encrypt", "--out", os.path.join(self.t, "no.tar.gz")])
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("the reader would refuse", r.stderr)
         self.assertFalse(os.path.exists(os.path.join(self.t, "no.tar.gz")))
 
     def test_a_symbolic_link_in_the_library_is_left_out_with_a_note(self):
         os.symlink("/etc/hostname", os.path.join(self.conf, "packs/skills/example-skill/link.md"))
-        r = self.qargi(["export", "--only", "config", "--no-encrypt", "--out", os.path.join(self.t, "l.tar.gz")])
+        r = self.crown(["export", "--only", "config", "--no-encrypt", "--out", os.path.join(self.t, "l.tar.gz")])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("symbolic link", r.stderr)
         self.assertNotIn("config/packs/skills/example-skill/link.md", self.members(os.path.join(self.t, "l.tar.gz")))
@@ -473,7 +473,7 @@ class RoundTrip(Env):
     def test_a_memory_note_with_an_unreadable_name_is_left_out_with_a_note(self):
         self.put_store(self.fake, "memstore_A", {"/odd/./note.md": "x"})
         arc = os.path.join(self.t, "m.tar.gz")
-        r = self.qargi(["export", "--only", "memories", "--no-encrypt", "--out", arc])
+        r = self.crown(["export", "--only", "memories", "--no-encrypt", "--out", arc])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("left out", r.stderr)
         names = self.members(arc)
@@ -482,12 +482,12 @@ class RoundTrip(Env):
 
     def test_a_script_that_lost_its_executable_bit_is_a_change_and_gets_it_back(self):
         arc = os.path.join(self.t, "x.tar.gz")
-        self.assertEqual(self.qargi(["export", "--only", "config", "--no-encrypt", "--out", arc]).returncode, 0)
+        self.assertEqual(self.crown(["export", "--only", "config", "--no-encrypt", "--out", arc]).returncode, 0)
         t, conf, state, fake = self.fresh_target()
         script = os.path.join(conf, "packs/skills/example-skill/scripts/run.sh")
         self.write(script, self.LIB["packs/skills/example-skill/scripts/run.sh"])
         os.chmod(script, 0o644)
-        r = self.qargi(["import", arc, "--only", "config", "--project", "alpha", "--mode", "overwrite"], answers=["y"], env=t)
+        r = self.crown(["import", arc, "--only", "config", "--project", "alpha", "--mode", "overwrite"], answers=["y"], env=t)
         self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
         self.assertTrue(os.access(script, os.X_OK))
         self.assertEqual(os.stat(script).st_mode & 0o777, 0o700)
@@ -511,7 +511,7 @@ class Hostile(Env):
         return p
 
     def dry(self, p):
-        return self.qargi(["import", p, "--dry-run"])
+        return self.crown(["import", p, "--dry-run"])
 
     def test_path_traversal_and_absolute_names_are_refused(self):
         for name in ("../evil", "config/../../evil", "/etc/x"):

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# qargi marshal: who leads which feature (identity, lease, status, handoff, takeover, the shell API and its renewer).
-# Written from the SPEC of the feature, not from its code. Time is injected with QARGI_MARSHAL_NOW (epoch seconds); only the
-# renewer tests run in real time (QARGI_MARSHAL_RENEW_SEC=1).
+# crown marshal: who leads which feature (identity, lease, status, handoff, takeover, the shell API and its renewer).
+# Written from the SPEC of the feature, not from its code. Time is injected with CROWN_MARSHAL_NOW (epoch seconds); only the
+# renewer tests run in real time (CROWN_MARSHAL_RENEW_SEC=1).
 # Run: tests/test_marshal.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck source=hermetic.sh
 . tests/hermetic.sh
-T=$(mktemp -d); fail=0; DA=$PWD/bin/qargi; TOOL=$PWD
+T=$(mktemp -d); fail=0; DA=$PWD/bin/crown; TOOL=$PWD
 trap 'jobs -p | xargs -r kill 2>/dev/null; rm -rf "$T" "$HERMETIC"' EXIT
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
 export HOME=$T/home TMPDIR=$T/tmp   # the temporary files of the verbs under test are this test's own
-export QARGI_CONF=$T/c QARGI_STATE=$T/home/.qargi/state GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
-export QARGI_PROJECT=app
-S=$QARGI_STATE; AUDIT=$S/audit.log
+export CROWN_CONF=$T/c CROWN_STATE=$T/home/.crown/state GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.net GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.net
+export CROWN_PROJECT=app
+S=$CROWN_STATE; AUDIT=$S/audit.log
 mkdir -p "$HOME" "$TMPDIR" "$T/c/projects" "$S/features"
 R=$T/app; git init -q -b master "$R"
 echo 0.1.0 > "$R/VERSION"; git -C "$R" add -A && git -C "$R" commit -q -m one && git -C "$R" branch develop
@@ -32,7 +32,7 @@ ttl() { jq --argjson n "$1" '.marshal.lease_minutes = $n' "$T/c/projects/app.jso
 rec() { echo "$S/features/app-$1.json"; }
 j() { jq -r "$2" "$(rec "$1")"; }            # j NAME FILTER
 # M NOW ARGS...: marshal at the injected time; stdout and stderr in $T/o and $T/e, exit status returned
-M() { local now=$1; shift; QARGI_MARSHAL_NOW=$now "$DA" marshal "$@" >"$T/o" 2>"$T/e"; }
+M() { local now=$1; shift; CROWN_MARSHAL_NOW=$now "$DA" marshal "$@" >"$T/o" 2>"$T/e"; }
 out() { cat "$T/o" "$T/e"; }
 t0=1000000; TTL=900   # the default ttl is 15 minutes
 
@@ -144,7 +144,7 @@ M $t0 status --history; [ $? = 2 ] && ok "status --history without --all is a us
 M $t0 check; ! grep -Eq "^(ghost|donefeat) " "$T/o" && ok "check without NAME lists open features only" || no "SPEC check lists open: $(out)"
 # check of a name that is neither a branch nor a record
 M $t0 check nosuchfeat --as bob; rc=$?
-[ $rc = 1 ] && grep -q "qargi: no feature nosuchfeat in app (no branch feature/nosuchfeat and no record)" "$T/e" && ! grep -qi free "$T/o" && ok "check: an unknown name exits 1 with the 'no feature' message" || no "SPEC check unknown: rc=$rc $(out)"
+[ $rc = 1 ] && grep -q "crown: no feature nosuchfeat in app (no branch feature/nosuchfeat and no record)" "$T/e" && ! grep -qi free "$T/o" && ok "check: an unknown name exits 1 with the 'no feature' message" || no "SPEC check unknown: rc=$rc $(out)"
 M $t0 check old --as bob; rc=$?
 [ $rc = 0 ] && grep -qi free "$T/o" && ok "check: a branch without a record stays free" || no "SPEC check branch only: rc=$rc $(out)"
 jq -n '{purpose:"legacy", started:"2026-01-01T00:00:00Z"}' > "$(rec old)"
@@ -179,8 +179,8 @@ M $((t0 + 1003)) take f1 --as carol; [ $? = 1 ] && [ "$(j f1 .lead.id)" = bob ] 
 # two simultaneous takers: exactly one wins and rev advances once
 M $((t0 + 1010)) release f1 --as bob --note "again"
 rev0=$(j f1 .rev)
-QARGI_MARSHAL_NOW=$((t0 + 1020)) "$DA" marshal take f1 --as carol >/dev/null 2>&1 & p1=$!
-QARGI_MARSHAL_NOW=$((t0 + 1020)) "$DA" marshal take f1 --as dave >/dev/null 2>&1 & p2=$!
+CROWN_MARSHAL_NOW=$((t0 + 1020)) "$DA" marshal take f1 --as carol >/dev/null 2>&1 & p1=$!
+CROWN_MARSHAL_NOW=$((t0 + 1020)) "$DA" marshal take f1 --as dave >/dev/null 2>&1 & p2=$!
 wait $p1; r1=$?; wait $p2; r2=$?
 if [ $((r1 + r2)) = 1 ] && { [ $r1 = 0 ] || [ $r2 = 0 ]; }; then ok "take: of two simultaneous takers exactly one exits 0 and the other 1"; else no "SPEC take race: exit codes $r1 and $r2 (want one 0 and one 1)"; fi
 [ "$(j f1 .rev)" = $((rev0 + 1)) ] && ok "take race: rev advanced once" || no "SPEC take race: rev $rev0 -> $(j f1 .rev), want +1"
@@ -206,15 +206,15 @@ M $((tk + TTL + 5)) finish f1 --as bob; rc=$?
 M $t0 finish f9 --as zed; rc=$?
 [ $rc = 0 ] && [ "$(j f9 .status)" = finished ] && ok "finish: a feature with no lead can be finished by anyone" || no "SPEC finish no lead: rc=$rc $(out)"
 
-# --- identity: --as, QARGI_LEAD, anonymous user@host
-QARGI_LEAD=sess-9 QARGI_MARSHAL_NOW=$t0 "$DA" marshal claim f3 >"$T/o" 2>"$T/e"; rc=$?
-[ $rc = 0 ] && [ "$(j f3 .lead.id)" = sess-9 ] && ok "identity: QARGI_LEAD is used" || no "SPEC identity QARGI_LEAD: rc=$rc $(out) $(cat "$(rec f3)")"
-QARGI_LEAD=sess-9 QARGI_MARSHAL_NOW=$t0 "$DA" marshal renew f3 --as other >"$T/o" 2>&1; [ $? = 1 ] && ok "identity: --as overrides QARGI_LEAD" || no "SPEC --as must override QARGI_LEAD (other is not the lead)"
-QARGI_LEAD=sess-9 QARGI_MARSHAL_NOW=$t0 "$DA" marshal renew f3 >"$T/o" 2>&1 && ok "identity: QARGI_LEAD renews its own lease" || no "SPEC QARGI_LEAD renew: $(cat "$T/o")"
-QARGI_MARSHAL_NOW=$t0 "$DA" marshal claim f5 >"$T/o" 2>"$T/e"; rc=$?
+# --- identity: --as, CROWN_LEAD, anonymous user@host
+CROWN_LEAD=sess-9 CROWN_MARSHAL_NOW=$t0 "$DA" marshal claim f3 >"$T/o" 2>"$T/e"; rc=$?
+[ $rc = 0 ] && [ "$(j f3 .lead.id)" = sess-9 ] && ok "identity: CROWN_LEAD is used" || no "SPEC identity CROWN_LEAD: rc=$rc $(out) $(cat "$(rec f3)")"
+CROWN_LEAD=sess-9 CROWN_MARSHAL_NOW=$t0 "$DA" marshal renew f3 --as other >"$T/o" 2>&1; [ $? = 1 ] && ok "identity: --as overrides CROWN_LEAD" || no "SPEC --as must override CROWN_LEAD (other is not the lead)"
+CROWN_LEAD=sess-9 CROWN_MARSHAL_NOW=$t0 "$DA" marshal renew f3 >"$T/o" 2>&1 && ok "identity: CROWN_LEAD renews its own lease" || no "SPEC CROWN_LEAD renew: $(cat "$T/o")"
+CROWN_MARSHAL_NOW=$t0 "$DA" marshal claim f5 >"$T/o" 2>"$T/e"; rc=$?
 id=$(j f5 .lead.id)
 [ $rc = 0 ] && [[ $id == *@* ]] && [ -s "$T/e" ] && ok "identity: anonymous is user@host, warns on stderr, never refuses" || no "SPEC anonymous: rc=$rc id=$id stderr=$(cat "$T/e")"
-QARGI_MARSHAL_NOW=$t0 "$DA" marshal check f5 >"$T/o" 2>"$T/e"; rc=$?
+CROWN_MARSHAL_NOW=$t0 "$DA" marshal check f5 >"$T/o" 2>"$T/e"; rc=$?
 [ $rc = 0 ] && grep -qi yours "$T/o" && [ -s "$T/e" ] && ok "identity: check as the anonymous lead is 'yours' with a stderr warning" || no "SPEC anonymous check: rc=$rc $(out)"
 
 # --- marshal.lease_minutes changes the live/stale boundary
@@ -291,13 +291,13 @@ M $t0 claim sc3 --as alice >/dev/null; M $t0 release sc3 --as alice --note n >/d
 M $t0 claim sc3 --as bob --as-successor-of alice; [ $? = 1 ] && ok "succession: a released feature has no lead to succeed" || no "SPEC succession released"
 M $t0 claim sc4 --as alice >/dev/null
 printf 'set -u\n. "%s/lib/lib.sh"; . "%s/lib/marshal.sh"\nmarshal_start app sc4 restart\n' "$TOOL" "$TOOL" > "$T/start.sh"
-QARGI_MARSHAL_NOW=$((t0 + TTL)) QARGI_LEAD=bob bash "$T/start.sh" >"$T/o" 2>"$T/e"; rc=$?
+CROWN_MARSHAL_NOW=$((t0 + TTL)) CROWN_LEAD=bob bash "$T/start.sh" >"$T/o" 2>"$T/e"; rc=$?
 [ $rc = 0 ] && [ "$(j sc4 .lead.id)" = bob ] && [ "$(j sc4 .lead.succeeds)" = alice ] && grep -q "sc4 old=alice new=bob" "$AUDIT" && ok "succession: marshal_start (feature start) continues on its own, and audits it" || no "SPEC succession start: rc=$rc $(out) $(cat "$(rec sc4)")"
 
 # --- the shell API and the renewer (real time; ttl 1 minute; renews every second)
 ttl 1
-export QARGI_LEAD=holder QARGI_MARSHAL_RENEW_SEC=1
-unset QARGI_MARSHAL_NOW
+export CROWN_LEAD=holder CROWN_MARSHAL_RENEW_SEC=1
+unset CROWN_MARSHAL_NOW
 cat > "$T/api.sh" <<EOS
 set -u
 . "$TOOL/lib/lib.sh"; . "$TOOL/lib/marshal.sh"
@@ -307,12 +307,12 @@ api 'marshal_start app f8 "api purpose"' >"$T/o" 2>"$T/e"; rc=$?
 [ $rc = 0 ] && [ "$(j f8 .lead.id)" = holder ] && ok "api: marshal_start claims the feature as the lead" || no "SPEC marshal_start: rc=$rc $(out)"
 api 'marshal_check app f8' >/dev/null 2>&1 && ok "api: marshal_check passes for the lead" || no "SPEC marshal_check for the lead"
 api 'marshal_check app nosuchfeat' >/dev/null 2>&1; [ $? = 1 ] && ok "api: marshal_check of an unknown name returns 1" || no "SPEC marshal_check unknown"
-QARGI_LEAD=other api 'marshal_check app f8' >/dev/null 2>&1 && no "SPEC marshal_check: another LIVE lead must fail" || ok "api: marshal_check refuses when another LIVE lead holds it"
+CROWN_LEAD=other api 'marshal_check app f8' >/dev/null 2>&1 && no "SPEC marshal_check: another LIVE lead must fail" || ok "api: marshal_check refuses when another LIVE lead holds it"
 api 'marshal_finish app f8' >/dev/null 2>&1; [ "$(j f8 .status)" = finished ] && ok "api: marshal_finish finishes the feature" || no "SPEC marshal_finish: $(cat "$(rec f8)")"
 # a holder: keeps the lease while running, prints nothing, stops with marshal_hold_stop
 mkfifo "$T/ff"; exec 9<>"$T/ff"
 M "$(date +%s)" claim f9 --as holder; M "$(date +%s)" release f9 --as holder --note n >/dev/null 2>&1
-unset QARGI_MARSHAL_NOW
+unset CROWN_MARSHAL_NOW
 cat > "$T/holder.sh" <<EOS
 . '$T/api.sh'
 marshal_start app f9 "held" || exit 3
@@ -330,8 +330,8 @@ kids=$(cat "$T/hold.kids" 2>/dev/null)
 [ -n "$kids" ] && ok "api: marshal_hold_start runs a background renewer" || no "SPEC hold_start: no child process"
 a=$(j f9 .renewed_at); b=$a
 for _ in $(seq 1 100); do b=$(j f9 .renewed_at); [ "$a" != "$b" ] && break; sleep 0.1; done   # it renews every second: allow ten
-[ "$a" != "$b" ] && ok "renewer: renewed_at advanced while the holder ran" || no "SPEC renewer: renewed_at stayed $a for 10 s with QARGI_MARSHAL_RENEW_SEC=1"
-QARGI_LEAD=other "$DA" marshal check f9 >/dev/null 2>&1; [ $? = 1 ] && ok "renewer: the lead stays live with ttl 1 minute" || no "SPEC lead lost while held"
+[ "$a" != "$b" ] && ok "renewer: renewed_at advanced while the holder ran" || no "SPEC renewer: renewed_at stayed $a for 10 s with CROWN_MARSHAL_RENEW_SEC=1"
+CROWN_LEAD=other "$DA" marshal check f9 >/dev/null 2>&1; [ $? = 1 ] && ok "renewer: the lead stays live with ttl 1 minute" || no "SPEC lead lost while held"
 echo stop >&9
 for _ in $(seq 1 50); do grep -q stopped "$T/holder.log" 2>/dev/null && break; sleep 0.1; done
 alive=''; for k in $kids; do kill -0 "$k" 2>/dev/null && alive="$alive $k"; done

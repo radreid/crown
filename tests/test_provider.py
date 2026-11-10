@@ -11,7 +11,7 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 LIB = os.path.join(ROOT, "lib")
-BIN = os.path.join(ROOT, "bin", "qargi")
+BIN = os.path.join(ROOT, "bin", "crown")
 sys.path.insert(0, LIB)
 import provider as P  # noqa: E402
 
@@ -235,7 +235,7 @@ class Barrier(Tree):
     def test_no_barrier_is_refused_with_the_command(self):
         state, text = self.rb("claude-platform", "cloud", "alpha")
         self.assertEqual(state, "refused")
-        self.assertIn("qargi provider accept claude-platform --surface cloud --no-barrier --project alpha --asked", text)
+        self.assertIn("crown provider accept claude-platform --surface cloud --no-barrier --project alpha --asked", text)
 
     def test_the_command_names_a_placeholder_without_a_project(self):
         self.assertIn("--project PROJECT", self.rb("bare-local", "local")[1])
@@ -275,7 +275,7 @@ class Barrier(Tree):
             self.rb("nope", "cloud")
 
     def test_the_cli_exits_2_when_refused_and_0_when_accepted_or_partial(self):
-        env = dict(os.environ, QARGI_CONF=self.conf, QARGI_STATE=os.path.join(self.tmp, "state"), HOME=os.path.join(self.tmp, "home"))
+        env = dict(os.environ, CROWN_CONF=self.conf, CROWN_STATE=os.path.join(self.tmp, "state"), HOME=os.path.join(self.tmp, "home"))
         os.makedirs(env["HOME"])
 
         def rb(*a):
@@ -283,7 +283,7 @@ class Barrier(Tree):
             return r.returncode, r.stderr
         rc, err = rb("claude-platform", "cloud", "--project", "alpha")
         self.assertEqual(rc, 2)
-        self.assertIn("qargi provider accept claude-platform --surface cloud --no-barrier --project alpha", err)
+        self.assertIn("crown provider accept claude-platform --surface cloud --no-barrier --project alpha", err)
         rc, err = rb("claude-code", "local")
         self.assertEqual((rc, "partial read-only barrier" in err), (0, True))
         self.answers("alpha", {"accept_no_barrier": {"cloud": self.ACC}})
@@ -458,8 +458,8 @@ class Cli(CliBase):
         self.assertEqual(rc, 1)
         self.assertIn("not readable JSON", err)
 
-    def test_through_qargi_itself(self):
-        env = dict(os.environ, QARGI_CONF=os.path.join(self.tmp, "conf"), QARGI_STATE=os.path.join(self.tmp, "state"), HOME=os.path.join(self.tmp, "home"))
+    def test_through_crown_itself(self):
+        env = dict(os.environ, CROWN_CONF=os.path.join(self.tmp, "conf"), CROWN_STATE=os.path.join(self.tmp, "state"), HOME=os.path.join(self.tmp, "home"))
         os.makedirs(env["HOME"])
 
         def q(*a):
@@ -601,7 +601,7 @@ class Layout(Tree):
 
     def test_project_provider_is_models_provider_and_has_no_default(self):
         self.assertEqual(P.project_provider({"models": {"provider": "other"}}, "p"), "other")
-        msg = "project p has no provider: set one with qargi project set p models.provider NAME"
+        msg = "project p has no provider: set one with crown project set p models.provider NAME"
         for answers in ({}, None, {"models": {}}, {"models": {"provider": ""}}, {"models": {"provider": "  "}}, {"models": {"provider": 3}}):
             with self.assertRaises(P.NoProvider) as cm:
                 P.project_provider(answers, "p")
@@ -625,7 +625,7 @@ class LayoutCli(CliBase):
         self.put("claude-code", d)
         rc, out, err = self.run_cli("layout", "claude-code", "project_skills_dir", "--would", "link the skills")
         self.assertEqual((rc, out), (3, ""))
-        self.assertEqual(err, "qargi: provider claude-code has no project skills directory: link the skills\n")
+        self.assertEqual(err, "crown: provider claude-code has no project skills directory: link the skills\n")
 
     def test_check_lists_a_missing_layout_facility_among_the_degrades(self):
         rc, out, _ = self.run_cli("check", "claude-code")
@@ -645,7 +645,7 @@ class LayoutCli(CliBase):
                 json.dump(answers, f)
         self.assertEqual(self.run_cli("of", "withp", "--conf", conf)[:2], (0, "claude\n"))
         rc, out, err = self.run_cli("of", "nop", "--conf", conf)
-        self.assertEqual((rc, out, err), (2, "", "qargi: project nop has no provider: set one with qargi project set nop models.provider NAME\n"))
+        self.assertEqual((rc, out, err), (2, "", "crown: project nop has no provider: set one with crown project set nop models.provider NAME\n"))
         self.assertEqual(self.run_cli("of", "absent", "--conf", conf)[0], 2)
         self.assertEqual(self.run_cli("of", "badp", "--conf", conf)[:2], (0, "nope\n"))
         self.assertEqual(self.run_cli("layout", "nope")[0], 1)
@@ -859,7 +859,7 @@ class Schema2(unittest.TestCase):
         self.assertEqual(len(warned(runtime(dispatch=in_session, notes={"alpha": "x"}))), 1)
         self.assertEqual(fails(runtime(dispatch=in_session)), [])                              # a warning, never a failure
         self.assertEqual(warned(runtime(dispatch=in_session, notes={"spawn": "Start it."})), [])
-        self.assertEqual(warned(runtime()), [])                                                 # a command runtime is started by qargi local run
+        self.assertEqual(warned(runtime()), [])                                                 # a command runtime is started by crown local run
         self.assertEqual(warned(runtime(surface="cloud", dispatch=in_session)), [])
         self.assertIn("spawn", warned(runtime(dispatch=in_session))[0])
         self.assertEqual(warned(CODE), [])                                                     # the shipped runtime has it
@@ -1165,7 +1165,7 @@ class Loader(V2Tree):
         self.put("fine", runtime("fine"))
         with self.assertRaises(P.Clash) as cm:
             P.definition("dupe", **self.kw())
-        self.assertEqual(str(cm.exception), "'dupe' is defined twice (shipped and library); qargi provider remove dupe, or rename it")
+        self.assertEqual(str(cm.exception), "'dupe' is defined twice (shipped and library); crown provider remove dupe, or rename it")
         self.assertIsInstance(cm.exception, P.ProviderError)
         for f in (P.definition, P.surfaces_of, P.models_of):
             with self.assertRaises(P.Clash):
@@ -1192,7 +1192,7 @@ class Loader(V2Tree):
         self.assertEqual(P.names(root=self.root), ["fakecli"])
 
     def test_the_default_library_is_below_the_configuration_directory(self):
-        conf = os.environ["QARGI_CONF"]
+        conf = os.environ["CROWN_CONF"]
         self.assertEqual(P.library_dir(), os.path.join(conf, "packs", "providers"))
         os.makedirs(os.path.join(conf, "packs", "providers", "homecli"))
         self.addCleanup(shutil.rmtree, os.path.join(conf, "packs", "providers", "homecli"), True)
@@ -1290,7 +1290,7 @@ class Verified(V2Tree):
     def test_require_skills_and_the_barrier_follow_the_record(self):
         barrier = {"kind": "sandbox-args"}
         self.put_lib("libcli", dict(self.lib, barrier=barrier, capabilities={"skills": cell("yes", None), "read_only_barrier": cell("yes", None)}))
-        with mock.patch.dict(os.environ, {"QARGI_STATE": self.state}):             # the default state directory is QARGI_STATE
+        with mock.patch.dict(os.environ, {"CROWN_STATE": self.state}):             # the default state directory is CROWN_STATE
             with self.assertRaises(P.Unsupported):
                 P.require_skills("libcli", "x", **self.kw())
             self.record(skills=self.good(), read_only_barrier=self.good())
@@ -1308,11 +1308,11 @@ class Verified(V2Tree):
         self.claimant()
         self.assertEqual(P.cap("libcli", "local", "read_only_barrier", **self.kw(state=self.state)), "no")
         self.assertEqual(self.eff("read_only_barrier"), "no")
-        with mock.patch.dict(os.environ, {"QARGI_STATE": self.state}):
+        with mock.patch.dict(os.environ, {"CROWN_STATE": self.state}):
             state, text = P.require_barrier("libcli", "local", None, **self.kw())
         self.assertEqual(state, "refused")
         self.assertIn("barrier.kind is none", text)                                  # says why: the claim, not "not supported"
-        self.assertIn("qargi provider accept libcli --surface local --no-barrier", text)
+        self.assertIn("crown provider accept libcli --surface local --no-barrier", text)
 
     def test_a_claim_that_something_holds_still_counts(self):
         for label, over in (("sandbox-args", {"barrier": {"kind": "sandbox-args"}}),
@@ -1320,7 +1320,7 @@ class Verified(V2Tree):
             with self.subTest(label):
                 self.claimant(**over)
                 self.assertEqual(self.eff("read_only_barrier"), "yes")
-                with mock.patch.dict(os.environ, {"QARGI_STATE": self.state}):
+                with mock.patch.dict(os.environ, {"CROWN_STATE": self.state}):
                     self.assertEqual(P.require_barrier("libcli", "local", None, **self.kw())[0], "yes")
 
     def test_class_arguments_for_another_class_do_not_hold_the_claim(self):
@@ -1430,7 +1430,7 @@ class PerSurface(V2Tree):
         models = {"models": {"provider": "fam"}}
         self.assertEqual(P.resolve_project(models, "local", "p", **self.kw()),
                          ("fam-cli", "models.provider is the single name 'fam'; on the local surface it resolves to fam-cli through the family. "
-                                     "Name a runtime for each surface: qargi project set p models.provider.local fam-cli"))
+                                     "Name a runtime for each surface: crown project set p models.provider.local fam-cli"))
         self.assertIn("resolves to claude-code through the family", P.resolve_project({"models": {"provider": "claude"}}, "local", "p", **self.kw())[1])
         self.assertIsNone(P.resolve_project({"models": {"provider": "solo"}}, "local", "p", **self.kw())[1])
         self.assertIsNone(P.resolve_project({"models": {"provider": "claude-code"}}, "local", "p", **self.kw())[1])
@@ -1440,11 +1440,11 @@ class PerSurface(V2Tree):
         with self.assertRaises(P.NoProvider) as cm:
             self.of("solo", "cloud")
         self.assertEqual(str(cm.exception), "project p has no cloud provider: its provider 'solo' does not serve that surface; "
-                                            "set one with qargi project set p models.provider.cloud NAME")
+                                            "set one with crown project set p models.provider.cloud NAME")
         self.assertEqual(P.NoProvider.__mro__[1], P.ProviderError)
 
     def test_an_unset_surface_is_no_provider_with_the_standard_message(self):
-        standard = "project p has no provider: set one with qargi project set p models.provider NAME"
+        standard = "project p has no provider: set one with crown project set p models.provider NAME"
         for answers in ({}, None, {"models": {}}, {"models": {"provider": ""}}, {"models": {"provider": "  "}}, {"models": {"provider": 3}}, {"models": {"provider": None}}):
             for surface in P.SURFACES:
                 with self.assertRaises(P.NoProvider, msg=repr(answers)) as cm:
@@ -1453,7 +1453,7 @@ class PerSurface(V2Tree):
         for provider, surface in (({"local": "solo"}, "cloud"), ({}, "local"), ({"local": "solo", "cloud": " "}, "cloud"), ({"cloud": None}, "cloud")):
             with self.assertRaises(P.NoProvider) as cm:
                 self.of(provider, surface)
-            self.assertEqual(str(cm.exception), "project p has no %s provider: set one with qargi project set p models.provider.%s NAME" % (surface, surface))
+            self.assertEqual(str(cm.exception), "project p has no %s provider: set one with crown project set p models.provider.%s NAME" % (surface, surface))
 
     def test_an_unknown_surface_key_or_name_is_refused(self):
         with self.assertRaises(P.Refused) as cm:
@@ -1495,14 +1495,14 @@ class PerSurfaceCli(CliBase):
         self.assertEqual(self.of("obj", "--surface", "local")[:2], (0, "fam-cli\n"))
         rc, out, err = self.run_cli("of", "--surface", "local", "fam", "--conf", self.conf)
         self.assertEqual((rc, out), (0, "fam-cli\n"))
-        self.assertEqual(err, "qargi: note: models.provider is the single name 'fam'; on the local surface it resolves to fam-cli through the family. "
-                              "Name a runtime for each surface: qargi project set fam models.provider.local fam-cli\n")
+        self.assertEqual(err, "crown: note: models.provider is the single name 'fam'; on the local surface it resolves to fam-cli through the family. "
+                              "Name a runtime for each surface: crown project set fam models.provider.local fam-cli\n")
 
     def test_of_exits_2_for_an_unset_surface_an_ambiguous_family_and_a_project_with_none(self):
         rc, out, err = self.of("obj", "--surface", "cloud")
-        self.assertEqual((rc, out, err), (2, "", "qargi: project obj has no cloud provider: set one with qargi project set obj models.provider.cloud NAME\n"))
+        self.assertEqual((rc, out, err), (2, "", "crown: project obj has no cloud provider: set one with crown project set obj models.provider.cloud NAME\n"))
         rc, out, err = self.of("none", "--surface", "local")
-        self.assertEqual((rc, out, err), (2, "", "qargi: project none has no provider: set one with qargi project set none models.provider NAME\n"))
+        self.assertEqual((rc, out, err), (2, "", "crown: project none has no provider: set one with crown project set none models.provider NAME\n"))
         rc, out, err = self.of("amb", "--surface", "cloud")
         self.assertEqual((rc, out), (2, ""))
         self.assertIn("more than one runtime on the cloud surface (fam-hosted, fam-other)", err)
@@ -1532,7 +1532,7 @@ class V2Cli(CliBase):
         os.makedirs(self.library)
 
     def run_cli(self, *args):
-        env = dict(os.environ, QARGI_CONF=self.conf, QARGI_STATE=self.state)
+        env = dict(os.environ, CROWN_CONF=self.conf, CROWN_STATE=self.state)
         r = subprocess.run([sys.executable, "-I", os.path.join(self.copy, "provider.py")] + list(args), capture_output=True, text=True, env=env)
         return r.returncode, r.stdout, r.stderr
 
@@ -1646,7 +1646,7 @@ class V2Cli(CliBase):
         self.assertIn("fail: contract_addenda: add.md does not exist", out)
         rc, _, err = self.run_cli("addenda", "withadd", "cloud")
         self.assertEqual(rc, 1)
-        self.assertIn("qargi: contract_addenda: add.md does not exist", err)
+        self.assertIn("crown: contract_addenda: add.md does not exist", err)
         os.makedirs(os.path.join(self.root, "withadd"))
         with open(os.path.join(self.root, "withadd", "add.md"), "w") as f:
             f.write("# Addendum\nline\n")
@@ -1692,7 +1692,7 @@ class V2Cli(CliBase):
         self.assertEqual(self.run_cli("launch", "fakecli", "/r")[:2], (0, "fake /r\n"))
         self.assertEqual(self.run_cli("skills-dirs")[1], ".claude/skills\n.fake/skills\n")
         rc, _, err = self.run_cli("layout", "fakecli", "project_agents_dir", "--would", "write")
-        self.assertEqual((rc, err), (3, "qargi: provider fakecli has no project agents directory: write\n"))
+        self.assertEqual((rc, err), (3, "crown: provider fakecli has no project agents directory: write\n"))
         self.assertEqual(self.run_cli("require-barrier", "fakecli", "local")[0], 2)
 
 
@@ -1762,7 +1762,7 @@ class ShippedClaude(unittest.TestCase):
                 runtime, notice = P.resolve_project(answers, surface, "alpha")
                 self.assertEqual(runtime, name)
                 self.assertIn("through the family", notice)
-                self.assertIn("qargi project set alpha models.provider.%s %s" % (surface, name), notice)
+                self.assertIn("crown project set alpha models.provider.%s %s" % (surface, name), notice)
         self.assertEqual(P.resolve_runtime("claude-code", "local"), "claude-code")
         self.assertEqual(P.provider_of({"models": {"provider": {"local": "claude-code", "cloud": "claude-platform"}}}, "cloud"), "claude-platform")
         with self.assertRaises(P.NoProvider):                            # the cloud runtime does not serve the local surface
@@ -1922,7 +1922,7 @@ class SealedPacks(V2Tree):
         self.assertEqual(self.sstate("freshp"), "unsealed")
         with self.assertRaises(P.Drift) as cm:
             P.definition("freshp", **self.kw())
-        self.assertIn("is not sealed; qargi provider check freshp, then qargi provider seal freshp", str(cm.exception))
+        self.assertIn("is not sealed; crown provider check freshp, then crown provider seal freshp", str(cm.exception))
         self.assertIsInstance(cm.exception, P.Refused)                               # exit 2, like a name that is defined twice
         d = self.pack("changedp")
         with open(os.path.join(d, "extra.txt"), "w") as f:
@@ -1936,8 +1936,8 @@ class SealedPacks(V2Tree):
         with self.assertRaises(P.Drift) as cm:                                      # a file put there by hand was never read or approved: it is not used
             P.definition("handp", **self.kw())
         self.assertIn("has no record (put there by hand)", str(cm.exception))
-        self.assertIn("qargi provider seal handp", str(cm.exception))
-        self.assertIn("qargi provider import", str(cm.exception))
+        self.assertIn("crown provider seal handp", str(cm.exception))
+        self.assertIn("crown provider import", str(cm.exception))
         with self.assertRaises(P.Drift):
             P.definition("handp", **self.kw())
         with self.assertRaises(P.Drift):
@@ -2078,10 +2078,10 @@ class LibraryBase(unittest.TestCase):
         self.conf, self.state, self.home, self.src = (os.path.join(self.tmp, d) for d in ("conf", "state", "home", "src"))
         for d in (self.home, self.src):
             os.makedirs(d)
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith(("QARGI_", "ANTHROPIC_"))}
-        self.env.update(HOME=self.home, QARGI_CONF=self.conf, QARGI_STATE=self.state)
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith(("CROWN_", "ANTHROPIC_"))}
+        self.env.update(HOME=self.home, CROWN_CONF=self.conf, CROWN_STATE=self.state)
         self.lib = os.path.join(self.conf, "packs", "providers")
-        self.patches = [mock.patch.dict(os.environ, {"QARGI_CONF": self.conf, "QARGI_STATE": self.state, "HOME": self.home})]
+        self.patches = [mock.patch.dict(os.environ, {"CROWN_CONF": self.conf, "CROWN_STATE": self.state, "HOME": self.home})]
         for m in self.patches:
             m.start()
             self.addCleanup(m.stop)
@@ -2362,7 +2362,7 @@ class Names(LibraryBase):
         for name in ("claude-code", "claude"):
             rc, out, err = self.q("import", self.source(name, fake_runtime(name)))
             self.assertEqual(rc, 2, (name, out))
-            self.assertIn("'%s' is a name qargi ships" % name, err)
+            self.assertIn("'%s' is a name crown ships" % name, err)
             self.assertNotIn("plan token", out)
         self.assertEqual(self.q("new", "claude-code")[0], 2)
         self.assertEqual(self.q("new", "claude")[0], 2)
@@ -2540,7 +2540,7 @@ class CheckVerbs(LibraryBase):
             rc, out, err = self.q(verb, *args)
             self.assertEqual(rc, 2, (verb, out, err))
             self.assertIn("has no record", out + err, verb)
-            self.assertIn("qargi provider seal handcli", out + err, verb)
+            self.assertIn("crown provider seal handcli", out + err, verb)
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "adapter-ran")))         # no pack code ran
         self.assertFalse(os.path.exists(os.path.join(self.state, "providers", "handcli", "verified.json")))
         self.assertFalse(os.path.exists(os.path.join(d, ".pack.json")))
@@ -2779,7 +2779,7 @@ class Cases(LibraryBase):
             res = cases.barrier_hook(doc, None, "claude-code", False, True)["barrier-hook"]
         self.assertEqual(res["status"], "fail")
         self.assertRegex(res["notes"][0], r"\d+ of \d+ corpus calls went wrong")
-        deny_all = subprocess.CompletedProcess([], 2, "", "qargi guard: no")
+        deny_all = subprocess.CompletedProcess([], 2, "", "crown guard: no")
         with mock.patch.object(cases.subprocess, "run", return_value=deny_all):
             res = cases.barrier_hook(doc, None, "claude-code", False, True)["barrier-hook"]
         self.assertEqual(res["status"], "fail")                                  # a barrier that denies everything is not a read-only barrier either
@@ -2860,7 +2860,7 @@ class EnvPass(LibraryBase):
 
     DENIED = ("HOME", "PATH", "SHELL", "USER", "TMPDIR", "IFS", "BASH_ENV", "ENV", "SHELLOPTS", "PROMPT_COMMAND", "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES",
               "PYTHONPATH", "PYTHONSTARTUP", "PERL5LIB", "RUBYOPT", "NODE_OPTIONS", "SSH_AUTH_SOCK", "SSH_ASKPASS", "GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN",
-              "GITHUB_PAT", "GITLAB_TOKEN", "GIT_DIR", "GIT_SSH_COMMAND", "QARGI_HOME", "XDG_CONFIG_HOME", "GNUPGHOME", "EDITOR",
+              "GITHUB_PAT", "GITLAB_TOKEN", "GIT_DIR", "GIT_SSH_COMMAND", "CROWN_HOME", "XDG_CONFIG_HOME", "GNUPGHOME", "EDITOR",
               "JDK_JAVA_OPTIONS", "FPATH", "ZDOTDIR", "KSH_ENV", "LUA_INIT", "LUA_PATH", "LUA_CPATH", "LESSOPEN", "GLIBC_TUNABLES", "NPM_CONFIG_REGISTRY",
               "npm_config_prefix", "GOFLAGS", "GOENV", "INPUTRC", "TERMINFO", "SUDO_ASKPASS")
     ALLOWED = ("OPENAI_API_KEY", "FAKECLI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "ANTHROPIC_API_KEY", "FAKE_MODE", "HTTPS_PROXY", "LANG")
@@ -2985,7 +2985,7 @@ class RemoveEnable(LibraryBase):
         self.import_pack(ext, exec_names="verbs/resume")
 
     def project(self, name, answers):
-        """Answers `qargi project set` accepts (a valid project), with the models of `answers`."""
+        """Answers `crown project set` accepts (a valid project), with the models of `answers`."""
         base = {"schema": 1, "project": name, "repo": {"url": "https://example.invalid/r.git", "path": "", "credential_file": "", "long_lived": ["master"]},
                 "roles": {"build": {"base": "@dispatcher", "push": {"mode": "none"}, "model": "claude-sonnet-5-5", "effort": "high", "apt": [], "skills": []}},
                 "models": {}, "memory": {"memory_store": "", "reference_store": "", "tiers": {}}, "budget_cents": 500}
@@ -3030,7 +3030,7 @@ class RemoveEnable(LibraryBase):
             self.assertEqual([json.loads(ln)["verb"] for ln in f if '"provider:remove"' in ln], ["provider:remove", "provider:remove"])
         rc, out, err = self.q("remove", "claude-code")
         self.assertEqual(rc, 2)
-        self.assertIn("shipped with qargi", err)
+        self.assertIn("shipped with crown", err)
 
     def test_enable_is_its_own_plan_names_the_executables_and_records_the_extension(self):
         rc, out, err = self.q("enable", "alpha", "addon")
@@ -3251,14 +3251,14 @@ class Extensions(ExtensionBase):
     def test_what_the_extension_requires_must_be_there_or_it_is_ignored_and_says_why(self):
         self.put("needsagents", skill_ext("needsagents", requires={"resources": ["agents"]}))
         self.put("needsmcp", skill_ext("needsmcp", requires={"capabilities": ["mcp"]}))
-        self.put("needsnew", skill_ext("needsnew", requires={"qargi": ">=999.0"}))
+        self.put("needsnew", skill_ext("needsnew", requires={"crown": ">=999.0"}))
         self.project("alpha", {"provider": {"local": "plaincli"}, "extensions": ["needsagents", "needsmcp", "needsnew"]})
         comp = P.compose("plaincli", "local", project="alpha")
         why = {i["extension"]: i["why"] for i in comp["ignored"]}
         self.assertEqual(comp["extensions"], [])
         self.assertIn("needs the agents resource", why["needsagents"])
         self.assertIn("needs mcp, which plaincli does not have verified", why["needsmcp"])
-        self.assertIn("needs qargi >=999.0", why["needsnew"])
+        self.assertIn("needs crown >=999.0", why["needsnew"])
 
     def test_the_barrier_of_an_extension_is_honoured_by_require_barrier_once_verified(self):
         self.put("barext", cap_ext("barext", "plaincli", ["read_only_barrier"], adds={"capabilities": {"read_only_barrier": {"value": "yes", "note": "n"}}, "barrier": {"kind": "sandbox-args"}}))
@@ -3541,7 +3541,7 @@ class ProjectConsumers(ExtensionBase):
         self.assertEqual(rc, 0, err)
         j = json.loads(out)
         self.assertEqual((j["verb"], j["stdin"]), ("resolve", "hello"))
-        self.assertIn("qargi-exec.", j["path"])                                       # not the library's file
+        self.assertIn("crown-exec.", j["path"])                                       # not the library's file
         self.assertNotIn(self.lib, j["path"])
         self.assertEqual(os.listdir(tmp), [])
         self.assertEqual(self.run_p("adapter-run", "adcli", "local", "resolve", "--check", tmpdir=tmp)[0], 0)
@@ -3562,7 +3562,7 @@ class ProjectConsumers(ExtensionBase):
         for name in ("GH_TOKEN", "SSH_AUTH_SOCK", "PYTHONPATH", "OPENAI_API_KEY"):
             self.assertNotRegex(text, r"(?m)^%s=" % name)
         self.assertIn("FAKE_MODE=passed-on\n", text)                                   # a name the definition lists travels
-        self.assertRegex(text, r"(?m)^HOME=%s/qargi-adapter\." % tmp)                  # a private home, in the run's temporary directory
+        self.assertRegex(text, r"(?m)^HOME=%s/crown-adapter\." % tmp)                  # a private home, in the run's temporary directory
         self.assertNotIn("HOME=%s\n" % self.home, text)
         self.assertEqual(os.listdir(tmp), [])                                          # and removed afterwards
 
@@ -3605,7 +3605,7 @@ class ProjectConsumers(ExtensionBase):
 class ExtensionSchema(unittest.TestCase):
     def good(self):
         return {"schema": 2, "kind": "extension", "extension": "addon", "extends": "libcli", "surface": "local", "provides": ["resume", "skills"],
-                "requires": {"capabilities": ["mcp"], "resources": ["agents"], "qargi": ">=0.2.0"},
+                "requires": {"capabilities": ["mcp"], "resources": ["agents"], "crown": ">=0.2.0"},
                 "adds": {"capabilities": {"resume": cell("yes"), "skills": cell("yes")}, "resources": copy.deepcopy(SKILLS_RES), "renderers": {"agent": {"engine": "map"}},
                          "dispatch": {"variants": {"fast": {"argv": ["x"]}}}, "barrier": {"kind": "hook"}, "adapter_verbs": {"resume": "verbs/resume"}}}
 
@@ -3618,7 +3618,7 @@ class ExtensionSchema(unittest.TestCase):
     def test_the_new_parts_are_checked(self):
         for mutate, needle in ((lambda d: d.update(surface="moon"), "surface: 'moon' is not one of local, cloud"),
                                (lambda d: d["adds"].update(color="red"), "adds.color: additional property is not allowed"),
-                               (lambda d: d["requires"].update(qargi="new"), "requires.qargi: 'new' does not match"),
+                               (lambda d: d["requires"].update(crown="new"), "requires.crown: 'new' does not match"),
                                (lambda d: d["requires"].update(resources=["nosuch"]), "requires.resources[0]: 'nosuch' is not one of"),
                                (lambda d: d["requires"].update(capabilities=["nosuch"]), "requires.capabilities: unknown capability 'nosuch'"),
                                (lambda d: d["requires"].update(extra=1), "requires.extra: additional property is not allowed"),
@@ -3733,8 +3733,8 @@ class JsonEscapedControls(LibraryBase):
             self.assertEqual(buf.getvalue(), "COMMAND=plain\\x1b[8mbin \\u202e 3\n", mod.__name__)
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
-                mod.print("qargi: a\x1b[2Kb", file=sys.stderr)
-            self.assertEqual(err.getvalue(), "qargi: a\\x1b[2Kb\n", mod.__name__)
+                mod.print("crown: a\x1b[2Kb", file=sys.stderr)
+            self.assertEqual(err.getvalue(), "crown: a\\x1b[2Kb\n", mod.__name__)
 
 
 class Review(unittest.TestCase):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""A test helper: write the record `qargi provider seal` leaves for each library pack directory given, so that a fixture a test builds by hand
-(a definition.json put in the library with jq) is a sealed pack. Without a record a library pack is "unrecorded" and qargi does not use it.
+"""A test helper: write the record `crown provider seal` leaves for each library pack directory given, so that a fixture a test builds by hand
+(a definition.json put in the library with jq) is a sealed pack. Without a record a library pack is "unrecorded" and crown does not use it.
 usage: handseal.py DIR...   (each DIR holds a definition.json; its executables, the files with an executable mode, are recorded as approved)"""
 import hashlib
 import json

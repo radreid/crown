@@ -2,7 +2,7 @@
 
 Kind: convention
 Applies to: any
-Sources: qargi seed
+Sources: crown seed
 
 ## Contents
 

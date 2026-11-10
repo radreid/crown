@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The qargi documentation site generator (Python >= 3.11, standard library only).
+"""The crown documentation site generator (Python >= 3.11, standard library only).
 
   site.py build   --release V --source DIR --out DIR [--pages DIR] [--config FILE] [--url URL] [--allow-unreleased]
   site.py check   --release V --source DIR [--pages DIR] [--config FILE] [--url URL] [--allow-unreleased]
@@ -27,7 +27,7 @@ folder, a minimal environment, limits on cpu time, memory, output size and time)
 
 site.json (a JSON object; an unknown key is refused): schema, release (the release the site is built for), url (the site address, https), pages
 (the hand pages in menu order), forbidden (words no hand page, nor the copyright line, may contain), repo (the https address of the source, linked
-in every footer), og_image (a file in static/), name (the site name, default qargi), author ({"name": "...", "url": "https://..."}, the url optional),
+in every footer), og_image (a file in static/), name (the site name, default crown), author ({"name": "...", "url": "https://..."}, the url optional),
 copyright (optional: one line of plain text, at most 200 characters, no < or >, shown escaped in the footer of every page, the 404 page included;
 for example "(c) 2026 Example Author. MIT licensed.") and license_url (optional, an https address without a query or fragment: the words
 "MIT licensed" of the copyright line become a link to it; without those words it is not shown, and check warns).
@@ -73,7 +73,7 @@ PAGE_IDS = ("main",)     # ids the page template uses; no heading may take one
 FRONT_KEYS = ("title", "description", "doctype", "nav")
 DOCTYPES = ("tutorial", "how-to", "reference", "explanation")
 CODE_SHELL = ("bash", "sh", "shell", "console", "shell-session", "zsh")
-SITE_NAME = "qargi"
+SITE_NAME = "crown"
 COPYRIGHT_MAX = 200                  # characters of the copyright line in the footer
 LICENSE_WORDS = "MIT licensed"       # the words of the copyright line that link to license_url
 
@@ -86,7 +86,7 @@ def _load(name, filename):
     return mod
 
 
-MD = _load("qargi_site_md", "site_md.py")
+MD = _load("crown_site_md", "site_md.py")
 esc = MD.esc
 
 
@@ -440,7 +440,7 @@ class Source:
 
     @property
     def stamp(self):
-        return "qargi " + (self.release if not self.unreleased else "(unreleased)")
+        return "crown " + (self.release if not self.unreleased else "(unreleased)")
 
 
 # ------------------------------------------------------------------ the site configuration
@@ -697,9 +697,9 @@ def usage_of(cmd, spec, verb=None):
     vs = Cmds.verbs(spec)
     if verb:
         v = vs[verb]
-        return "qargi %s %s%s" % (cmd, verb, (" " + argstr(v["args"])) if v["args"] else "") + (" [OPTIONS]" if v["opts"] else "")
+        return "crown %s %s%s" % (cmd, verb, (" " + argstr(v["args"])) if v["args"] else "") + (" [OPTIONS]" if v["opts"] else "")
     args = spec.get("usage", [])
-    return "qargi %s%s%s" % (cmd, (" " + argstr(args)) if args else "", " [OPTIONS]" if spec.get("opts") else "")
+    return "crown %s%s%s" % (cmd, (" " + argstr(args)) if args else "", " [OPTIONS]" if spec.get("opts") else "")
 
 
 def opt_table(opts):
@@ -729,8 +729,8 @@ class RefBuilder:
         spec = self.cmds.commands[name]
         parts, heads = [], []
         sid = self.uid(name)
-        heads.append((2, sid, "qargi " + name))
-        parts.append(h_html(2, sid, "qargi " + esc(name)))
+        heads.append((2, sid, "crown " + name))
+        parts.append(h_html(2, sid, "crown " + esc(name)))
         parts.append('<p class="summary">%s</p>' % esc(sentence(spec["summary"])))
         if spec.get("desc"):
             parts.append("<p>%s</p>" % esc(spec["desc"]))
@@ -740,14 +740,14 @@ class RefBuilder:
             parts.append(table(["Verb", "What it does"], rows))
             for v, vd in vs.items():
                 vid = self.uid("%s-%s" % (name, v))
-                heads.append((3, vid, "qargi %s %s" % (name, v)))
-                parts.append(h_html(3, vid, "qargi %s %s" % (esc(name), esc(v))))
+                heads.append((3, vid, "crown %s %s" % (name, v)))
+                parts.append(h_html(3, vid, "crown %s %s" % (esc(name), esc(v))))
                 parts.append('<p class="usage"><code>%s</code></p>' % esc(usage_of(name, spec, v)))
                 parts.append("<p>%s</p>" % esc(sentence(vd["summary"])))
                 if vd["desc"]:
                     parts.append("<p>%s</p>" % esc(vd["desc"]))
                 if has_project_arg(vd["args"]):
-                    parts.append("<p>PROJECT can be left out inside the project's repository, or set QARGI_PROJECT.</p>")
+                    parts.append("<p>PROJECT can be left out inside the project's repository, or set CROWN_PROJECT.</p>")
                 if vd["opts"]:
                     parts.append(opt_table(vd["opts"]))
                 if vd["examples"]:
@@ -781,34 +781,34 @@ def generated_pages(src, rep, repo=None):
             b, h = rb.command(n)
             body.append(b)
             heads += h
-        desc = ('Reference for the "%s" group of qargi commands: every verb with its arguments, options and examples, generated from the release.' % title)
+        desc = ('Reference for the "%s" group of crown commands: every verb with its arguments, options and examples, generated from the release.' % title)
         group_pages.append((title, slug, names))
         gp = Page("reference/%s/" % slug, "reference", "Reference: " + title, desc, "\n".join(body), heads, ref_crumb + [("Reference: " + title, "reference/%s/" % slug)])
         gp.nav, gp.group, gp.sub = title, True, [(n, n) for n in names]
         pages.append(gp)
     # topics
     body, heads = [], []
-    body.append("<p>Each topic is also printed by <code>qargi help TOPIC</code>.</p>")
+    body.append("<p>Each topic is also printed by <code>crown help TOPIC</code>.</p>")
     for t, (ttitle, paras) in c.topics.items():
         sid = "topic-" + t
         heads.append((2, sid, ttitle))
         body.append(h_html(2, sid, esc(ttitle)))
         body += ["<p>%s</p>" % esc(p) for p in paras]
     pages.append(Page("reference/topics/", "reference", "Reference: help topics",
-                      "The qargi help topics: the ideas behind the commands, such as roles, approvals, the guard, naming, memory and who may push, as qargi help prints them.",
+                      "The crown help topics: the ideas behind the commands, such as roles, approvals, the guard, naming, memory and who may push, as crown help prints them.",
                       "\n".join(body), heads, ref_crumb + [("Reference: help topics", "reference/topics/")]))
     pages[-1].nav = "Help topics"
     # files
     rows = [["<code>%s</code>" % esc(p), esc(d)] for p, d in c.files]
     pages.append(Page("reference/files/", "reference", "Reference: files",
-                      "The files qargi reads and writes in its configuration and state directories: the answers, registry, profiles, packs, audit log and collected runs.",
+                      "The files crown reads and writes in its configuration and state directories: the answers, registry, profiles, packs, audit log and collected runs.",
                       table(["Path", "What it holds"], rows) + '\n<p>Nothing is stored in a repository. See also <a href="/reference/topics/#topic-files">Where things are</a>.</p>',
                       [], ref_crumb + [("Reference: files", "reference/files/")]))
     pages[-1].toc = False
     pages[-1].nav = "Files"
     rows = [["<code>%s</code>" % esc(k), esc(d)] for k, d in c.environment]
     pages.append(Page("reference/environment/", "reference", "Reference: environment",
-                      "The environment variables qargi reads, such as QARGI_HOME, QARGI_CONF, QARGI_STATE and QARGI_PROJECT, with what each one changes and its default.",
+                      "The environment variables crown reads, such as CROWN_HOME, CROWN_CONF, CROWN_STATE and CROWN_PROJECT, with what each one changes and its default.",
                       table(["Variable", "What it changes"], rows), [], ref_crumb + [("Reference: environment", "reference/environment/")]))
     pages[-1].toc = False
     pages[-1].nav = "Environment"
@@ -825,7 +825,7 @@ def generated_pages(src, rep, repo=None):
     heads.append((2, "more", "Topics, files and environment"))
     body.append(h_html(2, "more", "Topics, files and environment"))
     body.append('<ul><li><a href="/reference/topics/">Help topics</a>: the ideas behind the commands.</li>'
-                '<li><a href="/reference/files/">Files</a>: what qargi stores and where.</li>'
+                '<li><a href="/reference/files/">Files</a>: what crown stores and where.</li>'
                 '<li><a href="/reference/environment/">Environment</a>: the variables it reads.</li></ul>')
     heads.append((2, "typical-use", "Typical use"))
     body.append(h_html(2, "typical-use", "Typical use"))
@@ -833,7 +833,7 @@ def generated_pages(src, rep, repo=None):
         body.append("<p>%s</p>" % esc(t))
         body.append(code_block("\n".join(lines), "bash", "example commands"))
     pages.append(Page("reference/", "reference", "Command reference",
-                      "The qargi command reference: every command, verb, argument and option, the help topics, files and environment variables, from the release it names.",
+                      "The crown command reference: every command, verb, argument and option, the help topics, files and environment variables, from the release it names.",
                       "\n".join(body), heads, ref_crumb[:1] + [("Command reference", "reference/")]))
     pages[-1].nav = "Overview"
     # releases
@@ -864,7 +864,7 @@ def generated_pages(src, rep, repo=None):
     first_v = released[0][0] if released else "?"
     last_v = released[-1][0] if released else "?"
     pages.append(Page("releases/", "releases", "Releases",
-                      "Release notes for qargi, from %s back to %s: what was added, changed, removed, fixed and secured in each version, from the changelog." % (first_v, last_v),
+                      "Release notes for crown, from %s back to %s: what was added, changed, removed, fixed and secured in each version, from the changelog." % (first_v, last_v),
                       "\n".join(body), heads, [("Home", ""), ("Releases", "releases/")]))
     pages[-1].nav = "Release notes"
     pages[-1].links = links
@@ -933,7 +933,7 @@ def build_model(args, rep):
                           "clone with full history to get each page's own date" % (len(shallow), src.release_date or "none"))
         for p in shallow:
             p.lastmod = src.release_date
-    pages["404"] = Page("404", "notfound", "Page not found", "The page you asked for is not part of the qargi documentation. Use the links below to reach the home page, the reference or the releases.", "")
+    pages["404"] = Page("404", "notfound", "Page not found", "The page you asked for is not part of the crown documentation. Use the links below to reach the home page, the reference or the releases.", "")
     validate(site, hand, rep)
     site.index = search_index(site, rep)
     return site
@@ -945,7 +945,7 @@ def default_home(src, hand):
     items += ['<li><a href="/reference/">Command reference</a></li>', '<li><a href="/releases/">Releases</a></li>']
     body = "<p>%s</p>\n<p>%s</p>\n<h2 id=\"pages\">Pages %s</h2>\n<ul>%s</ul>" % (
         esc(c.intro), esc(sentence(c.tagline)), MD.anchor_html("pages", "Pages"), "".join(items))
-    p = Page("", "home", "qargi documentation", "Documentation for qargi, which hands development tasks to sandboxed agents and takes the work back as patches you review and apply yourself.", body, [(2, "pages", "Pages")])
+    p = Page("", "home", "crown documentation", "Documentation for crown, which hands development tasks to sandboxed agents and takes the work back as patches you review and apply yourself.", body, [(2, "pages", "Pages")])
     p.toc = False
     return p
 
@@ -1002,8 +1002,8 @@ def tokens_of(line):
     return [s for s in segs if s]
 
 
-def qargi_words(seg):
-    """The words after `qargi` when the command is qargi (also as ./bin/qargi, after sudo, env, VAR=x, if, then, ...), else None."""
+def crown_words(seg):
+    """The words after `crown` when the command is crown (also as ./bin/crown, after sudo, env, VAR=x, if, then, ...), else None."""
     i = 0
     while i < len(seg):
         w = seg[i]
@@ -1019,13 +1019,13 @@ def qargi_words(seg):
                     i += 2 if seg[i] in ("-u", "-C", "-S") else 1
         else:
             break
-    if i < len(seg) and os.path.basename(seg[i]) == "qargi":
+    if i < len(seg) and os.path.basename(seg[i]) == "crown":
         return seg[i + 1:]
     return None
 
 
 def check_words(cmds, words):
-    """None, or a message, for the words after `qargi`."""
+    """None, or a message, for the words after `crown`."""
     if not words:
         return None
     t0 = words[0]
@@ -1035,7 +1035,7 @@ def check_words(cmds, words):
         return "unknown option %s before the command name" % t0
     if t0 not in cmds.commands:
         near = difflib.get_close_matches(t0, list(cmds.commands), 1)
-        return "qargi has no command '%s'%s" % (t0, " (did you mean '%s'?)" % near[0] if near else "")
+        return "crown has no command '%s'%s" % (t0, " (did you mean '%s'?)" % near[0] if near else "")
     spec = cmds.commands[t0]
     rest = words[1:]
     if t0 == "help":
@@ -1044,11 +1044,11 @@ def check_words(cmds, words):
                 return None
             if k == 0:
                 if w not in cmds.topics and w not in cmds.commands:
-                    return "qargi help: no command or topic '%s'" % w
+                    return "crown help: no command or topic '%s'" % w
             else:
                 vs = Cmds.verbs(cmds.commands.get(rest[0], {}))
                 if rest[0] in cmds.commands and w not in vs:
-                    return "qargi %s has no verb '%s'" % (rest[0], w)
+                    return "crown %s has no verb '%s'" % (rest[0], w)
         return None
     verbs = Cmds.verbs(spec)
     allowed = {}
@@ -1059,18 +1059,18 @@ def check_words(cmds, words):
         if v in ("--help", "-h"):
             return None
         if v.startswith("-"):
-            return "put the verb right after qargi %s (got %s)" % (t0, v)
+            return "put the verb right after crown %s (got %s)" % (t0, v)
         if is_placeholder(v):
             return None
         if v not in verbs:
             near = difflib.get_close_matches(v, list(verbs), 1)
-            return "qargi %s has no verb '%s'%s; verbs: %s" % (t0, v, " (did you mean '%s'?)" % near[0] if near else "", ", ".join(verbs))
+            return "crown %s has no verb '%s'%s; verbs: %s" % (t0, v, " (did you mean '%s'?)" % near[0] if near else "", ", ".join(verbs))
         allowed = cmds.opts_of(spec, v)
         rest = rest[1:]
-        where = "qargi %s %s" % (t0, v)
+        where = "crown %s %s" % (t0, v)
     else:
         allowed = cmds.opts_of(spec)
-        where = "qargi " + t0
+        where = "crown " + t0
     k = 0
     while k < len(rest):
         w = rest[k]
@@ -1094,19 +1094,19 @@ def check_words(cmds, words):
 
 
 def check_code(cmds, kind, text, line):
-    """Yield (line, message) for the qargi commands and options in one code span or fenced block.
-    Only qargi command lines are checked: in a shell block, the lines that are commands (not comments, the bodies of heredocs
+    """Yield (line, message) for the crown commands and options in one code span or fenced block.
+    Only crown command lines are checked: in a shell block, the lines that are commands (not comments, the bodies of heredocs
     or the rest of a quoted string), in a console block only the lines that start with `$ `."""
     if kind == "span":
         t = text.strip()
-        if t == "qargi" or t.startswith("qargi "):
+        if t == "crown" or t.startswith("crown "):
             try:
                 segs = tokens_of(t)
             except ValueError as e:
                 yield line, "cannot read `%s` (%s)" % (t, e)
                 return
             for seg in segs:
-                words = qargi_words(seg)
+                words = crown_words(seg)
                 if words is not None:
                     msg = check_words(cmds, words)
                     if msg:
@@ -1130,7 +1130,7 @@ def check_code(cmds, kind, text, line):
             continue
         heredocs = [m.group(2) for m in _HEREDOC.finditer(s)]
         segs, problem = [], None
-        if "qargi" in s:
+        if "crown" in s:
             while True:
                 if re.search(r"(?<!\\)(?:\\\\)*\\$", s):                         # a trailing backslash continues the command
                     if i < len(lines):
@@ -1156,7 +1156,7 @@ def check_code(cmds, kind, text, line):
             yield line + 1 + start, "cannot read the command line (%s)" % problem
             continue
         for seg in segs:
-            words = qargi_words(seg)
+            words = crown_words(seg)
             if words is not None:
                 msg = check_words(cmds, words)
                 if msg:
@@ -2189,7 +2189,7 @@ def summaries(c):
 
 
 def fmt(k):
-    return "qargi %s" % k[0] + (" " + k[1] if k[1] else "")
+    return "crown %s" % k[0] + (" " + k[1] if k[1] else "")
 
 
 def run_diff(args):

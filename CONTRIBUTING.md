@@ -5,15 +5,15 @@
 - `master` holds released versions only; every release is a tag.
 - `develop` is the integration branch.
 - Work happens on `feature/<name>` branches, with every merge `--no-ff`. Use
-  the `qargi feature` commands, which follow the git-flow model: `qargi feature
-  start <name>`, `qargi feature merge <name> <branch>` for each verified task,
-  and `qargi feature finish <name>` (merge into `develop`, after
-  `qargi feature verify <name>` passed the whole suite).
-- A release is `qargi release start <version>` (it prints a plan and a token; apply it with `--plan TOKEN --approved "..."`); the `VERSION` and
+  the `crown feature` commands, which follow the git-flow model: `crown feature
+  start <name>`, `crown feature merge <name> <branch>` for each verified task,
+  and `crown feature finish <name>` (merge into `develop`, after
+  `crown feature verify <name>` passed the whole suite).
+- A release is `crown release start <version>` (it prints a plan and a token; apply it with `--plan TOKEN --approved "..."`); the `VERSION` and
   `CHANGELOG.md` update is its first commit, then
-  `qargi release verify <version>`, `qargi release push <version>` (the branch and a pull request, so CI
-  runs on what will be released) and `qargi release finish <version>`. Fixes to a released version
-  use `qargi release start <version> --hotfix` (planned and approved the same way).
+  `crown release verify <version>`, `crown release push <version>` (the branch and a pull request, so CI
+  runs on what will be released) and `crown release finish <version>`. Fixes to a released version
+  use `crown release start <version> --hotfix` (planned and approved the same way).
 - Pushing the tag publishes the GitHub release: `.github/workflows/release.yml` takes the version's section of `CHANGELOG.md` as the notes and attaches the
   source archive of the tag and its checksum. Only a tag on `master`'s history counts, and an existing release is left alone. A tag pushed before the
   workflow existed is published by running the workflow by hand with that tag.
@@ -21,19 +21,19 @@
 
 ## Layout
 
-`bin/qargi` is the single command; `lib/` holds the scripts behind it;
-`skills/qargi-*` are the skills (each a short guide that calls the command; the
+`bin/crown` is the single command; `lib/` holds the scripts behind it;
+`skills/crown-*` are the skills (each a short guide that calls the command; the
 roles are not skills: each role's text is `roles/<role>/ROLE.md`, which a member
 gets with its task block); `agents/member.json` and `agents/member.body.md` are the one neutral
-member definition `qargi agent add` renders, through the project's runtime, under the names users
+member definition `crown agent add` renders, through the project's runtime, under the names users
 choose; `lib/providers/` holds the shipped runtime definitions and model catalogs; `provision/` the resource and memory
 templates; `examples/` sample repository profiles; `docs/` the documentation by topic (`README.md` links to each topic's `README.md`, and
 `tests/test_docs_links.py` checks every relative link); `packs/` the baseline packs shipped
-with qargi (`baseline.json` and `skills/<name>/SKILL.md`).
+with crown (`baseline.json` and `skills/<name>/SKILL.md`).
 
 To add a baseline pack, write `packs/skills/<name>/SKILL.md` with front matter of
 two keys, `name` (the directory name) and `description`, and portable text that names
-no qargi verb, then list it in `packs/baseline.json`. The packs test checks both: every
+no crown verb, then list it in `packs/baseline.json`. The packs test checks both: every
 directory is listed and the reverse, and each pack passes the library's review.
 
 ## Tests
@@ -85,7 +85,7 @@ never interleaved; the end of the output has the failed steps, the slowest ten a
 
 A test is safe to run next to other tests and next to another whole suite: it sources `tests/hermetic.sh` (a python test imports `hermetic`), which gives it a fresh HOME, TMPDIR, config and state, a fixed locale, time zone and umask, and git without the host's configuration, and it works only under `mktemp` directories, starts nothing it does not stop by pid (`spawn_bg`, `kill_bg`), waits for a condition with a deadline and not with a bare `sleep`, and binds port 0. `tests/test_hermetic.sh` runs `tests/hermetic_lint.py` over the tests and fails on a file that breaks one of these rules; a justified case carries `hermetic: allow RULE (reason)` on its line.
 
-Test a branch from its own worktree with `bin/qargi`: once `install.sh --user` has recorded the installed copy it is a dev run with its own data under `.qargi/` ([Running a branch checkout](docs/install-and-upgrade/README.md#running-a-branch-checkout)). To test the guard or the hooks, put `<worktree>/bin` first on `PATH`: members call `qargi __guard` from `PATH`, which is otherwise the installed copy.
+Test a branch from its own worktree with `bin/crown`: once `install.sh --user` has recorded the installed copy it is a dev run with its own data under `.crown/` ([Running a branch checkout](docs/install-and-upgrade/README.md#running-a-branch-checkout)). To test the guard or the hooks, put `<worktree>/bin` first on `PATH`: members call `crown __guard` from `PATH`, which is otherwise the installed copy.
 
 ## Changing the canon
 
@@ -122,15 +122,15 @@ the repository or its history.
 
 ## Add a runtime with no code
 
-A runtime (an agent CLI, a local model runner) is a data file; you do not change qargi to add one.
+A runtime (an agent CLI, a local model runner) is a data file; you do not change crown to add one.
 This walks through a fictional command-line runtime, `fakecli`. The lead follows the same steps
-from the `/qargi-providers` skill.
+from the `/crown-providers` skill.
 
-1. Scaffold it: `qargi provider new fakecli --from command` (a plan and a token; apply it with
-   `--plan TOKEN --approved "<your words>"`). The pack is `~/.qargi/config/packs/providers/fakecli/`
+1. Scaffold it: `crown provider new fakecli --from command` (a plan and a token; apply it with
+   `--plan TOKEN --approved "<your words>"`). The pack is `~/.crown/config/packs/providers/fakecli/`
    and is unusable until you seal it. `--from minimal`, `hook-cli` or the name of another runtime
    start from other templates.
-2. Edit `definition.json`. Four parts decide how qargi uses the runtime:
+2. Edit `definition.json`. Four parts decide how crown uses the runtime:
    - **models**: the pattern a model id must match, the model for each tier (`"*"` for all of
      them) and the effort levels (`null` for none). Write down where each id came from.
    - **render**: how a member becomes the runtime's own file (`agents` and `renderers.agent`),
@@ -146,7 +146,7 @@ from the `/qargi-providers` skill.
    - **notes** (`notes`): how the runtime does what a skill asks of it, as topics (a lower case
      name of at most 32 characters, up to 16) with one line of plain text each (at most 2000
      characters), for example `spawn` (how a lead starts a member), `session-model`,
-     `exploration`, `skills-dir`, `identity` and `commands`. `qargi provider notes TOPIC` prints
+     `exploration`, `skills-dir`, `identity` and `commands`. `crown provider notes TOPIC` prints
      one for the project's local runtime, so the skills point at a topic and never name a
      runtime's tools. Say in a note what is verified and what is assumed. An extension cannot add
      notes.
@@ -170,34 +170,34 @@ from the `/qargi-providers` skill.
     "session": {"render_target": "fakecli"}}
    ```
 
-   `session.render_target` is the name `qargi packs apply --target` takes for the runtime; without
-   it qargi makes no render of the project's skills for it, so there is nothing to link.
-   `qargi provider show claude-code` is a runtime with agent files, a hook barrier and
+   `session.render_target` is the name `crown packs apply --target` takes for the runtime; without
+   it crown makes no render of the project's skills for it, so there is nothing to link.
+   `crown provider show claude-code` is a runtime with agent files, a hook barrier and
    in-session dispatch; `lib/providers/schema-2.json` is the format.
-3. `qargi provider check fakecli` validates it and runs the hermetic cases; `qargi provider seal
+3. `crown provider check fakecli` validates it and runs the hermetic cases; `crown provider seal
    fakecli` approves it as it is; run `check` again to record what is verified. A capability
    counts only when it is claimed and verified. For what no hermetic case can show, such as an
-   operating-system sandbox that really holds, `qargi provider attest` records a check you ran,
+   operating-system sandbox that really holds, `crown provider attest` records a check you ran,
    asked each time.
-4. Point a project at it: `qargi project set P models.provider.local fakecli` (a role's stored
+4. Point a project at it: `crown project set P models.provider.local fakecli` (a role's stored
    `model` that does not match the runtime's `pattern` makes it refuse, naming each role; start
    the project with `project attach --provider-local fakecli`, or edit the answers file and
    `project init P --answers FILE --force`). Render its skills
-   with `qargi packs apply --target fakecli P` and link them with `qargi project link P`. For a task,
-   `qargi local prepare ...` followed by `qargi local run RUN --dry-run` shows the exact command, and
-   `qargi local run RUN` runs it.
+   with `crown packs apply --target fakecli P` and link them with `crown project link P`. For a task,
+   `crown local prepare ...` followed by `crown local run RUN --dry-run` shows the exact command, and
+   `crown local run RUN` runs it.
 
 A pack holds text only: scripts you can read, never a compiled program, an archive or a symlink. A
 pack with a script (a renderer, an adapter) needs `--approve-exec` naming it when you seal or import
 it, and that script runs with your rights, so read it first. The vendor CLI itself is installed by you
-and only named in the definition. To share a runtime, hand over the directory: `qargi provider
+and only named in the definition. To share a runtime, hand over the directory: `crown provider
 import DIR` shows whoever imports it the same review.
 
-## Adding a runtime to qargi itself
+## Adding a runtime to crown itself
 
 A shipped runtime is reviewed data and code in this repository.
 
-1. Write `lib/providers/NAME.json` to schema 2 (`qargi provider show claude-code` is the example),
+1. Write `lib/providers/NAME.json` to schema 2 (`crown provider show claude-code` is the example),
    and the model catalog it shares in `lib/providers/catalogs/FAMILY.json`. Give every model id the
    `verified_on` date and `source` from the vendor's own current model list; never write an id from
    memory. Set each capability and leave `verified_on` null where you have not tested it.
@@ -206,8 +206,8 @@ A shipped runtime is reviewed data and code in this repository.
    verbs; the others exit 3.
 3. Add a stub transport and fixtures under `tests/providers/NAME/` and run
    `bash tests/conformance.sh NAME` until it is clean.
-4. Run `qargi provider check NAME` until it is clean, and read what it says degrades.
+4. Run `crown provider check NAME` until it is clean, and read what it says degrades.
 5. If the read-only barrier is not supported on a surface, say so in the definition. A person accepts
-   it per project with `qargi provider accept`; do not default it on.
+   it per project with `crown provider accept`; do not default it on.
 6. Add a CHANGELOG entry, and run one scratch session on the real runtime with the owner's approval
    before relying on any unverified capability.

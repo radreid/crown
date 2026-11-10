@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Attach qargi to an existing repository without changing it.
+"""Attach crown to an existing repository without changing it.
 
   attach.py detect DIR [--name N] [--methodology M] [--provider P | --provider-local L --provider-cloud C]
                                                    print JSON: what was found, the draft answers, the gaps, the questions
   attach.py check-provider [--provider P | --provider-local L --provider-cloud C]
                                                    exit 1 and the reason when a provider named there cannot be used (nothing is written)
-  attach.py adopt-plan PROJECT ANSWERS [--methodology M]   print JSON: the safe gaps `qargi project adopt` would close (reads only)
+  attach.py adopt-plan PROJECT ANSWERS [--methodology M]   print JSON: the safe gaps `crown project adopt` would close (reads only)
   attach.py adopt-apply PROJECT ANSWERS < PLAN          create what that plan lists (stdin is the plan adopt-plan printed)
 
-detect only reads DIR (files and `git` queries). The draft answers are what `qargi project init` would store; the gaps are what
-the chosen methodology has that the repository lacks (`qargi project adopt` closes the safe ones, as a branch to review); the
+detect only reads DIR (files and `git` queries). The draft answers are what `crown project init` would store; the gaps are what
+the chosen methodology has that the repository lacks (`crown project adopt` closes the safe ones, as a branch to review); the
 questions are the facts it could not determine. There is no default provider: models.provider (and the roles' models, which are the provider's)
 is in the draft only when --provider (one name for both surfaces) or --provider-local / --provider-cloud (the object form, one runtime per
 surface) names one; otherwise a question says so, and a surface the object leaves out is a question too. Nothing is written by detect or adopt-plan, and nothing about the project goes
@@ -257,7 +257,7 @@ def changelog_info(d, unreleased=None):
 def provider_arg(prov=None, local=None, cloud=None):
     """The models.provider answer the options name: None, a string (--provider) or {local, cloud} (--provider-local, --provider-cloud)."""
     if prov and (local or cloud):
-        raise SystemExit("qargi: give --provider (one name for both surfaces) or --provider-local / --provider-cloud (one per surface), not both")
+        raise SystemExit("crown: give --provider (one name for both surfaces) or --provider-local / --provider-cloud (one per surface), not both")
     if prov:
         return prov
     got = {k: v for k, v in (("local", local), ("cloud", cloud)) if v}
@@ -287,7 +287,7 @@ def balanced_model(provider):
                 raise err
             return _agreed(models)
     except PV.ProviderError as e:
-        raise SystemExit("qargi: --provider: %s" % e)
+        raise SystemExit("crown: --provider: %s" % e)
 
 
 def _agreed(models):
@@ -301,7 +301,7 @@ def detect(d, name=None, methodology="gitflow", provider=None, release=None):
     d = os.path.realpath(d)
     top = git(d, "rev-parse", "--show-toplevel")
     if not top:
-        raise SystemExit("qargi: %s is not inside a git repository (a new project: qargi project new)" % d)
+        raise SystemExit("crown: %s is not inside a git repository (a new project: crown project new)" % d)
     d = os.path.realpath(top)
     remote = git(d, "remote", "get-url", "origin")
     branches = sorted(set(b.strip().replace("origin/", "", 1) for b in git(d, "branch", "-a", "--format=%(refname:short)").splitlines()
@@ -328,7 +328,7 @@ def detect(d, name=None, methodology="gitflow", provider=None, release=None):
     pname = name or project_name(dpath, remote)
     questions = []
     if not remote:
-        questions.append("repo.url: the repository has no origin remote; give its https URL (qargi project set %s repo.url ...)" % pname)
+        questions.append("repo.url: the repository has no origin remote; give its https URL (crown project set %s repo.url ...)" % pname)
     if not long_lived:
         questions.append("repo.long_lived: no master, main, trunk or develop branch was found; name the branches no agent may touch")
     if not cmd:
@@ -341,13 +341,13 @@ def detect(d, name=None, methodology="gitflow", provider=None, release=None):
             for sf in PV.SURFACES:
                 if sf not in provider:
                     questions.append("models.provider.%s: no %s provider was named, so verbs on that surface refuse the project until one is set "
-                                     "(qargi project set %s models.provider.%s NAME)" % (sf, sf, pname, sf))
+                                     "(crown project set %s models.provider.%s NAME)" % (sf, sf, pname, sf))
             if default_model is None:
                 questions.append("roles' models: the runtimes named for the surfaces have different balanced models, so none is set; set them with "
-                                 "qargi project set %s roles.ROLE.model MODEL" % pname)
+                                 "crown project set %s roles.ROLE.model MODEL" % pname)
     else:
         questions.append("models.provider: no provider was named, so none is stored and the roles' models are not set; set them after the provider is chosen "
-                         "(qargi project attach --provider NAME, or --provider-local NAME --provider-cloud NAME, or qargi project set %s models.provider NAME)" % pname)
+                         "(crown project attach --provider NAME, or --provider-local NAME --provider-cloud NAME, or crown project set %s models.provider NAME)" % pname)
     roles = {}
     for r, cfg in (m.get("roles") or {}).items():
         base = cfg.get("base", "@dispatcher")
@@ -395,11 +395,11 @@ def adopt_checks(answers_file, project):
     try:
         answers = json.load(open(answers_file))
     except (OSError, ValueError):
-        raise Refuse("project %s is not attached: nothing is stored for it (qargi project attach DIR first)" % project)
+        raise Refuse("project %s is not attached: nothing is stored for it (crown project attach DIR first)" % project)
     path = (answers.get("repo") or {}).get("path") or ""
     top = git(path, "rev-parse", "--show-toplevel") if path and os.path.isdir(path) else ""
     if not top:
-        raise Refuse("project %s: repo.path %r is not a git repository (qargi project attach DIR --force)" % (project, path))
+        raise Refuse("project %s: repo.path %r is not a git repository (crown project attach DIR --force)" % (project, path))
     top = os.path.realpath(top)
     if not git(top, "rev-parse", "--verify", "-q", "HEAD^{commit}"):
         raise Refuse("%s has no commit yet: there is no tip to create branches from" % top)
@@ -498,15 +498,15 @@ def adopt_plan(project, answers_file, methodology=None):
     left += [{"kind": "file", "what": x["what"], "why": "not written: " + x["why"]} for x in skipped]
     # The branches adopt creates start at the tip of the default branch, so they share history with it and with each other. A long-lived branch
     # that exists already and shares none with another (a master made as a snapshot of the code, say) is not changed here: no existing branch is
-    # touched. It is named with the next step, because a release cannot be merged into it; `qargi release push` joins its history into the release branch.
+    # touched. It is named with the next step, because a release cannot be merged into it; `crown release push` joins its history into the release branch.
     tips = {b: sha_of(b) or base_sha for b in long_lived}
     for i, a in enumerate(long_lived):
         for b in long_lived[i + 1:]:
             if tips[a] and tips[b] and no_merge_base(d, tips[a], tips[b]):
                 left.append({"kind": "history", "what": "%s and %s share no history (no merge base)" % (a, b),
                              "why": "adopt changes no existing branch, so it does not join them; git would refuse to merge one into the other (unrelated histories). "
-                                    "Next step: the first release joins them (qargi release start VERSION, then qargi release push VERSION, whose plan joins the history of %s into "
-                                    "the release branch, keeping the release tree, before CI runs, then qargi release finish VERSION); or join them now by hand: "
+                                    "Next step: the first release joins them (crown release start VERSION, then crown release push VERSION, whose plan joins the history of %s into "
+                                    "the release branch, keeping the release tree, before CI runs, then crown release finish VERSION); or join them now by hand: "
                                     "git switch %s && git merge -s ours --allow-unrelated-histories %s (keeps the tree of %s)" % (a, b, a, b)})
     if any(f["dest"] == ci.get("file") for f in files):   # the template replaces the "no CI" gap; its content is still the owner's to judge
         left = [g for g in left if g["kind"] != "ci"] + [{"kind": "ci", "what": ci["file"], "why": "written from the template: check that its steps fit this project"}]
@@ -527,18 +527,18 @@ def gitw(d, *args, env=None, data=None):
     r = subprocess.run(["git", "-C", d] + list(args), capture_output=True, input=data, env=e)
     if r.returncode != 0:
         hint = " (is a git user.name and user.email set? nothing was created)" if args[0] == "commit-tree" else ""
-        raise SystemExit("qargi: git %s failed: %s%s" % (args[0], r.stderr.decode("utf-8", "replace").strip().splitlines()[0] if r.stderr.strip() else "", hint))
+        raise SystemExit("crown: git %s failed: %s%s" % (args[0], r.stderr.decode("utf-8", "replace").strip().splitlines()[0] if r.stderr.strip() else "", hint))
     return r.stdout.decode("utf-8", "replace").strip()
 
 
 def adopt_apply(project, answers_file, plan):
     answers, d = adopt_checks(answers_file, project)
     if os.path.realpath(plan["path"]) != d:
-        raise SystemExit("qargi: the plan is for %s, not %s" % (plan["path"], d))
+        raise SystemExit("crown: the plan is for %s, not %s" % (plan["path"], d))
     commit = ""
     if plan["files"]:
         # the commit first (objects only): if it cannot be made (no git identity) no branch has been created yet
-        idx = tempfile.mkdtemp(prefix="qargi-adopt-")
+        idx = tempfile.mkdtemp(prefix="crown-adopt-")
         env = {"GIT_INDEX_FILE": os.path.join(idx, "index")}
         try:
             gitw(d, "read-tree", plan["integration"]["sha"], env=env)
@@ -546,7 +546,7 @@ def adopt_apply(project, answers_file, plan):
                 blob = gitw(d, "hash-object", "-w", "--stdin", data=f["content"].encode())
                 gitw(d, "update-index", "--add", "--cacheinfo", "100644,%s,%s" % (blob, f["dest"]), env=env)
             tree = gitw(d, "write-tree", env=env)
-            msg = "Add the %s scaffold files that this project lacks\n\nWritten by qargi project adopt on a branch of its own, for review. Only files that\n" \
+            msg = "Add the %s scaffold files that this project lacks\n\nWritten by crown project adopt on a branch of its own, for review. Only files that\n" \
                   "did not exist were added; no existing file was changed:\n\n%s\n" % (plan["methodology"], "\n".join("  " + f["dest"] for f in plan["files"]))
             commit = gitw(d, "commit-tree", tree, "-p", plan["integration"]["sha"], "-m", msg)
         finally:
@@ -566,14 +566,14 @@ def main(argv):
         if len(argv) == 5 and argv[3] == "--methodology":
             meth = argv[4]
         elif len(argv) != 3:
-            raise SystemExit("qargi: unknown option %s" % argv[3])
+            raise SystemExit("crown: unknown option %s" % argv[3])
         try:
             if argv[0] == "adopt-plan":
                 print(json.dumps(adopt_plan(argv[1], argv[2], meth), indent=2, sort_keys=True))
             else:
                 print(json.dumps(adopt_apply(argv[1], argv[2], json.load(sys.stdin)), sort_keys=True))
         except Refuse as e:
-            print("qargi: %s" % e, file=sys.stderr)
+            print("crown: %s" % e, file=sys.stderr)
             sys.exit(2)
         return
     if argv and argv[0] == "check-provider":
@@ -600,7 +600,7 @@ def main(argv):
         elif argv[i] in ("--provider", "--provider-local", "--provider-cloud") and i + 1 < len(argv):
             opts[argv[i]], i = argv[i + 1], i + 2
         else:
-            raise SystemExit("qargi: unknown option %s" % argv[i])
+            raise SystemExit("crown: unknown option %s" % argv[i])
     prov = provider_arg(opts.get("--provider"), opts.get("--provider-local"), opts.get("--provider-cloud"))
     print(json.dumps(detect(d, name, meth, prov), indent=2, sort_keys=True))
 
