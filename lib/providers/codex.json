@@ -124,7 +124,7 @@
   "notes": {
     "barrier": "The barrier is Codex's own sandbox flags (workspace-write or read-only); this runtime has no crown guard hook. crown local verify \u2014 refs unchanged, tree clean \u2014 is the backstop, and the read-only class counts as not supported until a live read-only run attests that the sandbox holds.",
     "environment": "Every member receives CODEX_HOME, which holds the account's Codex login, and the standard proxy variables: the member runs as the signed-in account over the host's network route. Both are passed on purpose.",
-    "models": "Effort is wired via -c model_reasoning_effort: crown low, medium, high and xhigh map to the Codex values of the same name; max has no Codex control and is dropped with a note. Model selection is not wired: the dispatch passes no --model and every member runs the signed-in account's default model. The pattern accepts only the account-default id, so a role that names another model id is refused, not silently ignored; to change the model, change the Codex account's default."
+    "models": "Effort is wired via -c model_reasoning_effort (low, medium, high, xhigh; max has no Codex control, dropped with a note). Models are not wired: no --model is passed, members run the account-default model, a role naming another id is refused; change the account default to change the model."
   },
   "provider": "codex",
   "renderers": {
