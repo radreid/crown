@@ -35,10 +35,10 @@
       "verified_on": null
     },
     "read_only_barrier": {
-      "note": "the Codex OS sandbox in read-only mode. Observed, not verified: that the sandbox really holds is not yet attested; attest it after the first live read-only run, and until then this capability counts as not supported",
-      "source": "codex exec --help (--sandbox read-only)",
+      "note": "the Codex OS sandbox in read-only mode. Verified in this line on 2026-11-09 by a live read-only run (codex exec --sandbox read-only in a scratch dir on disk, ordered to create a probe file and append to a sentinel file): both writes failed, the probe file was absent afterwards and the sentinel file's sha256 was unchanged",
+      "source": "codex exec --help (--sandbox read-only); live read-only run 2026-11-09",
       "value": "yes",
-      "verified_on": null
+      "verified_on": "2026-11-09"
     },
     "session_budget_ceiling": {
       "note": "codex exec exposes no budget ceiling flag",
