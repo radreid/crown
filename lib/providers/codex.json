@@ -24,9 +24,9 @@
     },
     "per_dispatch_effort_override": {
       "note": "the dispatch argv passes -c model_reasoning_effort=<native> when an effort is asked; crown low, medium, high and xhigh map to the Codex values of the same name; max has no Codex control and is dropped with a note",
-      "source": "codex exec --help (-c model_reasoning_effort); wired in this definition",
+      "source": "codex exec --help (-c model_reasoning_effort); wired in this definition; verified by a live local run 2026-11-10 (run crown.MxE9CA: the dispatch record carries the flag and the Codex transcript header reports the configured effort)",
       "value": "yes",
-      "verified_on": null
+      "verified_on": "2026-11-10"
     },
     "per_dispatch_model_override": {
       "note": "the dispatch argv passes no --model; the signed-in account's default model is used",
