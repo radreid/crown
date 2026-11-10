@@ -23,9 +23,9 @@
       "verified_on": null
     },
     "per_dispatch_effort_override": {
-      "note": "not wired in this definition",
-      "source": "codex exec --help",
-      "value": "no",
+      "note": "the dispatch argv passes -c model_reasoning_effort=<native> when an effort is asked; crown low, medium, high and xhigh map to the Codex values of the same name; max has no Codex control and is dropped with a note",
+      "source": "codex exec --help (-c model_reasoning_effort); wired in this definition",
+      "value": "yes",
       "verified_on": null
     },
     "per_dispatch_model_override": {
@@ -59,6 +59,13 @@
       "codex",
       "exec",
       "--ephemeral",
+      {
+        "if": "effort_native",
+        "then": [
+          "-c",
+          "model_reasoning_effort=\"{effort_native}\""
+        ]
+      },
       "-C",
       "{clone}",
       "-"
@@ -97,7 +104,13 @@
   "family": null,
   "kind": "provider",
   "models": {
-    "effort": null,
+    "effort": {
+      "high": "high",
+      "low": "low",
+      "max": null,
+      "medium": "medium",
+      "xhigh": "xhigh"
+    },
     "pattern": "^account-default$",
     "tiers": {
       "*": {
@@ -111,7 +124,7 @@
   "notes": {
     "barrier": "The barrier is Codex's own sandbox flags (workspace-write or read-only); this runtime has no crown guard hook. crown local verify \u2014 refs unchanged, tree clean \u2014 is the backstop, and the read-only class counts as not supported until a live read-only run attests that the sandbox holds.",
     "environment": "Every member receives CODEX_HOME, which holds the account's Codex login, and the standard proxy variables: the member runs as the signed-in account over the host's network route. Both are passed on purpose.",
-    "models": "Model selection is not wired: the dispatch passes no --model and every member runs the signed-in account's default model. The pattern accepts only the account-default id, so a role that names another model id is refused, not silently ignored; to change the model, change the Codex account's default."
+    "models": "Effort is wired via -c model_reasoning_effort: crown low, medium, high and xhigh map to the Codex values of the same name; max has no Codex control and is dropped with a note. Model selection is not wired: the dispatch passes no --model and every member runs the signed-in account's default model. The pattern accepts only the account-default id, so a role that names another model id is refused, not silently ignored; to change the model, change the Codex account's default."
   },
   "provider": "codex",
   "renderers": {

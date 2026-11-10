@@ -7,6 +7,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- The Codex provider now wires a dispatch's `--effort` through to Codex as `model_reasoning_effort` (low, medium, high, xhigh; max has no Codex control and is dropped with a note).
 - `crown local harvest RUN [--subject TEXT]`: the lead-side take-in for a write run whose member could not collect. A runtime whose sandbox keeps .git and OUT read-only from inside a dispatch (the Codex command runtime on this machine, verified 2026-11-09/10) leaves its finished change uncommitted in the run's clone and no series in OUT; harvest makes the commit the member could not (with the run's git wrapper, its body disclosing the harvest), writes the patches, bundle, series and a manifest into OUT, and runs the task's DONE in the clone, recording its real exit status (the manifest status is BLOCKED when DONE fails). The manifest is the harvest's own and says so in deviations[]; verify and review check gate the run exactly as for a collected one. Refused for read-only runs, verified/applied runs, runs whose OUT already holds a series or report, and clones with nothing to take.
 
 ### Changed
