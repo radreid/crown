@@ -9,7 +9,7 @@ lib/providers/claude-code.json:notes 303 # raised: the member-out topic, the run
 lib/providers/claude-code/local-run.md 52 # raised: one line, a refused Write of a report file is done with Bash; three words more mark it observed, not verified; for review
 lib/providers/claude-platform.json:notes 2
 lib/providers/claude-platform/cloud-run.md 61
-lib/providers/codex.json:notes 127
+lib/providers/codex.json:notes 126
 lib/providers/codex/local-run.md 41
 packs/skills/crown-contributing/SKILL.md 115
 packs/skills/docs-site-member/SKILL.md 163 # raised: two rules: no line starts with <, and run the render check before reporting; for the lead's review
