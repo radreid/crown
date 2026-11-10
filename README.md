@@ -2,6 +2,8 @@
 
 **A gathering place for agent work: dispatch, review, remember.**
 
+> **Crown** — the engine of Power Drive. This repository is an independently maintained line of qargi, forked from the 0.2.8 release (MIT, © 2026 Everett C. Haimes III). It carries the Codex provider with its read-only barrier verified live (2026-11-09), and is maintained by Jonathan Reid Hursh. Contributions welcome.
+
 Qargi is a set of Claude Code skills and a CLI that dispatch one-off, task-scoped development tasks to sandboxed agents and take the work back as
 reviewable patches. An agent works on one task in its own clone and never pushes; the dispatching session verifies the result and applies it. Local
 members are the default and cloud agents are used only when you ask for them in that request; each runs on a runtime the project names for that surface.
