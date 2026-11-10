@@ -1,2 +1,2 @@
 # In a Codex run
-Write OUT files with a shell heredoc. Observed, not verified: the formal patch channel can be read-only from inside a dispatch, so a member's OUT patches may be missing while its note lands in the clone.
+Write OUT files with a heredoc. Verified: the patch channel is read-only from a dispatch; .git and OUT stay unwritable, so the change and note land in the clone, and lead collects with crown local harvest.

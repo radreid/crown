@@ -6,6 +6,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `crown local harvest RUN [--subject TEXT]`: the lead-side take-in for a write run whose member could not collect. A runtime whose sandbox keeps .git and OUT read-only from inside a dispatch (the Codex command runtime on this machine, verified 2026-11-09/10) leaves its finished change uncommitted in the run's clone and no series in OUT; harvest makes the commit the member could not (with the run's git wrapper, its body disclosing the harvest), writes the patches, bundle, series and a manifest into OUT, and runs the task's DONE in the clone, recording its real exit status (the manifest status is BLOCKED when DONE fails). The manifest is the harvest's own and says so in deviations[]; verify and review check gate the run exactly as for a collected one. Refused for read-only runs, verified/applied runs, runs whose OUT already holds a series or report, and clones with nothing to take.
+
+### Changed
+- The Codex provider's local-run note now records the patch channel's read-only behavior as verified and names `crown local harvest` as the take-in route.
+- The shipped man page is regenerated from the current help text (it still carried the 0.2.8 version line after the rename to 0.1.0).
+
 ## [0.1.0] - 2026-11-09
 
 First release of Crown, the independently maintained line forked from qargi 0.2.8 (MIT).

@@ -1132,6 +1132,18 @@ COMMANDS = {
                                  "a deletion or a rewrite nobody journaled) fails. Run it on every run before merging any of them. "
                                  "When it passes it copies OUT, a run bundle beside it and the snapshots to <state>/runs/<run id>/, so a run lost with its directory (a reboot "
                                  "that emptied a tmpfs) can still be applied: crown review apply --from-saved ID. --saved ID compares the refs against that copy's snapshots.")),
+            "harvest": verb("Take in, as the lead, a write run whose member could not collect: package the clone's commits or working tree into OUT", [("RUN_DIR", "dir")],
+                            [opt("--subject", "the subject of the commit the harvest makes from an uncommitted working tree (default 'harvest: SLUG'); not used when the clone already holds the member's commits; plain ASCII is best, a patch header carries a non-ASCII subject encoded and review check compares subjects literally", "TEXT")],
+                            desc=("For a run whose member's runtime cannot write .git or OUT from inside its dispatch (a sandbox that keeps both read-only): the work is "
+                                  "complete in the clone but no series ever reaches OUT, and verify can only report the run uncollected. Harvest makes the commit the member "
+                                  "could not (everything the clone's working tree holds, with the run's git wrapper, on the clone's own branch; the commit body says the "
+                                  "harvest made it), writes patches (git format-patch --binary BASE_SHA..HEAD), run.bundle, a series note and a manifest into OUT, and runs "
+                                  "the task's DONE in the clone, recording its real exit status (the manifest status is BLOCKED when DONE fails, or when the task block "
+                                  "names no DONE). The manifest is the harvest's own: its values come from the clone, the task block and the registry, and its deviations[] "
+                                  "say the member supplied no manifest, gates, commit advice or notes. Refused for a read-only run, a run already verified or applied, a "
+                                  "run whose OUT already holds a series or a report, and a clone with no commits past BASE_SHA and a clean tree. Nothing is verified by "
+                                  "this: local verify and review check gate the run exactly as for a collected one, and review runs DONE again."),
+                            examples=["crown local harvest ./run --subject \"docs: bring the changelog current\""]),
             "close": verb("Close a verified run whose patches you applied by hand (git am): it is no longer open", [("RUN_DIR", "dir")],
                           [opt("--applied-by-am", "the way the run was taken in: you applied its patches by hand with git am (the only way close knows; required)")],
                           desc=("Marks the run in the lead's registry (closed: the time, closed_by: applied-by-am), never in the run directory, which a member can write; the files are kept. "

@@ -8,6 +8,12 @@
 #                                        copy of their objects, offline, and printed as SUBMODULES=path,...; lib/tools.py)
 #   local.sh verify RUN_DIR
 #   local.sh verify RUN_DIR | --saved ID     (--saved: the lead's copy of a passed run whose directory is gone, $CROWN_STATE/runs/ID)
+#   local.sh harvest RUN_DIR [--subject TEXT]   take in, as the lead, a write run whose member could not collect (a runtime whose sandbox
+#                                        keeps .git and OUT read-only from inside the dispatch leaves its work in the clone): make the commit
+#                                        the member could not, with the run's git wrapper, write the patches, the bundle, a series and a
+#                                        manifest (the harvest's own, marked in its deviations[]) into OUT, and run the task's DONE in the
+#                                        clone, recording its real exit status. Nothing is verified by this: verify and review check gate
+#                                        the run exactly as for a collected one.
 #   local.sh close RUN_DIR --applied-by-am   mark a verified run whose patches the lead applied by hand (git am) closed: not open any more, files kept
 #   local.sh clean RUN_DIR [--discard]   remove a collected, verified run and its temporary directory (--discard: whatever verify says)
 #   local.sh clean --applied --scratch DIR   remove every run under DIR whose work is applied and merged; keep and name the others
@@ -573,7 +579,7 @@ WRAP
     if [ -z "$SAVED" ] && [ -z "${CROWN_VERIFY_REFS_ONLY:-}" ]; then
       ncm=$(git -C "$RUN/clone" rev-list --count --branches HEAD --not --remotes=origin 2>/dev/null || echo 0)
       if [ "${ncm:-0}" -gt 0 ] && [ -z "$(find "$RUN/out" -maxdepth 2 -name '*.patch' 2>/dev/null | head -1)" ] && ! out_has_report "$RUN/out"; then
-        EMPTY="crown: OUT is empty: the member did not collect. $RUN/clone holds $ncm commit(s) past BASE_SHA, but $RUN/out holds no patches and no report. The member's DONE needs \`ls OUT/patches\` to list the patches (git format-patch --binary BASE_SHA..HEAD into OUT/patches, then the manifest and report). This run is not verified, and apply and close need a passing verify: send it back to collect and verify again, or take the commits from the clone yourself and drop the run with crown local clean RUN --discard. $NOREPORT_CAUSE"
+        EMPTY="crown: OUT is empty: the member did not collect. $RUN/clone holds $ncm commit(s) past BASE_SHA, but $RUN/out holds no patches and no report. The member's DONE needs \`ls OUT/patches\` to list the patches (git format-patch --binary BASE_SHA..HEAD into OUT/patches, then the manifest and report). This run is not verified, and apply and close need a passing verify: send it back to collect and verify again, or take the work in with crown local harvest RUN (it packages the clone's commits or working tree into OUT), or drop the run with crown local clean RUN --discard. $NOREPORT_CAUSE"
         NOREC=1
       fi
     fi
@@ -609,6 +615,130 @@ WRAP
         || echo "(after a passing verify the lead's fast-forwards and new branches are accepted too; nothing else that the lead's ref journal does not name)" >&2
       exit 2
     fi;;
+  harvest)
+    # take in, as the lead, the work of a write run whose member could not collect: the clone holds commits past
+    # BASE_SHA that never reached OUT, or an uncommitted change (a runtime whose sandbox keeps .git and OUT
+    # read-only from inside the dispatch leaves exactly that). Harvest makes the commit the member could not
+    # (with the run's git wrapper, on the clone's branch), writes the patches, the bundle, a series and a
+    # manifest into OUT, and runs the task's DONE in the clone, recording its real exit status. The manifest
+    # is the harvest's, and says so in deviations[]: the member's own gates, advice and notes do not exist,
+    # and review still re-checks everything. Nothing is verified by this: local verify and review check gate
+    # the run exactly as for a collected one.
+    RUN=${1:-}; shift || true
+    [ -f "$RUN/refs.before" ] && [ -f "$RUN/ability" ] || usage_die "harvest needs a RUN dir made by prepare"
+    SUBJECT=''
+    while [ $# -gt 0 ]; do
+      case $1 in
+        --subject) need_val "$1" $#; SUBJECT=$2; shift 2;;
+        *) usage_die "harvest: unknown option $1";;
+      esac
+    done
+    reg_load; run_record "$RUN" || exit 2
+    RCLS=$(run_class "$RUN")
+    [ "$RCLS" = write ] || die "harvest: $RUN is a $RCLS run: its product is a report in OUT, there is no series to harvest"
+    [ ! -f "$RUN/verified" ] && [ ! -f "$RUN/applied" ] || die "harvest: $RUN is already verified or applied: its OUT is settled, nothing to harvest"
+    OUT=$RUN/out CLONE=$RUN/clone
+    [ -d "$OUT" ] && [ -d "$CLONE" ] || die "harvest: $RUN has no out or clone directory"
+    [ -z "$(find "$OUT" -maxdepth 2 -name '*.patch' 2>/dev/null | head -1)" ] && ! out_has_report "$OUT" || die "harvest: OUT already holds a collected series or a report: nothing to harvest"
+    SLUG=$(reg_get "$RUN" slug); BASEBR=$(reg_get "$RUN" base)
+    [ -n "$SLUG" ] && [ -n "$BASEBR" ] || die "harvest: the lead's registry names no slug or base for $RUN"
+    BSHA=$(git -C "$CLONE" merge-base HEAD "refs/remotes/origin/$BASEBR" 2>/dev/null || git -C "$CLONE" merge-base HEAD "refs/heads/$BASEBR" 2>/dev/null || true)
+    [ -n "$BSHA" ] || BSHA=$(sed -n 's/^BASE_SHA=//p' "$RUN/task.md" 2>/dev/null | head -n 1)
+    [[ $BSHA =~ ^[0-9a-f]{40}$ ]] || die "harvest: cannot establish the run's BASE_SHA (no merge-base with $BASEBR, and no BASE_SHA line in task.md)"
+    GITW=$RUN/git; [ -x "$GITW" ] || die "harvest: the run's git wrapper $GITW is missing"
+    TMPD=$(reg_get "$RUN" tmpdir); { [ -n "$TMPD" ] && [ -d "$TMPD" ]; } || TMPD=$RUN
+    # the commit the member could not make: everything the clone's working tree holds, on its own branch
+    MADE=''
+    if [ -n "$(git -C "$CLONE" status --porcelain 2>/dev/null || true)" ]; then
+      [ -n "$SUBJECT" ] || SUBJECT="harvest: $SLUG"
+      if printf '%s' "$SUBJECT" | LC_ALL=C grep -q '[^ -~]'; then echo "crown: note: the subject is not plain ASCII: the patch header will carry it encoded, and review check compares subjects literally" >&2; fi
+      MSG=$TMPD/harvest-commit-msg.txt
+      { printf '%s\n\n' "$SUBJECT"
+        printf '%s\n' "Collected by crown local harvest: the member's runtime could not write .git or OUT from" \
+          "inside its dispatch, so the member left this change uncommitted in the run's clone and" \
+          "the harvest made the commit with the run's git wrapper, without altering the change" \
+          "itself. The member's own manifest, gates and notes do not exist; the manifest in OUT" \
+          "is the harvest's and says so."
+      } > "$MSG"
+      ( cd "$CLONE" && "$GITW" add -A && "$GITW" commit -F "$MSG" >/dev/null ) || die "harvest: committing the clone's working tree with the run's git wrapper failed"
+      MADE=$(git -C "$CLONE" rev-parse HEAD)
+    fi
+    ncm=$(git -C "$CLONE" rev-list --count "$BSHA"..HEAD 2>/dev/null || echo 0)
+    [ "${ncm:-0}" -gt 0 ] || die "harvest: the clone holds no commits past BASE_SHA and its working tree is clean: nothing to harvest"
+    CBR=$(git -C "$CLONE" branch --show-current 2>/dev/null || true); [ -n "$CBR" ] || CBR="agent/$SLUG"
+    # the series and the bundle, from the clone's own history
+    mkdir -p "$OUT/patches"
+    git -C "$CLONE" format-patch --binary "$BSHA"..HEAD --output-directory "$OUT/patches" >/dev/null || die "harvest: format-patch failed"
+    git -C "$CLONE" bundle create "$OUT/run.bundle" "$BSHA"..HEAD >/dev/null 2>&1 || die "harvest: bundle create failed"
+    # the task's DONE, run in the clone by the harvest, its real exit status recorded (review runs it again)
+    DONEC=$(sed -n 's/^DONE: //p' "$RUN/task.md" 2>/dev/null | head -n 1)
+    DEXIT='' DTAIL=''
+    if [ -n "$DONEC" ]; then
+      ( cd "$CLONE" && bash -c "$DONEC" ) > "$TMPD/harvest-done.out" 2>&1; DEXIT=$?
+      DTAIL=$(tail -n 3 "$TMPD/harvest-done.out" 2>/dev/null || true)
+    fi
+    # the series note and the manifest: the harvest's own, every value from the clone, the task or this run
+    TASK1=$(sed -n 's/^TASK: //p' "$RUN/task.md" 2>/dev/null | head -n 1)
+    SCOPE1=$(sed -n 's/^SCOPE: //p' "$RUN/task.md" 2>/dev/null | head -n 1)
+    { echo "# Series: $SLUG"
+      echo
+      git -C "$CLONE" log --reverse --format='## %s' "$BSHA"..HEAD | while IFS= read -r line; do
+        echo "$line"
+        echo "Group: $SLUG (the run's change, collected by crown local harvest)."
+        echo
+      done
+      echo "Collected by crown local harvest: the member's runtime could not write .git or OUT from inside"
+      echo "its dispatch, so the series was packaged from the clone by the lead's harvest. The member's own"
+      echo "series note does not exist; see manifest.json deviations[]."
+    } > "$OUT/series.md"
+    COMMITS_JSON=$(git -C "$CLONE" log --reverse --format='%H%x09%s' "$BSHA"..HEAD | jq -R -s 'split("\n") | map(select(length > 0) | split("\t") | {sha: .[0], subject: .[1]})')
+    SHAS_JSON=$(printf '%s' "$COMMITS_JSON" | jq '[.[].sha]')
+    TOUCHED_JSON=$(git -C "$CLONE" diff --name-only "$BSHA"..HEAD | jq -R -s 'split("\n") | map(select(length > 0) | {path: ., reason: "changed by the run; collected by crown local harvest"})')
+    if [ -n "$SCOPE1" ]; then
+      SCOPE_JSON=$(printf '%s' "$SCOPE1" | tr ',' ' ' | jq -R 'split(" ") | map(select(length > 0))')
+    else
+      SCOPE_JSON=$(printf '%s' "$TOUCHED_JSON" | jq '[.[].path]')
+    fi
+    if [ -n "$MADE" ]; then
+      DEV_JSON='["collected by crown local harvest: the member could not write .git or OUT from inside its dispatch; the harvest made the commit from the clone working tree with the run git wrapper and packaged the series. The member supplied no manifest, gates, commit advice or notes."]'
+      ADVICE_WHY="one commit, made by the harvest from the clone's working tree: the member's own commit structure does not exist"
+    else
+      DEV_JSON='["collected by crown local harvest: the member committed in the clone but could not write OUT from inside its dispatch; the harvest packaged the member'\''s commits into OUT. The member supplied no manifest, gates, commit advice or notes."]'
+      ADVICE_WHY="the member's commit, packaged by the harvest unchanged"
+    fi
+    if [ -z "$DONEC" ]; then STATUS=BLOCKED; BREA="no DONE line in the task block: no executable check decided the task"; DONE_JSON='{"command": "", "exit_code": null, "output_tail": "no DONE line in the task block; the lead runs the check at review"}'
+    elif [ "$DEXIT" = 0 ]; then STATUS=DONE; BREA=""; DONE_JSON=$(jq -n --arg c "$DONEC" --arg t "$DTAIL" '{command: $c, exit_code: 0, output_tail: $t}')
+    else STATUS=BLOCKED; BREA="the task DONE check failed when the harvest ran it in the clone"; DONE_JSON=$(jq -n --arg c "$DONEC" --argjson e "$DEXIT" --arg t "$DTAIL" '{command: $c, exit_code: $e, output_tail: $t}'); fi
+    jq -n --arg status "$STATUS" --arg brea "$BREA" --arg task "$TASK1" --arg bbranch "$BASEBR" --arg bsha "$BSHA" --arg branch "$CBR" \
+      --argjson commits "$COMMITS_JSON" --argjson shas "$SHAS_JSON" --argjson touched "$TOUCHED_JSON" --argjson scope "$SCOPE_JSON" \
+      --argjson done "$DONE_JSON" --argjson dev "$DEV_JSON" --arg why "$ADVICE_WHY" --arg group "$SLUG" \
+      '{status: $status,
+        blocked_reason: (if $status == "BLOCKED" then $brea else null end),
+        task: $task,
+        commit_advice: ($commits | map({sha: .sha, subject: .subject, why_separate: $why, depends_on: [], builds_alone: true})),
+        patch_groups: [{name: $group, why: "the run'\''s change, collected by crown local harvest", commits: $shas}],
+        base: {branch: $bbranch, sha: $bsha},
+        branch: $branch,
+        scope: $scope,
+        done: $done,
+        gates: [],
+        commits: $commits,
+        touched_paths: $touched,
+        deviations: $dev,
+        noticed_not_acted_on: [],
+        artifacts: [],
+        usage_impact: [],
+        environment: {collected_by: "crown local harvest"}}' > "$OUT/manifest.json" || die "harvest: writing the manifest failed"
+    { [ -n "$MADE" ] && echo "harvest: git add -A && git commit (run git wrapper, clone): exit 0 - $MADE"
+      echo "harvest: git format-patch --binary $BSHA..HEAD --output-directory OUT/patches: exit 0"
+      echo "harvest: git bundle create OUT/run.bundle $BSHA..HEAD: exit 0"
+      [ -n "$DONEC" ] && echo "harvest: DONE ($DONEC): exit $DEXIT"
+      echo "harvest: wrote OUT/series.md, OUT/manifest.json, OUT/log.txt: exit 0"
+    } >> "$OUT/log.txt"
+    nfiles=$(git -C "$CLONE" diff --name-only "$BSHA"..HEAD | wc -l)
+    echo "harvested $SLUG: $ncm commit(s), $nfiles file(s) -> $OUT/patches, run.bundle, series.md, manifest.json (the manifest is the harvest's; its deviations say what the member did not supply)"
+    [ "$STATUS" = BLOCKED ] && echo "crown: the task's DONE failed in the clone (exit $DEXIT): the series is packaged with status BLOCKED" >&2
+    echo "next: crown local verify $RUN, then crown review check $OUT";;
   clean)
     # after the series is collected and verified: remove the run (clone, bare copy, output, wrapper) and its temporary directory.
     #   clean RUN [--discard]            one run; --discard drops it on purpose, whatever verify says and whatever it holds
@@ -913,5 +1043,5 @@ $vout}"
     [ -n "$RPJ" ] || { echo "crown: no stored project has the repository of this run, so no runtime is known: store it (crown project attach) and give it a local provider (crown project set PROJECT models.provider.local NAME)" >&2; exit 2; }
     RPROV=$(project_provider "$RPJ" local) || exit $?
     exec python3 -I "$(dirname "$0")/local_run.py" "$RUN" --project "$RPJ" --runtime "$RPROV" --class "$(run_class "$RUN")" "$@";;
-  *) usage_die "usage: local.sh prepare|verify|close|clean|list|run ...";;
+  *) usage_die "usage: local.sh prepare|verify|harvest|close|clean|list|run ...";;
 esac

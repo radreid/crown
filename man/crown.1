@@ -1,4 +1,4 @@
-.TH CROWN 1 "2026-11-09" "crown 0.2.8"
+.TH CROWN 1 "2026-11-09" "crown 0.1.0"
 .SH NAME
 crown \- A gathering place for agent work: dispatch, review, remember
 .SH SYNOPSIS
@@ -3162,6 +3162,18 @@ OUT without a report, for an uncollected run or a read\-only run, is said with i
 .TP
 .BI "\-\-saved " "ID"
 verify the lead's saved copy of a passed run whose directory is gone (ID: the name of the run directory, crown.XXXXXX).
+.RE
+.RE
+.RS
+.TP
+.BI "harvest " "RUN_DIR"
+Take in, as the lead, a write run whose member could not collect: package the clone's commits or working tree into OUT.
+.br
+For a run whose member's runtime cannot write .git or OUT from inside its dispatch (a sandbox that keeps both read\-only): the work is complete in the clone but no series ever reaches OUT, and verify can only report the run uncollected. Harvest makes the commit the member could not (everything the clone's working tree holds, with the run's git wrapper, on the clone's own branch; the commit body says the harvest made it), writes patches (git format\-patch \-\-binary BASE_SHA..HEAD), run.bundle, a series note and a manifest into OUT, and runs the task's DONE in the clone, recording its real exit status (the manifest status is BLOCKED when DONE fails, or when the task block names no DONE). The manifest is the harvest's own: its values come from the clone, the task block and the registry, and its deviations[] say the member supplied no manifest, gates, commit advice or notes. Refused for a read\-only run, a run already verified or applied, a run whose OUT already holds a series or a report, and a clone with no commits past BASE_SHA and a clean tree. Nothing is verified by this: local verify and review check gate the run exactly as for a collected one, and review runs DONE again.
+.RS
+.TP
+.BI "\-\-subject " "TEXT"
+the subject of the commit the harvest makes from an uncommitted working tree (default 'harvest: SLUG'); not used when the clone already holds the member's commits; plain ASCII is best, a patch header carries a non\-ASCII subject encoded and review check compares subjects literally.
 .RE
 .RE
 .RS

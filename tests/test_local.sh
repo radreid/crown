@@ -631,4 +631,26 @@ for bad in "--orphans --scratch $T/os-scr" "--orphans $OL" "--orphans --discard"
 done
 [ "$SHM0" = "$(real_runs)" ] && ok "the tests listed and removed only in the fake parent: the real parent is as it was" || no "the real parent changed"
 ./bin/crown local clean "$OL" --discard >/dev/null 2>&1; rm -rf "$OS"
+# harvest: a write run whose member could not collect (its change sits uncommitted in the clone, its OUT empty)
+# is taken in by the lead: the commit is made with the run's wrapper, the series is packaged into OUT, the
+# task's DONE runs in the clone and its real exit status lands in a manifest that names the harvest as collector.
+H1=$(./bin/crown local prepare --repo "$T/r" --base main --slug harv --scratch "$T" | sed -n '1,/^$/s/^RUN=//p')
+printf 'TASK: Add a harvested file.\n\nDONE: test -f f2\n\nBASE: main\nSCOPE: f2\n' > "$H1/task.md"
+echo y > "$H1/clone/f2"
+out=$(./bin/crown local harvest "$H1" --subject "harvested work" 2>&1); rc=$?
+[ $rc = 0 ] && [ -f "$H1/out/manifest.json" ] && [ -n "$(ls "$H1/out/patches" 2>/dev/null)" ] && [ -f "$H1/out/run.bundle" ] && ok "harvest packages an uncommitted clone change into OUT" || no "harvest (rc=$rc): $out"
+[ "$(jq -r .status "$H1/out/manifest.json")" = DONE ] && [ "$(jq -r .done.exit_code "$H1/out/manifest.json")" = 0 ] && ok "harvest runs DONE in the clone and records its exit status" || no "harvest manifest: $(cat "$H1/out/manifest.json")"
+grep -q "crown local harvest" "$H1/out/manifest.json" && ok "the harvested manifest says the harvest collected it" || no "harvest manifest deviations: $(cat "$H1/out/manifest.json")"
+./bin/crown review check "$H1/out" >/dev/null 2>&1 && ok "review check passes on a harvested series" || no "review check on a harvested series"
+./bin/crown local verify "$H1" >/dev/null 2>&1 && ok "verify passes after harvest" || no "verify after harvest"
+out=$(./bin/crown local harvest "$H1" 2>&1); rc=$?
+[ $rc != 0 ] && ok "a second harvest is refused (the run is verified, its OUT settled)" || no "second harvest accepted: $out"
+H2=$(./bin/crown local prepare --repo "$T/r" --base main --slug harvfail --scratch "$T" | sed -n '1,/^$/s/^RUN=//p')
+printf 'TASK: Add a file the DONE does not expect.\n\nDONE: test -f nope\n\nBASE: main\nSCOPE: f3\n' > "$H2/task.md"
+echo z > "$H2/clone/f3"
+./bin/crown local harvest "$H2" >/dev/null 2>&1
+[ "$(jq -r .status "$H2/out/manifest.json")" = BLOCKED ] && [ "$(jq -r .done.exit_code "$H2/out/manifest.json")" != 0 ] && ok "a failing DONE makes the harvested manifest BLOCKED with its real exit code" || no "harvest BLOCKED manifest: $(cat "$H2/out/manifest.json")"
+H3=$(./bin/crown local prepare --repo "$T/r" --base main --slug harvrev --scratch "$T" --role review | sed -n '1,/^$/s/^RUN=//p')
+out=$(./bin/crown local harvest "$H3" 2>&1); rc=$?
+[ $rc != 0 ] && grep -q "read-only" <<<"$out" && ok "harvest refuses a read-only run" || no "harvest of a review run (rc=$rc): $out"
 exit $fail
