@@ -1832,6 +1832,11 @@ what the feature is about; related work only goes into one feature.
 .B \-\-worktree
 also make the feature's worktree at <worktrees.root>/feature/NAME and print its path.
 .RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
+.RE
 .RE
 .RS
 .TP
@@ -1873,6 +1878,11 @@ the project, instead of the one inferred from here.
 .B \-\-resolved
 use the merge you resolved and committed in the conflict worktree.
 .RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
+.RE
 .RE
 .RS
 .TP
@@ -1900,6 +1910,11 @@ your go\-ahead for exactly that plan, in your words; recorded in the audit log.
 .B \-\-resolved
 use the merge you resolved and committed in the conflict worktree.
 .RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
+.RE
 .RE
 .RS
 .TP
@@ -1923,6 +1938,11 @@ Declared gates: the project answer gates is an ordered list of {name, command, t
 .TP
 .BI "\-\-project " "PROJECT"
 the project, instead of the one inferred from here.
+.RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
 .RE
 .RE
 .RS
@@ -1956,6 +1976,11 @@ your go\-ahead for exactly that plan, in your words; recorded in the audit log.
 .B \-\-resolved
 use the merge you resolved and committed in the conflict worktree.
 .RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
+.RE
 .RE
 .TP
 .B crown marshal
@@ -1987,6 +2012,11 @@ what the feature is to achieve.
 .TP
 .BI "\-\-as\-successor\-of " "ID"
 continue as the lead after a restart: the old lead's id (see marshal handoff).
+.RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
 .RE
 .RE
 .RS
@@ -2086,6 +2116,11 @@ act as this lead identity (default: the session id in CROWN_LEAD, else user@host
 .TP
 .B \-\-no\-fetch
 read the cache of the shared refs only, do not fetch (the session hook uses it).
+.RE
+.RS
+.TP
+.B \-\-assume\-unreachable\-ok
+go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable\-ok in the audit log.
 .RE
 .RE
 .RS

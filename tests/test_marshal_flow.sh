@@ -160,6 +160,29 @@ run $F merge held1 agent/t3; rc=$?
 [ $rc != 0 ] && grep -q "checked out in $T/held-wt" "$T/e" && grep -q "checkout --detach" "$T/e" && ok "need_free: the message says how to free the branch (checkout --detach)" || no "SPEC need_free message: rc=$rc $(out)"
 git -C "$R" worktree remove --force "$T/held-wt"
 
+# --- a shared marshal whose remote cannot be asked refuses the flow verbs (exit 3, nothing changes) unless --assume-unreachable-ok
+run $DA marshal enable; tk=$(sed -n 's/^plan token: \([0-9a-f]*\).*/\1/p' "$T/o")
+run $DA marshal enable --plan "$tk" --approved "shared marshal for the unreachable tests"
+[ -e "$S/marshal/app.enabled" ] && ok "shared: the marshal is enabled for the flow project" || no "SPEC shared enable: $(out)"
+run $F start sh1; rc=$?
+[ $rc = 0 ] && git -C "$R" rev-parse -q --verify "feature/sh1" >/dev/null && ok "shared: feature start works while the remote answers" || no "SPEC shared start: rc=$rc $(out)"
+mv "$T/origin.git" "$T/origin.dead"
+run $F start sh2; rc=$?
+[ $rc = 3 ] && ! git -C "$R" rev-parse -q --verify "feature/sh2" >/dev/null 2>&1 && grep -q -- "--assume-unreachable-ok" "$T/e" \
+  && ok "shared: feature start refuses (exit 3, no branch) when the marshal's remote cannot be asked" || no "SPEC shared start refusal: rc=$rc $(out)"
+run $F start sh2 --assume-unreachable-ok; rc=$?
+[ $rc = 0 ] && git -C "$R" rev-parse -q --verify "feature/sh2" >/dev/null && grep -q "marshal:unreachable-ok" "$S/audit.log" \
+  && ok "shared: start with --assume-unreachable-ok goes on and writes the audit line marshal:unreachable-ok" || no "SPEC shared start override: rc=$rc $(out); audit: $(tail -2 "$S/audit.log" 2>&1)"
+run $F sync sh1; rc=$?
+[ $rc = 3 ] && ok "shared: feature sync refuses (exit 3) with a dead remote, before merging" || no "SPEC shared sync refusal: rc=$rc $(out)"
+run $F verify sh1; rc=$?
+[ $rc = 3 ] && ok "shared: feature verify refuses (exit 3) and does not run the suite" || no "SPEC shared verify refusal: rc=$rc $(out)"
+run $F finish sh1; rc=$?
+[ $rc = 3 ] && git -C "$R" rev-parse -q --verify "feature/sh1" >/dev/null && ok "shared: feature finish refuses (exit 3), the branch stays" || no "SPEC shared finish refusal: rc=$rc $(out)"
+run $F status sh1 --assume-unreachable-ok; rc=$?
+[ $rc != 0 ] && grep -q "belongs to the verbs that ask the marshal first" "$T/e" && ok "shared: --assume-unreachable-ok on feature status is refused" || no "SPEC flag on status: rc=$rc $(out)"
+mv "$T/origin.dead" "$T/origin.git"
+
 # --- a marshal that is missing or fails is never a reason to stop a verb
 cp_tree() { rm -rf "$1"; copy_tool "$TOOL" "$1"; }
 for kind in absent exit2; do

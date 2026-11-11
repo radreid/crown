@@ -39,13 +39,17 @@
 #
 # Shell API for other scripts (source this file after lib.sh; each function takes the project name first, so it needs
 # no project_load, and uses the identity above):
-#   marshal_start PROJ NAME PURPOSE   create or refresh the record when a feature starts, the current identity leads it;
+#   marshal_start PROJ NAME PURPOSE [--need-remote]
+#                                     create or refresh the record when a feature starts, the current identity leads it;
 #                                     returns 1 and prints the refusal when another lead holds it
-#   marshal_check PROJ NAME           returns 1 and prints the refusal when another LIVE lead holds NAME or when
+#   marshal_check PROJ NAME [--need-remote]
+#                                     returns 1 and prints the refusal when another LIVE lead holds NAME or when
 #                                     NAME has neither a branch feature/NAME nor a record; warnings
 #                                     (stale lead, anonymous identity, overlapping files, no lead) go to stderr; stdout stays empty.
 #                                     When this identity leads NAME it also renews the lease (once a third of it has passed, even when
-#                                     it lapsed: nobody else holds the feature), so every verb of the lead that asks keeps it alive
+#                                     it lapsed: nobody else holds the feature), so every verb of the lead that asks keeps it alive.
+#                                     Without --need-remote a shared backend whose remote cannot be asked is a warning; with it, the
+#                                     exit status is 3 and nothing changes (the flow verbs pass it: marshal_gate in gitflow.sh)
 #   marshal_touch PROJ NAME           the renewal alone: silent, never fails (verbs that do not gate, such as feature status)
 #   marshal_touch_run RUN             the same for the feature that the local run RUN is based on, from the lead's registry (local verify,
 #                                     clean, review check and apply, where there is no feature name on the command line)
@@ -80,11 +84,22 @@ marshal_py() { # PROJ VERB [args...]
 marshal_start() { # a restarted session of the same lead (host, user, work tree; stale lease) continues without a takeover; that is audited
   local af rc=0
   af=$(mktemp "$DA_STATE/.marshal-audit.XXXXXX") || af=/dev/null
-  CROWN_MARSHAL_AUDIT_OUT=$af marshal_py "$1" start "$2" --purpose "${3:-}" >/dev/null || rc=$?
+  CROWN_MARSHAL_AUDIT_OUT=$af marshal_py "$1" start "$2" --purpose "${3:-}" "${@:4}" >/dev/null || rc=$?
   if [ "$af" != /dev/null ]; then if [ "$rc" = 0 ] && [ -s "$af" ]; then audit_log "marshal:succession" "$(cat "$af")"; fi; rm -f "$af"; fi
   return "$rc"
 }
-marshal_check() { marshal_py "$1" check "$2" --renew >/dev/null; }
+marshal_check() { marshal_py "$1" check "$2" --renew "${@:3}" >/dev/null; }   # PROJ NAME [EXTRA...]: the flow verbs add --need-remote (marshal_flow in gitflow.sh)
+
+# marshal_override_audit FILE RC: the lines marshal_store.py wrote into FILE (CROWN_MARSHAL_OVERRIDE_OUT) because a verb went on although the remote was
+# not reached (--assume-unreachable-ok) become audit lines marshal:unreachable-ok, when the verb succeeded; FILE is removed. No file, nothing to do.
+marshal_override_audit() {
+  local f=$1 rc=$2 l
+  [ -n "$f" ] || return 0
+  if [ "$rc" = 0 ] && [ -s "$f" ]; then
+    while IFS= read -r l; do audit_log "marshal:unreachable-ok" "$l"; done < "$f"
+  fi
+  rm -f "$f"
+}
 marshal_touch() { marshal_py "$1" check "$2" --renew >/dev/null 2>&1 || true; }
 marshal_touch_run() { # RUN: renew the lease of the feature that the local run RUN is based on (feature/NAME), when this identity leads it
   local base proj
@@ -133,14 +148,14 @@ marshal_main() {
   # (feature.sh and cred.sh do the same)
   APPROVED='' PLAN_ARG=''
   local verb=${1:-}; shift || true
-  local usage="usage: crown marshal claim|status|set|check|renew|release|take|takeover|finish [NAME] [--project P] [--as ID] [--as-successor-of ID] [--goal T] [--plan T] [--note T] [--status S] [--approved WORDS] [--all] [--history] [--brief] [--json] [--no-fetch]
+  local usage="usage: crown marshal claim|status|set|check|renew|release|take|takeover|finish [NAME] [--project P] [--as ID] [--as-successor-of ID] [--goal T] [--plan T] [--note T] [--status S] [--approved WORDS] [--all] [--history] [--brief] [--json] [--no-fetch] [--assume-unreachable-ok]
        crown marshal handoff [NAME] [--project P] [--as ID] [--write FILE] [--json]
        crown marshal enable [--project P] [--integrity off|advisory|strict] [--plan TOKEN --approved WORDS] | disable [--project P] [--plan TOKEN --approved WORDS]
        crown marshal key init [--principal P] [--plan TOKEN --approved WORDS]
        crown marshal signers add --line L | remove PRINCIPAL [--project P] [--plan TOKEN --approved WORDS] | list [--project P]
        crown marshal resign NAME [--project P] [--plan TOKEN --approved WORDS]
        crown marshal forget NAME [--project P] [--plan TOKEN --approved WORDS]"
-  local name='' PROJ='' as='' all='' brief='' json='' history='' nofetch='' want sub='' line='' principal='' integ=''
+  local name='' PROJ='' as='' all='' brief='' json='' history='' nofetch='' assume='' want sub='' line='' principal='' integ=''
   local -a opt=()
   case $verb in
     key) sub=${1:-}; [ "$sub" = init ] || { echo "crown: $usage" >&2; exit 2; }; shift;;
@@ -156,11 +171,11 @@ marshal_main() {
     signers) want=' --project --line --plan --approved ';;
     resign|forget) want=' --project --plan --approved ';;
     disable) want=' --project --plan --approved ';;
-    claim) want=' --project --as --goal --as-successor-of ';;
+    claim) want=' --project --as --goal --as-successor-of --assume-unreachable-ok ';;
     status) want=' --project --as --all --history --brief --json --no-fetch ';;
     handoff) want=' --project --as --write --json ';;
     set) want=' --project --as --goal --plan --note --status ';;
-    check) want=' --project --as --no-fetch ';;
+    check) want=' --project --as --no-fetch --assume-unreachable-ok ';;
     renew|take|finish) want=' --project --as ';;
     release) want=' --project --as --note ';;
     takeover) want=' --project --as --approved ';;
@@ -168,9 +183,9 @@ marshal_main() {
   esac
   while [ $# -gt 0 ]; do
     case $1 in
-      --all|--history|--brief|--json|--no-fetch)
+      --all|--history|--brief|--json|--no-fetch|--assume-unreachable-ok)
         case $want in *" $1 "*) ;; *) echo "crown: unknown option $1 for marshal $verb; $usage" >&2; exit 2;; esac
-        case $1 in --all) all=1;; --history) history=1;; --brief) brief=1;; --json) json=1;; --no-fetch) nofetch=1;; esac; shift;;
+        case $1 in --all) all=1;; --history) history=1;; --brief) brief=1;; --json) json=1;; --no-fetch) nofetch=1;; --assume-unreachable-ok) assume=1;; esac; shift;;
       --*)
         case $want in *" $1 "*) ;; *) echo "crown: unknown option $1 for marshal $verb; $usage" >&2; exit 2;; esac
         [ $# -ge 2 ] || { echo "crown: $1 needs a value; $usage" >&2; exit 2; }
@@ -354,13 +369,27 @@ marshal_main() {
     rm -f "$af"
     exit "$rc"
   fi
+  # claim and check ask the remote of the shared records. When it cannot be reached they refuse (exit 3, saying what could not be reached and why)
+  # unless the lead gave --assume-unreachable-ok: then they go on (a claim stays provisional, a check answers from the cache) and an audit line
+  # marshal:unreachable-ok records it. The shell API above (marshal_start, marshal_check) refuses only with --need-remote, which the flow verbs pass (marshal_gate in gitflow.sh).
+  local ovf=''
+  case $verb in claim|check)
+    if [ -n "$assume" ]; then ovf=$(mktemp "$DA_STATE/.marshal-override.XXXXXX"); else opt+=(--need-remote); fi;;
+  esac
   if [ "$verb" = claim ]; then
     local crc=0 caf
     caf=$(mktemp "$DA_STATE/.marshal-audit.XXXXXX")
-    CROWN_MARSHAL_AUDIT_OUT=$caf marshal_py "$PROJ" claim "${opt[@]}" || crc=$?
+    CROWN_MARSHAL_AUDIT_OUT=$caf CROWN_MARSHAL_OVERRIDE_OUT=$ovf marshal_py "$PROJ" claim "${opt[@]}" || crc=$?
     if [ "$crc" = 0 ] && [ -s "$caf" ]; then audit_log "marshal:succession" "$(cat "$caf")"; fi
     rm -f "$caf"
+    marshal_override_audit "$ovf" "$crc"
     exit "$crc"
+  fi
+  if [ "$verb" = check ]; then
+    local krc=0
+    CROWN_MARSHAL_OVERRIDE_OUT=$ovf marshal_py "$PROJ" check "${opt[@]}" || krc=$?
+    marshal_override_audit "$ovf" "$krc"
+    exit "$krc"
   fi
   if [ "$verb" = handoff ]; then
     # read only: no lease, no fetch, no record written; the file of --write (and the line in $DA_STATE/handoff that says when it was written) is the only thing it may make

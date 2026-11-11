@@ -78,6 +78,7 @@ PROJECT_OPT = opt("--project", "the project, instead of the one inferred from he
 MEMBER_PROJECT_OPT = opt("--project", "the project the member belongs to (default: the one in effect when it has the member, else the only project that has it)", "PROJECT", "project")
 AS_OPT = opt("--as", "act as this lead identity (default: the session id in CROWN_LEAD, else user@host)", "ID")
 RESOLVED_OPT = opt("--resolved", "use the merge you resolved and committed in the conflict worktree")
+FLOW_UNREACHABLE_OPT = opt("--assume-unreachable-ok", "go on although the shared marshal cannot be asked because its remote cannot be reached (without it that is a refusal, exit 3, nothing changed); recorded as marshal:unreachable-ok in the audit log")
 REMOTE_NOTE = ("It asks the live origin with git ls-remote (CROWN_REMOTE_TIMEOUT seconds, default 10) where the branches are, not the last fetch, "
                "and says 'remote not checked' when origin cannot be reached.")
 SUITE_FAIL_NOTE = ("The output of the suite is kept in STATE/suite-logs/PROJECT.feature-NAME.log (PROJECT.release-VERSION.log for a release; the last run of each). When "
@@ -270,7 +271,7 @@ COMMANDS = {
         "scripts": ["feature.sh"],
         "verbs": {
             "start": verb("Cut feature/NAME from develop", [("NAME", "none")], [PROJECT_OPT, opt("--purpose", "what the feature is about; related work only goes into one feature", "TEXT"),
-                                                  opt("--worktree", "also make the feature's worktree at <worktrees.root>/feature/NAME and print its path")],
+                                                  opt("--worktree", "also make the feature's worktree at <worktrees.root>/feature/NAME and print its path"), FLOW_UNREACHABLE_OPT],
                           desc="Refuses a name origin already has (asked live with git ls-remote), so another person's branch is not shadowed; fetch it instead. Refuses the name of a detached branch (repo.detached)."),
             "list": verb("List the open features: purpose, distance from develop, and the files two features both change", [], [PROJECT_OPT],
                          desc=("Several features can be open at once. Two that change the same file will conflict whichever lands second: keep related work in one feature, unrelated work in another. "
@@ -283,10 +284,10 @@ COMMANDS = {
                                "them with an agent task based on develop, or keep them on a branch of their own). After feature finish, release finish and hotfix finish moved "
                                "develop, a clean main checkout on the parking branch with no commits of its own is fast-forwarded to develop, and one status line says why it was not. "
                                "The parking branch is never pushed or merged.")),
-            "sync": verb("Merge develop into the feature (after another feature landed, before this one's checkpoint)", [("NAME", "none")], [PROJECT_OPT, RESOLVED_OPT],
+            "sync": verb("Merge develop into the feature (after another feature landed, before this one's checkpoint)", [("NAME", "none")], [PROJECT_OPT, RESOLVED_OPT, FLOW_UNREACHABLE_OPT],
                          desc=("With the answer release.changelog.numbered true it then checks the changelog for duplicate item numbers and warns (exit status unchanged); "
                                "feature finish refuses them. See crown changelog.")),
-            "merge": verb("Merge a verified task branch into feature/NAME with --no-ff", [("NAME", "none"), ("BRANCH", "branch")], [PROJECT_OPT, PLAN, APPROVED, RESOLVED_OPT],
+            "merge": verb("Merge a verified task branch into feature/NAME with --no-ff", [("NAME", "none"), ("BRANCH", "branch")], [PROJECT_OPT, PLAN, APPROVED, RESOLVED_OPT, FLOW_UNREACHABLE_OPT],
                           desc=("NAME may be a detached long-lived branch of the answers (repo.detached) instead of a feature: BRANCH must then be an agent/* branch, "
                                 "and the merge, local only, prints a plan and token like a merge into develop (--plan, --approved). A detached branch never meets develop, master, "
                                 "release, hotfix or feature branches: a merge between them, in either direction and by name or by history, is refused here, in sync, in finish and in release finish. "
@@ -294,10 +295,10 @@ COMMANDS = {
                                 "local verify, a warning names the run; the merge goes on.")),
             "status": verb("Show the feature: commits ahead of develop and whether the whole suite passed at its head", [("NAME", "none")], [PROJECT_OPT],
                            desc=REMOTE_NOTE + " With declared gates a 'gates:' line lists each with its result at the last run. Flags worktrees outside the worktree root like list. When the whole-suite result is for an older head it says why (the commits on the branch since the run, a merge of a task branch or of develop named as such) and that the next step is crown feature verify NAME."),
-            "verify": verb("Run the project's whole test suite on the feature's head and record the result", [("NAME", "none")], [PROJECT_OPT],
+            "verify": verb("Run the project's whole test suite on the feature's head and record the result", [("NAME", "none")], [PROJECT_OPT, FLOW_UNREACHABLE_OPT],
                            desc=GATES_NOTE + " " + OTHER_RUNS_NOTE + " " + SUITE_FAIL_NOTE),
             "finish": verb("Merge the feature into develop with --no-ff and delete it", [("NAME", "none")],
-                           [PROJECT_OPT, opt("--keep", "keep the branch"), PLAN, APPROVED, RESOLVED_OPT],
+                           [PROJECT_OPT, opt("--keep", "keep the branch"), PLAN, APPROVED, RESOLVED_OPT, FLOW_UNREACHABLE_OPT],
                            desc=("Needs a passing whole-suite run at the feature's head. A feature behind develop is refused (exit 1, nothing changed); when both sides "
                                  "changed the same files since their merge base, the message lists them and says to run crown feature sync first. With the answer release.changelog.numbered true it also refuses a changelog with duplicate item numbers (crown changelog renumber). Pushes develop if the repository has an origin. With the answer branches.delete_merged "
                                  "local+remote (default local) it also deletes the feature branch on origin when origin has it (asked live) and holds nothing the feature lacks; the plan shows "
@@ -331,7 +332,7 @@ COMMANDS = {
         "verbs": {
             "claim": verb("Become the lead of feature NAME (creates the record; refuses when another lead holds it)", [("NAME", "none")],
                           [PROJECT_OPT, AS_OPT, opt("--goal", "what the feature is to achieve", "TEXT"),
-                           opt("--as-successor-of", "continue as the lead after a restart: the old lead's id (see marshal handoff)", "ID")],
+                           opt("--as-successor-of", "continue as the lead after a restart: the old lead's id (see marshal handoff)", "ID"), FLOW_UNREACHABLE_OPT],
                           desc=("With --as-successor-of ID you take over from the lead ID without the owner's words when that lead's lease is stale and its host, OS user and "
                                 "work tree are yours (a restart gives the session a new id and nothing else that tells it apart). The record keeps its goal, plan and note and "
                                 "names the succession; it is audited as marshal:succession. Any other case is refused: the owner's marshal takeover covers it. "
@@ -346,7 +347,7 @@ COMMANDS = {
                         [PROJECT_OPT, AS_OPT, opt("--goal", "the goal", "TEXT"), opt("--plan", "the plan, free text or a checklist", "TEXT"), opt("--note", "a note for the next reader", "TEXT"),
                          opt("--status", "planned, active, blocked or verifying", "STATE", ("planned", "active", "blocked", "verifying"))]),
             "check": verb("Before starting work or changing a plan: is the feature free for you, is anything else in its way (exit 1: refuse; warnings go to stderr)", [("[NAME]", "none")],
-                          [PROJECT_OPT, AS_OPT, opt("--no-fetch", "read the cache of the shared refs only, do not fetch (the session hook uses it)")],
+                          [PROJECT_OPT, AS_OPT, opt("--no-fetch", "read the cache of the shared refs only, do not fetch (the session hook uses it)"), FLOW_UNREACHABLE_OPT],
                           desc="This verb only reads; it renews no lease. The commands of the flow that ask the marshal first (feature merge, sync, status, verify and finish; local prepare, verify and clean; review check and apply) renew the lease of their own lead as they ask."),
             "renew": verb("Renew your lease on a feature (long verbs and the lead's other commands on the feature do this themselves)", [("NAME", "none")], [PROJECT_OPT, AS_OPT]),
             "release": verb("Give the feature up, leaving a handoff note; it has no lead until someone takes it", [("NAME", "none")],

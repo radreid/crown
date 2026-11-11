@@ -113,6 +113,8 @@ class Ctx:
         self.be = be or LocalBackend()
         self.fetch_ok = not getattr(a, "no_fetch", False) and not getattr(self.be, "member", False)
         self.ttl = a.ttl if a.ttl and a.ttl > 0 else 15
+        self.need_remote = bool(getattr(a, "need_remote", False))   # claim, check and the flow verbs: a remote that cannot be asked is a refusal, not a warning
+        self.verb = getattr(a, "verb", "") or ""
         user = pwd.getpwuid(os.getuid()).pw_name
         host = socket.gethostname()
         given = a.as_id or os.environ.get("CROWN_LEAD") or ""
@@ -218,6 +220,26 @@ def note_audit(text):
     if out:
         with open(out, "w") as f:
             f.write(text)
+
+
+def note_unreachable_ok(ctx, name, why):
+    """The audit detail of a verb that went on although the remote was not reached (the lead gave --assume-unreachable-ok): lib/marshal.sh
+    appends it to the audit log. Only lib/marshal.sh sets CROWN_MARSHAL_OVERRIDE_OUT, and only when that flag was given."""
+    out = os.environ.get("CROWN_MARSHAL_OVERRIDE_OUT")
+    if out:
+        with open(out, "a") as f:
+            f.write("%s %s verb=%s remote=%s why=%s\n" % (ctx.project, name or "-", ctx.verb, getattr(ctx.be, "remote", "-"), " ".join(clean(why).split())[:200]))
+
+
+def unreachable_refusal(ctx, why, name, what, override=True):
+    """The Unreachable text of a verb the remote did not serve (WHAT: the verb's result, such as 'the claim of X was not made'). claim and check,
+    which could go on without the remote, say how; a change to a shared record cannot, so for the others there is nothing to override."""
+    if ctx.need_remote and override:
+        tail = "%s. If you know no other lead holds %s, go on without the remote: crown marshal %s%s --assume-unreachable-ok (audited as marshal:unreachable-ok)" % (
+            what, name or "a feature you name", ctx.verb, " " + name if name else "")
+    else:
+        tail = "%s; try again when the remote is reachable (a change to a shared record needs the remote: there is no override)" % what
+    return "remote not checked (%s): %s" % (why, tail)
 
 
 def update(ctx, name, fn, create=False):
@@ -657,7 +679,10 @@ class RefsBackend:
         if self.snap is None:
             why = self.load(ctx, ctx.fetch_ok)
             if why is not None:
+                if ctx.need_remote:
+                    raise Unreachable(unreachable_refusal(ctx, why, ctx.name, "the answer would come from what this machine fetched last, which may be out of date"))
                 print("crown: remote not checked (%s): showing what this machine fetched last" % why, file=sys.stderr)
+                note_unreachable_ok(ctx, ctx.name, why)
         return self.snap
 
     # -- reading
@@ -805,8 +830,11 @@ class RefsBackend:
                     return res
                 if not (create and remote is None):
                     raise Unreachable("remote not checked (%s): feature %s was not changed; try again when the remote is reachable" % (why, name))
+                if ctx.need_remote:
+                    raise Unreachable(unreachable_refusal(ctx, why, name, "the claim of %s was not made" % name))
                 self.mirror(ctx, name, self.stamp(ctx, name, new, rec), "provisional")
                 print("crown: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (why, name), file=sys.stderr)
+                note_unreachable_ok(ctx, name, why)
                 return res
             new, res = fn(rec)
             if new is None:
@@ -847,8 +875,12 @@ class RefsBackend:
                     self.mirror(ctx, name, new)
                 return res
             if st == "unreachable":
+                if wrote_prov and ctx.need_remote:
+                    os.unlink(path)                               # the note was made for this push only
+                    raise Unreachable(unreachable_refusal(ctx, last, name, "the claim of %s was not made" % name))
                 if wrote_prov:
                     print("crown: remote not checked (%s): the claim of %s is provisional here; the next marshal verb on it completes or drops it" % (last, name), file=sys.stderr)
+                    note_unreachable_ok(ctx, name, last)
                     return res
                 raise Unreachable("remote not checked (%s): feature %s was not changed; try again when the remote is reachable" % (last, name))
             if retried:                                           # rejected twice
@@ -1631,6 +1663,7 @@ def main(argv):
     p.add_argument('--lenient', action="store_true")
     p.add_argument('--renew', action="store_true")
     p.add_argument('--no-fetch', dest="no_fetch", action="store_true")
+    p.add_argument('--need-remote', dest="need_remote", action="store_true")
     p.add_argument('--backend', choices=["local", "refs"])
     p.add_argument('--remote')
     p.add_argument('--show', action="store_true")

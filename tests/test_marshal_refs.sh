@@ -284,8 +284,17 @@ chmod +x "$ORIGIN/hooks/pre-receive"
 XE b CROWN_REMOTE_TIMEOUT=1 marshal status --all --brief; rc=$?
 [ $rc = 0 ] && grep -q "remote not checked" <(out) && grep -q "^f1 " "$T/o" && [ ! -e "$ORIGIN/hook.done" ] \
   && ok "offline: status shows the cache with 'remote not checked' and exits 0" || no "SPEC offline status (rc=$rc): $(out)"
-XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off1 --as alice
+XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off1 --as alice; rc=$?
+[ $rc = 3 ] && [ ! -e "$(S a)/features/app-off1.json" ] && grep -q -- "--assume-unreachable-ok" <(out) \
+  && ok "offline: claim refuses (exit 3, nothing written) when the remote cannot be asked, and names the override" || no "SPEC offline claim refusal (rc=$rc): $(out)"
+XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off1 --as alice --assume-unreachable-ok
 grep -q "remote not checked" <(out) && ok "offline: the claim says 'remote not checked'" || no "SPEC offline claim must say 'remote not checked': $(out)"
+XE a CROWN_REMOTE_TIMEOUT=1 marshal check off1 --as alice; rc=$?
+[ $rc = 3 ] && grep -q -- "--assume-unreachable-ok" <(out) \
+  && ok "offline: check refuses (exit 3) when the remote cannot be asked, and names the override" || no "SPEC offline check refusal (rc=$rc): $(out)"
+XE a CROWN_REMOTE_TIMEOUT=1 marshal check off1 --as alice --assume-unreachable-ok; rc=$?
+[ $rc = 0 ] && grep -q "marshal:unreachable-ok" "$(S a)/audit.log" \
+  && ok "offline: check with --assume-unreachable-ok answers from the cache and writes the audit line marshal:unreachable-ok" || no "SPEC offline check override (rc=$rc): $(out); audit: $(tail -2 "$(S a)/audit.log" 2>&1)"
 [ "$(jq -r '.state // ""' "$(S a)/features/app-off1.json" 2>/dev/null)" = provisional ] && [ "$(oref refs/crown/features/off1)" = none ] \
   && ok "offline: the claim stays provisional locally and nothing reached the origin" || no "SPEC offline claim is provisional: $(cat "$(S a)/features/app-off1.json" 2>&1), origin $(oref refs/crown/features/off1)"
 unslow a; unslow b; rm -f "$ORIGIN/hooks/pre-receive"
@@ -295,7 +304,7 @@ XE a marshal renew off1 --as alice; rc=$?
 [ $rc = 0 ] && [ "$(orec refs/crown/features/off1 | jq -r .lead.id)" = alice ] && [ "$(jq -r '.state // ""' "$(S a)/features/app-off1.json" 2>/dev/null)" != provisional ] \
   && ok "offline: the next verb completes the provisional claim" || no "SPEC provisional claim completes on the next verb (rc=$rc), origin $(oref refs/crown/features/off1): $(out)"
 slow a "fetch push"
-XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off2 --as alice >/dev/null 2>&1
+XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off2 --as alice --assume-unreachable-ok >/dev/null 2>&1
 XE b marshal claim off2 --as bob; rc=$?
 [ $rc = 0 ] || no "setup: B claims off2 while A is offline (rc=$rc): $(out)"
 unslow a
@@ -395,7 +404,7 @@ for r in $HOSTILE refs/crown/features/hgood; do OG update-ref -d "$r"; done
 XE a marshal claim gh1 --as alice >/dev/null 2>&1
 GH=$(oref refs/crown/features/gh1)
 git -C "$T/m/a/app" branch -q -D feature/gh1                        # the branch is gone: a ghost, which the local mode fixes on a read
-slow a "fetch push"; XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off3 --as alice >/dev/null 2>&1; unslow a   # a provisional claim waits
+slow a "fetch push"; XE a CROWN_REMOTE_TIMEOUT=1 marshal claim off3 --as alice --assume-unreachable-ok >/dev/null 2>&1; unslow a   # a provisional claim waits
 np=$(nsub push); good=1
 for who in a b; do
   for v in "status gh1" "status --all" "status --all --brief" "status --all --json" "status off3" "check" "check gh1" "status --all --history --no-fetch" "status --all --brief --no-fetch"; do
@@ -416,7 +425,7 @@ printf '%s' "$hk" | jq -e . >/dev/null 2>&1 && [ "$(nsub fetch)" = "$nf" ] && [ 
 # ============================================================ (19) a finished feature is not resurrected by a provisional claim
 # alice claims rz1 offline (provisional); bob claims it and finishes it meanwhile; alice's next verb must drop her claim, not push it
 fb rz1 dn1
-slow a "fetch push"; XE a CROWN_REMOTE_TIMEOUT=1 marshal claim rz1 --as alice >/dev/null 2>&1; unslow a
+slow a "fetch push"; XE a CROWN_REMOTE_TIMEOUT=1 marshal claim rz1 --as alice --assume-unreachable-ok >/dev/null 2>&1; unslow a
 XE b marshal claim rz1 --as bob >/dev/null 2>&1; XE b marshal finish rz1 --as bob >/dev/null 2>&1
 RZ=$(oref refs/crown/done/rz1)
 XE a marshal renew rz1 --as alice; rc=$?
@@ -457,7 +466,7 @@ for n in tnull tnum tlist pnum rnum fnum wgood; do OG update-ref -d "refs/crown/
 # ============================================================ (21) a provisional claim cannot be taken over
 fb pv1
 slow a "fetch push"
-XE a CROWN_REMOTE_TIMEOUT=1 marshal claim pv1 --as alice >/dev/null 2>&1
+XE a CROWN_REMOTE_TIMEOUT=1 marshal claim pv1 --as alice --assume-unreachable-ok >/dev/null 2>&1
 XE a CROWN_REMOTE_TIMEOUT=1 marshal takeover pv1 --as alice --approved "$WORDS"; rc=$?
 unslow a
 [ $rc = 1 ] && ! grep -q Traceback "$T/e" && grep -qi "provisional" <(out) && [ "$(jq -r '.state // ""' "$(S a)/features/app-pv1.json" 2>/dev/null)" = provisional ] && [ "$(oref refs/crown/features/pv1)" = none ] \
