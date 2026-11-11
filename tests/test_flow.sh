@@ -196,8 +196,8 @@ $REL verify 0.5.0 >/dev/null 2>&1; rstart 0.5.0 >/dev/null 2>&1; t=$($REL push 0
 printf '#!/bin/sh\necho rejected >&2\nexit 1\n' > "$T/origin2.git/hooks/pre-receive"; chmod +x "$T/origin2.git/hooks/pre-receive"
 m5=$(git -C "$R2" rev-parse master); t=$($REL finish 0.5.0 | tok)
 fout=$($REL finish 0.5.0 --plan "$t" --approved go 2>&1) && no "finished with a rejected push" || ok "a rejected push fails the finish"
-grep -q "nothing was changed locally or on origin" <<<"$fout" && ok "and says nothing changed" || no "message: $fout"
-[ "$(git -C "$R2" rev-parse master)" = "$m5" ] && ! git -C "$R2" rev-parse -q --verify refs/tags/0.5.0 >/dev/null && git -C "$R2" rev-parse -q --verify refs/heads/release/0.5.0 >/dev/null && ok "nothing moved locally: no moved branch, no tag, the release branch stays" || no "partial state"
+grep -q "origin may hold the release anyway" <<<"$fout" && grep -q "the record of this finish are kept" <<<"$fout" && ok "and says the push may have reached origin anyway, and that the tag and the record are kept" || no "message: $fout"
+[ "$(git -C "$R2" rev-parse master)" = "$m5" ] && git -C "$R2" rev-parse -q --verify refs/tags/0.5.0 >/dev/null && [ -f "$T/s/finish-intent/app2-release-0.5.0.json" ] && git -C "$R2" rev-parse -q --verify refs/heads/release/0.5.0 >/dev/null && ok "nothing moved locally: no moved branch, the release branch stays; the tag and the finish record are kept for the rerun" || no "partial state"
 [ "$(git -C "$T/origin2.git" rev-parse master)" = "$m5" ] && ok "and nothing reached origin (the push is all or none)" || no "origin changed"
 rm "$T/origin2.git/hooks/pre-receive"
 fout=$($REL finish 0.5.0 --plan "$t" --approved go 2>&1) && ok "so it can simply be run again" || no "rerun after push failure: $fout"

@@ -121,6 +121,9 @@ Marshal: the feature marshal (`crown marshal`) is changed only by the lead. The 
   - a write under the handoff/ and busy/ directories of the state, where `marshal handoff --write` records when the note was written and
     feature verify and release verify record the whole-suite run in progress: `crown lead compact-check` reads them. Found and decided
     like features/, reading stays allowed. `crown lead usage` and `compact-check` only read and stay allowed;
+  - a write under the finish-intent/ directory of the state, where a finishing verb (feature finish, release finish) keeps the record of
+    what it has pushed and which of its local steps are done, which the next run of the verb believes and completes or drops:
+    decided like features/, reading stays allowed;
   - a write to the ref journal of the state ($CROWN_STATE/ref-journal.jsonl, its lock and any rotated or temporary file next to
     it, e.g. ref-journal.jsonl.lock, .1, .tmp): the lead's record of the branch moves its own verbs made, which `crown local verify`
     accepts as lead-side changes; and the same for the registry of local runs ($CROWN_STATE/local-runs.jsonl and the files like it), which names the
@@ -2005,6 +2008,7 @@ def _protected_roots():
     roots.update(lead_state_roots(P, home))
     roots.update(saved_runs_roots(P, home))
     roots.update(scrub_ok_roots(P, home))
+    roots.update(finish_intent_roots(P, home))
     roots.update(journal_roots(P, home))
     roots.update(memory_roots(P, home))
     roots.update(lead_roots(home) | lead_files(home))
@@ -2082,6 +2086,12 @@ def switch_roots(P=None, home=None):
     return state_sub("marshal", P, home)
 
 
+def finish_intent_roots(P=None, home=None):
+    """The finish-intent/ directory of the state: the records of the finishing verbs (feature finish, release finish) — what a finish pushed and
+    which of its local steps are done. The next run of the verb believes the record, so a member must not plant or change one."""
+    return state_sub("finish-intent", P, home)
+
+
 def memory_roots(P=None, home=None):
     """The memory tiers crown keeps by default: <root>/memory (project, shared and system) and ~/.crown/memory. Reading stays allowed; a tier placed elsewhere by
     the project's answers is not guarded."""
@@ -2150,6 +2160,9 @@ def refusal_text(what, dest, root):
     if root in scrub_ok_roots():
         return OwnReason("%s on %s would change %s, the lead's record of the series whose declared scrub passed (review apply skips the scrub for a series "
                          "recorded there); a member does not write it" % (what, dest, root))
+    if root in finish_intent_roots():
+        return OwnReason("%s on %s would change %s, the lead's record of a finish that was cut off (what it pushed and which of its local steps are done; "
+                         "the next finish run believes it and completes or drops the finish from it); a member does not write it" % (what, dest, root))
     if root in switch_roots() and name.endswith(".signers"):
         return MarshalReason("%s on %s would change %s, the marshal's allowed signers (the keys whose records are accepted); %s"
                              % (what, dest, root, MARSHAL_NOTE))

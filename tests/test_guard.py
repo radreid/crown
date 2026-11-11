@@ -1490,6 +1490,31 @@ class Marshal(HookCase):
             res = self.bash(c)
             self.assertEqual(res.returncode, 0, (c, res.stderr))
 
+    def test_the_finish_intent_directory_is_protected_and_readable(self):
+        """$STATE/finish-intent/<project>-<key>.json is the lead's record of a finish that was cut off (what it pushed, which steps are done);
+        the next finish run believes it, so a member who could write it could plant a finish that never happened."""
+        p = os.path.join(self.state, "finish-intent")
+        os.makedirs(p)
+        with open(os.path.join(p, "app-feature-f1.json"), "w") as f:
+            f.write('{"schema": 1}\n')
+        os.symlink(p, os.path.join(self.clone, "to-intent"))
+        for tool, key in (("Edit", "file_path"), ("Write", "file_path"), ("NotebookEdit", "notebook_path")):
+            for cls in ((), ("--class", "read-only")):
+                for f in (p + "/app-feature-f1.json", p + "/app-feature-new.json", "to-intent/app-feature-new.json"):
+                    res = self.hook(list(cls), {"tool_name": tool, "tool_input": {key: f}, "cwd": self.clone}, self.env())
+                    self.assertEqual(res.returncode, 2, (tool, f, cls, res.stderr))
+                    self.assertIn("record of a finish that was cut off", res.stderr)
+        for c in ["echo h > %s/app-feature-f1.json" % p, "echo h >> $CROWN_STATE/finish-intent/app-feature-f1.json", "printf h | tee %s/app-feature-x.json" % p, "cp a.txt %s/app-feature-x.json" % p,
+                  "mv a.txt %s/app-feature-x.json" % p, "ln -s /x %s/app-feature-x.json" % p, "rm -f %s/app-feature-f1.json" % p, "echo h > to-intent/app-feature-x.json",
+                  "cd %s && echo h > app-feature-x.json" % p, "bash -c 'echo h > %s/app-feature-x.json'" % p,
+                  "cat > %s/app-feature-x.json <<EOF\nh\nEOF" % p]:
+            res = self.bash(c)
+            self.assertEqual(res.returncode, 2, (c, res.stderr))
+            self.assertIn("record of a finish that was cut off", res.stderr, c)
+        for c in ("cat %s/app-feature-f1.json" % p, "ls %s" % p, "echo x > %s/finish-intent-notes.md" % self.state, "echo x > %s/unrelated.txt" % self.state):
+            res = self.bash(c)
+            self.assertEqual(res.returncode, 0, (c, res.stderr))
+
     def test_the_handoff_and_busy_directories_are_protected_and_the_context_verbs_are_reads(self):
         """$STATE/handoff and $STATE/busy tell `crown lead compact-check` when the note was written and what is running: a member does not write
         them. The verbs lead usage and lead compact-check only read, so a member may run them; claiming by succession writes the marshal."""
