@@ -39,7 +39,9 @@ apply --approved x >/dev/null 2>&1 && no "applied without the plan token" || ok 
 apply --plan 000000000000 --approved x >/dev/null 2>&1 && no "applied with a wrong token" || ok "apply refuses a wrong token"
 [ ! -e "$D" ] && ok "apply without approval changes nothing" || no "apply without approval wrote $D"
 out=$(apply --plan "$tok" --approved "test")
-grep -q "^launch: claude --add-dir $D\$" <<<"$out" && ok "apply ends with the launch command (no mcp/settings flags without tools)" || no "launch line: $out"
+grep -q "^launch: claude --add-dir $D --settings $D/settings.json\$" <<<"$out" && ok "apply ends with the launch command (the settings flag without tools: the render carries the guard's registration)" || no "launch line: $out"
+jq -e '(.hooks.PreToolUse[0].hooks[0].command | contains("__guard --project alpha")) and (.permissions.allow == [])' "$D/settings.json" >/dev/null && ok "a render with no tool pack still registers the guard hook in its settings file" || no "settings without tools: $(cat "$D/settings.json" 2>&1)"
+[ ! -e "$D/mcp.json" ] && ok "and no mcp file is rendered without tools" || no "mcp.json without tools"
 tail -1 "$T/s/audit.log" | jq -e '.verb=="packs-apply-claude-code"' >/dev/null && ok "apply is audit-logged" || no "audit: $(tail -1 "$T/s/audit.log")"
 
 # --- union across roles, roles recorded, exact copy
@@ -75,8 +77,11 @@ out=$(go)
 jq -e '.mcpServers.issues.url=="https://mcp.example.net/"' "$D/mcp.json" >/dev/null && ok "a tool pack becomes an mcp.json server entry" || no "mcp.json: $(cat "$D/mcp.json" 2>&1)"
 jq -e '.permissions.allow==["mcp__issues__list_issues"] and .permissions.ask==["mcp__issues__create_issue"]' "$D/settings.json" >/dev/null && ok "always_allow -> allow, always_ask -> ask" || no "settings.json: $(cat "$D/settings.json" 2>&1)"
 grep -q "^launch: claude --add-dir $D --mcp-config $D/mcp.json --settings $D/settings.json\$" <<<"$out" && ok "the launch command carries the mcp and settings flags" || no "launch: $out"
+jq -e '.hooks.PreToolUse[0].matcher=="Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*" and (.hooks.PreToolUse[0].hooks[0].command | contains("__guard --project alpha")) and .hooks.PreToolUse[0].hooks[0].onFailure=="block"' "$D/settings.json" >/dev/null && ok "settings.json registers the guard hook for the project, over every member tool" || no "settings guard hook: $(cat "$D/settings.json" 2>&1)"
 check >/dev/null && ok "check passes with a tool pack" || no "check with tool: $(check)"
 echo '{}' > "$D/mcp.json"; check 2>&1 | grep -q "differs from the manifest: mcp.json" && ok "a tampered mcp.json is reported" || no "mcp.json tamper"
+go >/dev/null
+jq 'del(.hooks)' "$D/settings.json" > "$D/s.json" && mv "$D/s.json" "$D/settings.json"; check 2>&1 | grep -q "guard: settings.json carries no PreToolUse guard hook for alpha" && ok "a settings file that lost its guard hook is reported by name" || no "guard hook tamper"
 go >/dev/null
 
 # --- rendered drift: tampered and extra files
@@ -149,7 +154,7 @@ proj gamma; jq '.models.provider = {local: "claude-code", cloud: "claude-platfor
 gtok=$($DA packs apply --target claude-code gamma 2>&1 | tok_of)
 [ -n "$gtok" ] && ok "an object-form models.provider with different runtimes: apply plans the local surface's render" || no "object-form plan: $($DA packs apply --target claude-code gamma 2>&1)"
 out=$($DA packs apply --target claude-code gamma --plan "$gtok" --approved test 2>&1); gd=$(sed -n 's/^applied: //p' <<<"$out")
-[ -n "$gd" ] && [ -f "$gd/MANIFEST.json" ] && grep -q "^launch: claude --add-dir $gd\$" <<<"$out" && ok "the render is made and the launch line is the local runtime's" || no "object-form apply: $out"
+[ -n "$gd" ] && [ -f "$gd/MANIFEST.json" ] && grep -q "^launch: claude --add-dir $gd --settings $gd/settings.json\$" <<<"$out" && ok "the render is made and the launch line is the local runtime's, with the settings file that carries the guard" || no "object-form apply: $out"
 out=$($DA packs check --target claude-code gamma 2>&1); rc=$?
 [ "$rc" = 0 ] && ok "check passes for it" || no "object-form check (rc=$rc): $out"
 jq '.models.provider = {cloud: "claude-platform"}' "$T/c/projects/gamma.json" > "$T/p.tmp" && mv "$T/p.tmp" "$T/c/projects/gamma.json"
@@ -179,7 +184,7 @@ out=$(fapply); ftok=$(tok_of <<<"$out")
 out=$(fapply --plan "$ftok" --approved test 2>&1)
 [ -f "$FD/.fk/skills/s-all/SKILL.md" ] && [ ! -e "$FD/.claude" ] && cmp -s "$FD/.fk/skills/s-all/refs/r.md" "$T/c/packs/skills/s-all/refs/r.md" && ok "another runtime: the skills go to its skills directory and nothing is made of Claude Code's" || no "fakert skills: $out; $(find "$FD" | head -20)"
 jq -e '.servers.remote.issues == {transport:"http",address:"https://mcp.example.net/",label:"issues"} and (keys == ["servers"])' "$FD/conf/servers.json" >/dev/null && ok "another runtime: the tool pack is an entry built from its template, under its root pointer, in its file" || no "fakert servers: $(cat "$FD/conf/servers.json" 2>&1)"
-jq -e '.rules.yes == ["issues.list_issues"] and .rules.prompt == ["issues.create_issue"] and (.rules | keys == ["prompt","yes"]) and (keys == ["rules"])' "$FD/rules.json" >/dev/null && ok "another runtime: the permission rules use its rule form and its pointers (no deny pointer, no deny list)" || no "fakert rules: $(cat "$FD/rules.json" 2>&1)"
+jq -e '.rules.yes == ["issues.list_issues"] and .rules.prompt == ["issues.create_issue"] and (.rules | keys == ["prompt","yes"]) and (keys == ["hooks","rules"]) and (.hooks.PreToolUse[0].hooks[0].command | contains("__guard --project delta"))' "$FD/rules.json" >/dev/null && ok "another runtime: the permission rules use its rule form and its pointers (no deny pointer, no deny list), and the guard registers in its settings file too" || no "fakert rules: $(cat "$FD/rules.json" 2>&1)"
 grep -q "^launch: fk run --render $FD --servers $FD/conf/servers.json\$" <<<"$out" && ok "another runtime: the launch line is its own" || no "fakert launch: $out"
 out=$($FX packs check --target fk-render delta 2>&1); rc=$?
 [ "$rc" = 0 ] && grep -q "^ok   delta: 2 packs, rendered tree matches the manifest, nothing shadowed" <<<"$out" && ok "another runtime: check passes on its render" || no "fakert check (rc=$rc): $out"

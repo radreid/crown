@@ -231,7 +231,9 @@ Failure: the guard fails closed. Any unexpected exception ends in exit 2 with th
 JSON is still let through (exit 0), as before. Known limits outside this file: a hook that cannot start, exits other than 0 or 2, times out or prints invalid
 JSON is a non-blocking error for the runtime and the action goes ahead, so agents/member.md sets `onFailure: "block"` and a `timeout` (a runtime that does not
 enforce `onFailure` lets such a failure through), and the frontmatter hooks of a project-level agent file run only after the workspace is trusted: until then the
-member runs without this guard."""
+member runs without this guard. The packs render therefore registers the same guard in the session's settings file, which the runtime loads
+without workspace trust; that registration names the project and no member, and the member of a call is read from the call itself (MCP TOOLS
+below says how)."""
 import collections, fnmatch, functools, json, os, re, shlex, stat, sys, time
 
 SEPARATOR = re.compile(r"(&&|\|\||;|\||\n|(?<![<>&])&(?![>&]))")           # the separators, kept (re.split hands them back between the pieces); no \s* around them: a long run of blanks made that quadratic
@@ -1252,7 +1254,7 @@ CLASSES = ("", "read-only")
 def is_review(run):
     """True when the member is read-only by class (its hook) or the run directory says so (its class file, or the review role). Under the class of the
     hook the run is not asked: a run whose files were moved away does not switch the class off (see review_refusal for what it holds the call to)."""
-    return CLASS == "read-only" or bool(run) and (ability_of(run) == "review" or run_class(run) == "read-only")
+    return CLASS == "read-only" or SESSION["class"] == "read-only" or bool(run) and (ability_of(run) == "review" or run_class(run) == "read-only")
 
 
 NO_RUN = ("under the read-only class nothing is written or changed here: no run directory (the place of OUT and of the clone) is found from this directory, "
@@ -1833,7 +1835,7 @@ def review_refusal(call):
         if why:
             return why
         run = run_dir(os.path.dirname(full)) or run_dir(cwd)
-        if CLASS == "read-only" and not run:
+        if is_review(None) and not run:
             return OwnReason(NO_RUN)
         if run and is_review(run) and not member_space(full, run):
             return "under the read-only class only the report and the manifest in OUT, and the temporary directory (TMP), may be written (%s is not)" % fp
@@ -1866,7 +1868,7 @@ def review_refusal(call):
 
 def review_segment(toks, i, here, text=""):
     def reading(run):
-        return CLASS == "read-only" or bool(run) and is_review(run)
+        return is_review(run)
     prog = os.path.basename(toks[i]) if i < len(toks) else ""
     if toks and text.rstrip()[-1:] in ("<", ">", "|", "&") and redirect_dest(toks, len(toks) - 1) == "":
         return OwnReason("a redirection with no file name left in its command (a substitution or a separator stands where it should be) writes where the guard cannot read; "
@@ -1893,7 +1895,7 @@ def review_segment(toks, i, here, text=""):
             if why:
                 return why
             run = run_dir(full if os.path.isdir(full) else os.path.dirname(full)) or run_dir(here)
-            if CLASS == "read-only" and not run:
+            if is_review(None) and not run:
                 return OwnReason(NO_RUN)
             if what.split()[0] in DESTRUCTIVE:
                 why = run_refusal(full, here)
@@ -3203,11 +3205,11 @@ def tar_targets(rest):
 # The data must be complete: tool_names.shell is listed, and every kind that lists a tool has a pointer for its path (hook_problem).
 # The text of a refusal belongs to the decisions: the protocol only carries it.
 
-Call = collections.namedtuple("Call", "kind name command path cwd")    # kind: shell, write, read, search or None; name: the runtime's name of the tool
+Call = collections.namedtuple("Call", "kind name command path cwd agent agent_id", defaults=[None, None])    # kind: shell, write, read, search or None; name: the runtime's name of the tool
 KINDS = ("shell", "write", "read", "search")
 
 CLAUDE_HOOK = {
-    "input": "json-stdin", "tool_pointer": "/tool_name", "command_pointer": "/tool_input/command", "cwd_pointer": "/cwd",
+    "input": "json-stdin", "tool_pointer": "/tool_name", "command_pointer": "/tool_input/command", "cwd_pointer": "/cwd", "agent_pointer": "/agent_type", "agent_id_pointer": "/agent_id",
     "path_pointers": {"write": ["/tool_input/file_path", "/tool_input/notebook_path"],
                       "read": ["/tool_input/file_path", "/tool_input/notebook_path", "/tool_input/path"]},
     "tool_names": {"shell": ["Bash"], "write": ["Edit", "Write", "NotebookEdit"], "read": ["Read"], "search": ["Grep"]},
@@ -3257,7 +3259,10 @@ def parse_call(hook, data):
     kind = kind_of(hook, name)
     path = next((v for v in (pointer(data, p) for p in path_pointers(hook, kind)) if v), "")
     cwd = (pointer(data, hook["cwd_pointer"]) if hook.get("cwd_pointer") else None) or os.getcwd()
-    return Call(kind, name, command if kind == "shell" else "", path, cwd)
+    agent = pointer(data, hook["agent_pointer"]) if hook.get("agent_pointer") else None
+    agent_id = pointer(data, hook["agent_id_pointer"]) if hook.get("agent_id_pointer") else None
+    return Call(kind, name, command if kind == "shell" else "", path, cwd, agent if isinstance(agent, str) and agent else None,
+                agent_id if isinstance(agent_id, str) and agent_id else None)
 
 
 def fill(node, reason):
@@ -3281,7 +3286,7 @@ def refuse(hook, reason):
     return deny["exit"]
 
 
-HOOK_KEYS = ("input", "tool_pointer", "command_pointer", "cwd_pointer", "path_pointers", "tool_names", "deny", "allow")
+HOOK_KEYS = ("input", "tool_pointer", "command_pointer", "cwd_pointer", "agent_pointer", "agent_id_pointer", "path_pointers", "tool_names", "deny", "allow")
 
 
 class HookError(Exception):
@@ -3311,7 +3316,7 @@ def hook_problem(h):
         return "barrier.hook.%s is not a key of the hook protocol" % k
     if h.get("input") != "json-stdin":
         return "barrier.hook.input must be \"json-stdin\""
-    for k in ("tool_pointer", "command_pointer") + (("cwd_pointer",) if "cwd_pointer" in h else ()):
+    for k in ("tool_pointer", "command_pointer") + (("cwd_pointer",) if "cwd_pointer" in h else ()) + (("agent_pointer",) if "agent_pointer" in h else ()) + (("agent_id_pointer",) if "agent_id_pointer" in h else ()):
         if not _is_pointer(h.get(k)):
             return "barrier.hook.%s must be a JSON pointer (it starts with /)" % k
     pp = h.get("path_pointers", [])
@@ -3393,8 +3398,12 @@ def hook_of(name):
 # that run the project and the role the lead's registry records (never a file of the run directory). An MCP call names no path, so a member a session
 # starts in a directory outside the run has no run to be found by: its hook command then says whose member it is, `--project P --roles a,b` (written
 # when the member is added or refreshed and its roles have tool packs; the member's file is protected), and the call must be allowed for every one of
-# those roles, each held to its class, since the guard cannot tell which of them the task is. With neither a run nor a hook command that names the
-# member the call is refused. Nothing of this reads a shell command.
+# those roles, each held to its class, since the guard cannot tell which of them the task is. A session the packs render launches registers the
+# guard in its settings file with `--project P` alone: the member of a call is then the one the call names (the payload's agent type, looked up
+# in the member registry of the configuration, agents.json), the call must be allowed for every one of that member's roles, and a call that
+# names no member is the session's own, judged as the lead of the project. A call that carries an agent identity the registry does not name
+# for the project is refused outright, on every tool: an identity that cannot be resolved must not fall through to the session's own authority.
+# With no run, no hook command that names the member and no member the call names, the call is refused. Nothing of this reads a shell command.
 
 DEFAULT_MCP = {"permission_rule": "mcp__{server}__{tool}", "name_key": "nonword-underscore"}  # what resources.mcp of the definition whose hook data is the default above says of the names: used when the hook command names no provider (a test holds the two together)
 _MCP = [DEFAULT_MCP]                                         # the MCP names of the runtime whose hook this is (main sets it for --provider NAME; None: the runtime has none, and no call is an MCP call)
@@ -3408,9 +3417,48 @@ class McpReason(MarshalReason):
     """A refusal of an MCP tool call: decide_call() ends it with MCP_NOTE."""
 
 
+SESSION = {"class": ""}                                      # the read-only class the member a call names earns for that call (judge sets it; clear_caches forgets it)
+_MEMBER_FILE = [None]                                        # the member registry of the configuration, read once (a hook process judges one call)
+
+
+def session_member(agent):
+    """(project, roles) of the member a call names (the payload's agent type), from the member registry of the configuration (agents.json: the
+    members `crown agent` rendered, each with its project and roles), or None when the registry names no such member, or the name is a member
+    of two projects with different roles. The registry is the lead's record, in the configuration directory the guard already protects from
+    members; the member's own file is never read for this, and a registry that cannot be read names no member. With a project in the hook
+    command only that project's members are looked up."""
+    if not isinstance(agent, str) or not MEMBER_ROLE.match(agent):
+        return None
+    if _MEMBER_FILE[0] is None:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import paths
+        try:
+            with open(os.path.join(paths.conf(), "agents.json"), encoding="utf-8") as f:
+                doc = json.load(f)
+        except Exception:
+            doc = {}
+        _MEMBER_FILE[0] = doc if isinstance(doc, dict) else {}
+    projects = _MEMBER_FILE[0].get("projects")
+    if not isinstance(projects, dict):
+        return None
+    names = (MEMBER["project"],) if MEMBER["project"] else sorted(projects)
+    found = []
+    for p in names:
+        members = projects.get(p)
+        rec = members.get(agent) if isinstance(members, dict) else None
+        if isinstance(rec, dict):
+            roles = rec.get("roles")
+            if isinstance(roles, list) and roles and all(isinstance(r, str) and MEMBER_ROLE.match(r) for r in roles):
+                found.append((p, tuple(roles)))
+    return found[0] if len(found) == 1 else None
+
+
 def read_member(argv):
-    """(project, roles) the hook command line names with --project P --roles a,b: ("", ()) when it names neither, None when one is missing, has no value
-    or is not a project name and a list of role names (the caller refuses every call: the member's file must be rendered again)."""
+    """(project, roles) the hook command line names: --project P --roles a,b names a member (the hook in its file), --project P alone names the
+    session of a project (the hook the packs render registers in the session's settings file: one settings file serves every member of the
+    session, so it names no member; the member of a call is then the one the call names, see session_member, and a call that names none is the
+    session's own). ("", ()) when it names neither; None when a value is missing or is not a project name and a list of role names (the caller
+    refuses every call: the member's file must be rendered again)."""
     got = {}
     for opt in ("--project", "--roles"):
         if opt in argv:
@@ -3420,8 +3468,12 @@ def read_member(argv):
             got[opt] = argv[k + 1]
     if not got:
         return "", ()
-    roles = tuple(got.get("--roles", "").split(","))
-    if len(got) != 2 or not MEMBER_PROJECT.match(got["--project"]) or not all(MEMBER_ROLE.match(r) for r in roles):
+    if not MEMBER_PROJECT.match(got.get("--project", "")):
+        return None
+    if "--roles" not in got:
+        return got["--project"], ()
+    roles = tuple(got["--roles"].split(","))
+    if not all(MEMBER_ROLE.match(r) for r in roles):
         return None
     return got["--project"], roles
 
@@ -3501,6 +3553,12 @@ def mcp_refusal(call):
     elif MEMBER["project"] and MEMBER["roles"]:
         project = MEMBER["project"]
         cases = [(r, CLASS == "read-only" or read_only_role(r)) for r in MEMBER["roles"]]
+    elif call.agent and session_member(call.agent):
+        project, roles = session_member(call.agent)
+        cases = [(r, CLASS == "read-only" or read_only_role(r)) for r in roles]
+    elif MEMBER["project"]:
+        project = MEMBER["project"]               # the session's own calls, which name no member: the lead of the project, held to the read-only class
+        cases = [("lead", True)]
     else:
         return McpReason("no run directory is found from the directory of this call and the hook command does not say whose member this is, so the guard cannot tell "
                          "which tool packs apply to the call of %s; a member whose roles have tool packs is rendered with its project and roles in the hook command "
@@ -3519,6 +3577,8 @@ def mcp_refusal(call):
 def clear_caches():
     """Forget what was read from the files and the environment: a call is judged from one reading of them (a hook is one call; a test judges many)."""
     _BRACE_WORK[0] = 0
+    SESSION["class"] = ""
+    _MEMBER_FILE[0] = None
     for cache in (_RESOURCE_DIRS, _ROOTS, _KEY_DIRS, _STATE):          # read from the library, the environment and the state: a judge that outlives one call must not keep them
         cache.clear()
     for f in (line_assignments, real_dir, resolve, run_like, in_a_clone, run_dir, protected, key_named, ability_of, run_class, brace_expand, run_tmps, pass_writes):
@@ -3533,6 +3593,14 @@ def judge(call):
         return ("crown guard: a command of more than %d characters cannot be checked in the time the hook has, so it is not available to an agent. "
                 "Write the text to a file with the Write tool, or run it in parts." % MAX_COMMAND)
     clear_caches()
+    if MEMBER["project"] and (call.agent or call.agent_id) and not (call.agent and session_member(call.agent)):
+        return ("crown guard: this call names an agent (%s) that the member registry does not name for %s, so the guard cannot tell which "
+                "member's policy applies to it; refusing the call. A member is rendered before a session dispatches it (crown agent add), "
+                "and a session is restarted when its members change." % (call.agent or call.agent_id, MEMBER["project"]))
+    if call.agent:
+        who = session_member(call.agent)
+        if who and all(read_only_role(r) for r in who[1]):
+            SESSION["class"] = "read-only"          # a member whose roles are all of the read-only class is held to it on every call, as --class read-only holds it
     _DEADLINE[0] = _CLOCK[0]() + BUDGET
     try:
         _OUT[0] = out_dir(call)

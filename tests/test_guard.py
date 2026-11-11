@@ -2016,14 +2016,16 @@ class HookProtocol(unittest.TestCase):
 
     def test_the_claude_hook_data_makes_these_calls(self):
         g = self.load()
-        for data, want in (({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": "/w"}, ("shell", "Bash", "ls", "", "/w")),
-                           ({"tool_input": {"command": "ls"}, "cwd": "/w"}, ("shell", None, "ls", "", "/w")),
-                           ({"tool_name": "Edit", "tool_input": {"file_path": "a", "path": "b"}, "cwd": "/w"}, ("write", "Edit", "", "a", "/w")),
-                           ({"tool_name": "NotebookEdit", "tool_input": {"notebook_path": "n"}, "cwd": "/w"}, ("write", "NotebookEdit", "", "n", "/w")),
-                           ({"tool_name": "Read", "tool_input": {"file_path": "r"}, "cwd": "/w"}, ("read", "Read", "", "r", "/w")),
-                           ({"tool_name": "Grep", "tool_input": {"path": "d", "pattern": "x"}, "cwd": "/w"}, ("search", "Grep", "", "d", "/w")),
-                           ({"tool_name": "Glob", "tool_input": {"pattern": "*"}, "cwd": "/w"}, (None, "Glob", "", "", "/w")),
-                           ({"tool_name": "Bash", "tool_input": None, "cwd": None}, ("shell", "Bash", "", "", os.getcwd()))):
+        for data, want in (({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": "/w"}, ("shell", "Bash", "ls", "", "/w", None, None)),
+                           ({"tool_input": {"command": "ls"}, "cwd": "/w"}, ("shell", None, "ls", "", "/w", None, None)),
+                           ({"tool_name": "Edit", "tool_input": {"file_path": "a", "path": "b"}, "cwd": "/w"}, ("write", "Edit", "", "a", "/w", None, None)),
+                           ({"tool_name": "NotebookEdit", "tool_input": {"notebook_path": "n"}, "cwd": "/w"}, ("write", "NotebookEdit", "", "n", "/w", None, None)),
+                           ({"tool_name": "Read", "tool_input": {"file_path": "r"}, "cwd": "/w"}, ("read", "Read", "", "r", "/w", None, None)),
+                           ({"tool_name": "Grep", "tool_input": {"path": "d", "pattern": "x"}, "cwd": "/w"}, ("search", "Grep", "", "d", "/w", None, None)),
+                           ({"tool_name": "Glob", "tool_input": {"pattern": "*"}, "cwd": "/w"}, (None, "Glob", "", "", "/w", None, None)),
+                           ({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": "/w", "agent_type": "reader"}, ("shell", "Bash", "ls", "", "/w", "reader", None)),
+                           ({"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": "/w", "agent_id": "a-1"}, ("shell", "Bash", "ls", "", "/w", None, "a-1")),
+                           ({"tool_name": "Bash", "tool_input": None, "cwd": None}, ("shell", "Bash", "", "", os.getcwd(), None, None))):
             self.assertEqual(tuple(g.parse_call(g.CLAUDE_HOOK, data)), want, data)
 
     def test_the_shipped_claude_code_definition_carries_the_data_the_guard_has_built_in(self):
@@ -4928,6 +4930,45 @@ class McpTools(HookCase):
         self.allowed("build", ("mcp__kb__search", "mcp__only-build__list_x"), "--class", "read-only")
         self.refused("build", (("mcp__kb__platform_delete_knowledge", "its name is write-like"), ("mcp__kb__repo_push", "its policy is auto")), "--class", "read-only")
 
+    def test_a_session_hook_judges_the_member_a_call_names(self):
+        """The hook the packs render registers in a session's settings file names the project alone (--project alpha): the member of a call is
+        the one the call names (agent_type, looked up in the member registry of the configuration), held to its roles and their class, on MCP
+        calls and on the read-only class alike. A call that names no member is the session's own and is judged as the lead of the project. The
+        calls are made outside any run, where only the hook command and the call itself can name the member."""
+        self.put(os.path.join(self.conf, "agents.json"), json.dumps({"schema": 2, "projects": {"alpha": {
+            "reader": {"roles": ["review"], "file": "/x/reader.md", "provider": "claude-code", "surface": "local"}}}}))
+
+        def call(tool, payload=None, args=("--project", "alpha")):
+            p = {"tool_name": tool, "tool_input": {"query": "x"}, "cwd": self.outside}
+            p.update(payload or {})
+            return self.hook(list(args), p, self.env())
+
+        for t in ("mcp__kb__platform_list_items", "mcp__kb__search"):
+            self.assertEqual(call(t, {"agent_type": "reader"}), Verdict(0, "", ""), t)
+        for t, words in (("mcp__kb__platform_delete_knowledge", "its name is write-like"),
+                         ("mcp__only-build__list_x", "is not a tool of a tool pack linked to the role review of alpha")):
+            r = call(t, {"agent_type": "reader"})
+            self.assertEqual(r.returncode, 2, (t, r.stderr))
+            self.assertIn(words, r.stderr, t)
+        r = call("mcp__nosuch__x")                       # the session's own call: judged as the lead of the project
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("the role lead of alpha", r.stderr, r.stderr)
+        r = call("mcp__nosuch__x", {"agent_type": "ghost"})   # a name the registry does not know: refused, never the session's own authority
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("the member registry does not name for alpha", r.stderr, r.stderr)
+        r = call("mcp__kb__search", {"agent_id": "a-1"})      # an agent id with no type: a subagent call the guard cannot attribute, refused
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("the member registry does not name for alpha", r.stderr, r.stderr)
+        w = {"tool_name": "Bash", "tool_input": {"command": "echo x > %s" % os.path.join(self.outside, "f")}, "cwd": self.outside}
+        r = self.hook(["--project", "alpha"], dict(w, agent_type="reader"), self.env())
+        self.assertEqual(r.returncode, 2, r.stderr)      # the member the call names is read-only by its role: no write outside a run
+        self.assertIn("no run directory", r.stderr, r.stderr)
+        r = self.hook(["--project", "alpha"], w, self.env())
+        self.assertEqual(r.returncode, 0, r.stderr)      # the session's own shell call is not held to a member's class
+        r = self.hook(["--roles", "build"], {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": self.outside}, self.env())
+        self.assertEqual(r.returncode, 2, r.stderr)      # roles without a project name no member: every call is refused
+        self.assertIn("does not name the member's project and roles in a way the guard can read", r.stderr, r.stderr)
+
     def test_the_run_is_the_registrys_not_the_run_directorys(self):
         """The project and the role come from the lead's registry: a run the registry does not name is refused, and the ability file of the run (which the
         guard keeps a member from writing) is not what names the role's packs."""
@@ -4970,7 +5011,7 @@ class McpTools(HookCase):
         self.refused("review", (("mcp__only-build__list_x", "linked to the role review of alpha"),), *one)
 
     def test_a_hook_command_that_names_the_member_badly_refuses_every_call(self):
-        for args in (("--project", "alpha"), ("--roles", "build"), ("--project", "alpha", "--roles"), ("--project", "../alpha", "--roles", "build"),
+        for args in (("--roles", "build"), ("--project", "alpha", "--roles"), ("--project", "../alpha", "--roles", "build"),
                      ("--project", "alpha", "--roles", "build,"), ("--project", "alpha", "--roles", "Build"), ("--project", "", "--roles", "build")):
             for payload in ({"tool_name": "mcp__kb__search", "tool_input": {}, "cwd": self.outside}, {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": self.outside}):
                 r = self.hook(list(args), payload, self.env())
@@ -4978,6 +5019,8 @@ class McpTools(HookCase):
                 self.assertIn("does not name the member's project and roles", r.stderr, args)
                 self.assertIn("refusing every call until the member is refreshed", r.stderr, args)
         self.assertEqual(self.hook(["--project", "alpha", "--roles", "build"], {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": self.outside}, self.env()), Verdict(0, "", ""))
+        # --project alone is not a badly named member: it is the session's hook (the one the packs render registers in the settings file)
+        self.assertEqual(self.hook(["--project", "alpha"], {"tool_name": "Bash", "tool_input": {"command": "ls"}, "cwd": self.outside}, self.env()), Verdict(0, "", ""))
 
     def test_a_tool_that_is_no_mcp_tool_is_not_judged(self):
         self.allowed(self.outside, ("Glob", "ToolSearch", "TaskStop", "Skill", "WebFetch", "mcp_kb_search", "xmcp__kb__search"))

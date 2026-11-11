@@ -6,7 +6,7 @@ model: {{MODEL}}
 tools: Bash, Read, Edit, Write, Grep, Glob, Monitor, TaskStop, ToolSearch, Skill
 hooks:
   PreToolUse:
-    - matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep"
+    - matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*"
       hooks:
         - type: command
           command: "crown __guard{{GUARD_ARGS}}"

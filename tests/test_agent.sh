@@ -29,7 +29,7 @@ effort: high
 tools: Bash, Read, Edit, Write, Grep, Glob, Monitor, TaskStop, ToolSearch, Skill
 hooks:
   PreToolUse:
-    - matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|mcp__.*"
+    - matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*"
       hooks:
         - type: command
           command: crown __guard
@@ -53,7 +53,7 @@ jq -e --arg h "$h" --arg f "$A/forge.md" '.projects.pbase.forge | .provider == "
   && ok "the record keeps the runtime, the surface, the path, the hash of the file and the hash of what it was made from" || no "record: $(jq -c .projects.pbase.forge "$T/c/agents.json")"
 $DA agent list | grep -q "forge .*forge.md$" && ok "list shows no state for a current member" || no "list current: $($DA agent list | head -2)"
 grep -q '^name: forge$' "$A/forge.md" && grep -q 'build, test' "$A/forge.md" && grep -q '^model: claude-sonnet-5-5$' "$A/forge.md" && grep -q '^effort: high$' "$A/forge.md" && ok "it carries the name, abilities and model" || no "rendered: $(head -5 "$A/forge.md")"
-grep -q 'matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|mcp__.*"' "$A/forge.md" && grep -q 'command: crown __guard$' "$A/forge.md" && ok "the guard covers Bash, the edit tools and every MCP tool" || no "hook"
+grep -q 'matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*"' "$A/forge.md" && grep -q 'command: crown __guard$' "$A/forge.md" && ok "the guard covers every tool of the member and every MCP tool" || no "hook"
 ! grep -q 'mcp__[a-z]' "$A/forge.md" && ok "a member whose roles have no tool pack has no MCP tool" || no "an MCP tool with no tool pack: $(grep -n mcp__ "$A/forge.md")"
 grep -q 'onFailure: block$' "$A/forge.md" && grep -q '^ *timeout: [0-9]' "$A/forge.md" && ok "the guard hook blocks when it fails or times out" || no "hook failure setting"
 ! grep -q '{{' "$A/forge.md" && ok "no placeholder is left" || no "placeholder left"

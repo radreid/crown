@@ -151,7 +151,47 @@ def target_of(inp):
                 tg["settings"] = dict(ptrs, file=st["file"])
             except TypeError:
                 pass
+    if tg["settings"] and project:
+        tg["guard"] = guard_hook(d, rt, project)
     return tg
+
+
+def guard_hook(d, rt, project):
+    """The PreToolUse registration of the guard for the session's settings file, or None when the runtime has no member hook to register. The
+    settings file is the registration the runtime loads without workspace trust (a member file's frontmatter hook does not run in an untrusted
+    or headless session, which is how the guard once came to not run at all), so every settings render carries it, and `packs check` refuses a
+    render whose settings file lost it. The command names the project and no member: one settings file serves every member of the session, and
+    the guard reads the member of a call from the call itself (lib/guard.py, session_member). The matcher, the timeout and the onFailure are
+    the ones the definition's member renderer declares for the frontmatter hook, so the two registrations judge the same tools the same way.
+    A runtime whose barrier is no hook, or whose member renderer declares no hook, registers none."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", project):
+        die("the project name %r cannot be written into the guard's hook command in the settings file" % project)
+    agent = (d.get("renderers") or {}).get("agent") if isinstance(d.get("renderers"), dict) else None
+    fields = agent.get("fields") if isinstance(agent, dict) else None
+    spec = None
+    for f in fields or []:
+        if isinstance(f, dict) and f.get("to") == "hooks" and isinstance(f.get("value"), dict):
+            spec = f["value"]
+    entries = spec.get("PreToolUse") if spec else None
+    first = entries[0] if isinstance(entries, list) and entries and isinstance(entries[0], dict) else None
+    hooks = first.get("hooks") if first else None
+    h0 = hooks[0] if isinstance(hooks, list) and hooks and isinstance(hooks[0], dict) else None
+    if not first or not isinstance(first.get("matcher"), str) or not h0:
+        return None
+    try:
+        import guard as G
+        hook = G.hook_of(rt)
+    except Exception:
+        return None
+    import paths as PT
+    cand = os.path.join(PT.tool_root(), "bin", "crown")
+    cmd = (cand if os.path.isfile(cand) else "crown") + " __guard"
+    if hook != G.CLAUDE_HOOK:
+        cmd += " --provider " + rt
+    cmd += " --project " + project
+    return {"matcher": first["matcher"], "command": cmd,
+            "timeout": h0.get("timeout") if isinstance(h0.get("timeout"), int) else 20,
+            "onFailure": h0.get("onFailure") if isinstance(h0.get("onFailure"), str) else "block"}
 
 
 def prepare(inp):
@@ -385,20 +425,26 @@ def one_rule_each(rules):
 
 
 def shared_files(servers, allow, ask, tg):
-    """{name: bytes} of the MCP file and the settings file for the tool packs, or {} when there are none. A runtime that gave no
-    settings form gets the servers without a permission list (its own default policy then applies to every tool)."""
-    if not servers:
-        return {}
+    """{name: bytes} of the MCP file and the settings file, or {} when there is nothing to write. The MCP file is written only with
+    servers. The settings file is written with servers, and also without them when the guard registers in it (tg's guard): the launch
+    line loads the settings file only when it exists, so a project whose members the guard holds gets its registration on every apply,
+    with or without tool packs, and no protected session starts without it. A runtime that gave no settings form gets the servers
+    without a permission list (its own default policy then applies to every tool)."""
     docs = {}
-    mcp = {}
-    put(mcp, tg["mcp"]["root"], servers)
-    docs[tg["mcp"]["file"]] = mcp
-    if tg["settings"]:
+    if servers:
+        mcp = {}
+        put(mcp, tg["mcp"]["root"], servers)
+        docs[tg["mcp"]["file"]] = mcp
+    if tg["settings"] and (servers or tg.get("guard")):
         st, doc = tg["settings"], {}
         put(doc, st["allow_pointer"], allow)
         put(doc, st["ask_pointer"], ask)
         if pointer_parts(st["deny_pointer"]):
             put(doc, st["deny_pointer"], [])
+        g = tg.get("guard")
+        if g:
+            doc["hooks"] = {"PreToolUse": [{"matcher": g["matcher"], "hooks": [{"type": "command", "command": g["command"],
+                                                                                 "timeout": g["timeout"], "onFailure": g["onFailure"]}]}]}
         docs[st["file"]] = doc
     return {name: (json.dumps(obj, indent=2, sort_keys=True) + "\n").encode() for name, obj in docs.items()}
 
@@ -747,6 +793,20 @@ def cmd_check(inp):
                     findings.append("rendered: file differs from the library copy: " + name)
         except (SystemExit, OSError, ValueError, KeyError, TypeError):
             findings.append("library: a tool pack cannot be rendered")
+    if inp["target"].get("guard") and inp["target"].get("settings"):
+        sname = inp["target"]["settings"]["file"]
+        registered = False
+        try:
+            sdoc = load(os.path.join(live, sname))
+            for entry in ((sdoc.get("hooks") or {}).get("PreToolUse") or []):
+                for h in (entry.get("hooks") or []) if isinstance(entry, dict) else []:
+                    if isinstance(h, dict) and "__guard" in str(h.get("command", "")) and ("--project " + inp["project"]) in str(h.get("command", "")):
+                        registered = True
+        except Exception:
+            registered = False
+        if not registered:
+            findings.append("guard: %s carries no PreToolUse guard hook for %s, so a session launched from this render would run without the guard (re-apply: crown packs apply --target %s %s)"
+                            % (sname, inp["project"], inp["target"]["target"], inp["project"]))
     findings += perms
     findings += ["shadowing: " + s for s in shadows(inp, m["packs"])]
     if findings:

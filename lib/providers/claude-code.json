@@ -176,7 +176,7 @@
           "value": {
             "PreToolUse": [
               {
-                "matcher": "Bash|Edit|Write|NotebookEdit|Read|Grep|mcp__.*",
+                "matcher": "Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*",
                 "hooks": [
                   {"type": "command", "command": "{barrier.guard_command}", "timeout": 20, "onFailure": "block"}
                 ]
@@ -205,6 +205,8 @@
       "tool_pointer": "/tool_name",
       "command_pointer": "/tool_input/command",
       "cwd_pointer": "/cwd",
+      "agent_pointer": "/agent_type",
+      "agent_id_pointer": "/agent_id",
       "path_pointers": {
         "write": ["/tool_input/file_path", "/tool_input/notebook_path"],
         "read": ["/tool_input/file_path", "/tool_input/notebook_path", "/tool_input/path"]
