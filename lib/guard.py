@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""crown __guard: a PreToolUse hook for the local members' Bash, Edit, Write, NotebookEdit, Read and Grep tools. Reads the hook's
-JSON on stdin and refuses (exit 2, reason on stderr) what would publish, reach out or change a skill. A barrier, not
+"""crown __guard: a PreToolUse hook for the local members' Bash, Edit, Write, NotebookEdit, Read and Grep tools and their MCP tools. Reads the hook's
+JSON on stdin and refuses (exit 2, reason on stderr) what would publish, reach out or change a skill, and a call of an MCP tool that the tool packs of the
+member's role do not allow (MCP TOOLS, before the decisions, says which). A barrier, not
 proof: a second barrier beside the git wrapper (which has no credentials) and `crown local verify`; an agent that goes
 out of its way can still get around it, which is why verify exists.
 
@@ -3363,6 +3364,143 @@ def hook_of(name):
     return barrier["hook"]
 
 
+# --- MCP TOOLS: a member calls only the tools its role's tool packs give it
+#
+# Ported from upstream qargi 0.2.11 (MIT, Copyright (c) 2026 Everett C. Haimes III) on 2026-11-11, at Jonathan's direction;
+# naming adapted (crown, CROWN_MEMBER_RUN) and read_only_role reads the role files directly, crown having no lib/role.py.
+#
+# A tool in none of the lists of the hook protocol whose name has the form of the runtime's MCP tool names (resources.mcp of its definition:
+# permission_rule and name_key; DEFAULT_MCP below: mcp__{server}__{tool} with every character other than a letter, a digit, _ and - written as _) is a
+# call of an MCP tool, and so is one whose name starts as those names do without having their form (mcp__kb: packs_mcp.is_claimed), which no pack
+# gives. It is judged by the policy the tool packs of the role give that tool (lib/packs_mcp.py, which has the rules): refused when the
+# tool is in no tool pack linked to the role, when its pack is missing, changed since its approval or fails its review, when its policy is always_ask
+# (it waits for a person and a member runs unattended), when two tools of the role get the same name, and, under the read-only class, when it is not a
+# declared read (always_allow, no write-like name and, where the pack was approved with the server's tool listing, readOnlyHint true).
+# The role is the one of the run: the run the member mark names (CROWN_MEMBER_RUN) or the nearest run directory above the call's directory, and of
+# that run the project and the role the lead's registry records (never a file of the run directory). An MCP call names no path, so a member a session
+# starts in a directory outside the run has no run to be found by: its hook command then says whose member it is, `--project P --roles a,b` (written
+# when the member is added or refreshed and its roles have tool packs; the member's file is protected), and the call must be allowed for every one of
+# those roles, each held to its class, since the guard cannot tell which of them the task is. With neither a run nor a hook command that names the
+# member the call is refused. Nothing of this reads a shell command.
+
+DEFAULT_MCP = {"permission_rule": "mcp__{server}__{tool}", "name_key": "nonword-underscore"}  # what resources.mcp of the definition whose hook data is the default above says of the names: used when the hook command names no provider (a test holds the two together)
+_MCP = [DEFAULT_MCP]                                         # the MCP names of the runtime whose hook this is (main sets it for --provider NAME; None: the runtime has none, and no call is an MCP call)
+MEMBER = {"project": "", "roles": ()}                         # whose member the hook command says this is (--project P --roles a,b)
+MEMBER_PROJECT = re.compile(r"[a-z][a-z0-9]{0,23}\Z")                 # a project name (valid_project of lib/lib.sh)
+MEMBER_ROLE = re.compile(r"[a-z][a-z0-9-]*\Z")
+MCP_NOTE = "Say in your report what you needed the tool for; the lead decides which tools a role is given"
+
+
+class McpReason(MarshalReason):
+    """A refusal of an MCP tool call: decide_call() ends it with MCP_NOTE."""
+
+
+def read_member(argv):
+    """(project, roles) the hook command line names with --project P --roles a,b: ("", ()) when it names neither, None when one is missing, has no value
+    or is not a project name and a list of role names (the caller refuses every call: the member's file must be rendered again)."""
+    got = {}
+    for opt in ("--project", "--roles"):
+        if opt in argv:
+            k = argv.index(opt)
+            if k + 1 >= len(argv):
+                return None
+            got[opt] = argv[k + 1]
+    if not got:
+        return "", ()
+    roles = tuple(got.get("--roles", "").split(","))
+    if len(got) != 2 or not MEMBER_PROJECT.match(got["--project"]) or not all(MEMBER_ROLE.match(r) for r in roles):
+        return None
+    return got["--project"], roles
+
+
+def mcp_of(name):
+    """What the local definition of a provider says of its MCP tool names (its resources.mcp), or None when it says nothing."""
+    provider = _provider()
+    try:
+        d = provider.definition(name, "local")
+    except provider.ProviderError as e:
+        raise HookError(str(e))
+    res = d.get("resources") if isinstance(d.get("resources"), dict) else {}
+    return res["mcp"] if isinstance(res.get("mcp"), dict) else None
+
+
+def registered_run(run):
+    """The line of the lead's registry for the run directory (the last one that names it), or None: what the lead recorded when it prepared the run, the
+    project and the role among it. The run's own files are not read for them: a member can write in the run directory."""
+    real, found = os.path.realpath(run), None
+    for st in sorted(state_dirs()):
+        try:
+            with open(os.path.join(st, REGISTRY), encoding="utf-8", errors="replace") as f:
+                for n, line in enumerate(f):
+                    if not n % 256:
+                        tick()
+                    try:
+                        e = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(e, dict) and isinstance(e.get("run"), str) and os.path.realpath(e["run"]) == real:
+                        found = e
+        except OSError:
+            pass
+    return found
+
+
+def read_only_role(name):
+    """True unless the role is known and of the write class: a role the guard cannot read is held to the read-only class. Crown keeps roles as
+    data (lib/role.sh role_class: <tool>/roles/NAME or <conf>/roles/NAME, role.json's class, "write" when it names none; the lead coordinates and
+    is not of the write class), so the guard reads those files itself."""
+    if name == "lead":
+        return True
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import paths
+    try:
+        for base in (paths.tool_root(), paths.conf()):
+            d = os.path.join(base, "roles", name)
+            if os.path.isfile(os.path.join(d, "role.json")) and os.path.isfile(os.path.join(d, "ROLE.md")):
+                with open(os.path.join(d, "role.json"), encoding="utf-8") as f:
+                    doc = json.load(f)
+                cls = doc.get("class") if isinstance(doc, dict) else None
+                return (cls if isinstance(cls, str) and cls else "write") != "write"
+        return True
+    except Exception:
+        return True
+
+
+def mcp_refusal(call):
+    """The reason a call of an MCP tool is refused, or None (also for a call that is no MCP tool's)."""
+    if call.kind is not None or not call.name or not _MCP[0]:
+        return None
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import packs_mcp as M
+    import paths as P
+    form = M.form_of(_MCP[0])
+    if not M.is_claimed(form, call.name):
+        return None
+    mark = os.environ.get(MEMBER_MARK)
+    run = os.path.realpath(mark) if mark and is_run(os.path.realpath(mark)) else run_dir(call.cwd)
+    if run:
+        rec = registered_run(run) or {}
+        project, role = rec.get("project"), rec.get("ability")
+        if not (isinstance(project, str) and MEMBER_PROJECT.match(project) and isinstance(role, str) and MEMBER_ROLE.match(role)):
+            return McpReason("the lead's registry names no project and role for the run %s, so the guard cannot tell which tool packs apply to the call of %s; a member "
+                             "calls an MCP tool in a run the lead prepared for a stored project" % (run, M.shown(call.name)))
+        cases = [(role, is_review(run) or rec.get("class") == "read-only")]
+    elif MEMBER["project"] and MEMBER["roles"]:
+        project = MEMBER["project"]
+        cases = [(r, CLASS == "read-only" or read_only_role(r)) for r in MEMBER["roles"]]
+    else:
+        return McpReason("no run directory is found from the directory of this call and the hook command does not say whose member this is, so the guard cannot tell "
+                         "which tool packs apply to the call of %s; a member whose roles have tool packs is rendered with its project and roles in the hook command "
+                         "(the lead refreshes it)" % M.shown(call.name))
+    for role, read_only in cases:
+        why = M.refusal(P.conf(), project, role, read_only, call.name, form)
+        if why:
+            more = "" if len(cases) == 1 else (" (no run directory is found from the directory of this call, so the guard cannot tell which of the member's roles "
+                                               "the task is, and the call must be allowed for each of %s)" % ", ".join(r for r, _ in cases))
+            return McpReason(why + more)
+    return None
+
+
 # --- the decisions
 
 def clear_caches():
@@ -3416,6 +3554,9 @@ TEXT_HINT = (" The guard cuts a command at every ; && || | and newline, inside q
 
 
 def decide_call(call):
+    why = mcp_refusal(call)
+    if why:
+        return "crown guard: %s. %s." % (why, MCP_NOTE)
     hint = TEXT_HINT if call.kind == "shell" and QUOTED.search(call.command or "") else ""
     why = blocked(call.command) if call.kind == "shell" else None
     if why:
@@ -3450,12 +3591,14 @@ def decide(hook):
 def main():
     global CLASS
     hook = CLAUDE_HOOK
+    _MCP[0] = DEFAULT_MCP
     name = read_provider(sys.argv[1:])
     if name is not None:                                  # the provider's protocol; one that cannot be read refuses (in the plain way: there is no other)
         try:
             if not name:
                 raise HookError("--provider needs the name of a provider")
             hook = hook_of(name)
+            _MCP[0] = mcp_of(name)
         except Exception as e:
             print("crown guard: cannot use the hook protocol of provider %s (%s); refusing every call until the hook command or the definition is fixed." % (name or "?", e),
                   file=sys.stderr)
@@ -3464,6 +3607,11 @@ def main():
     if cls not in CLASSES:
         return refuse(hook, "crown guard: unknown class %r in the hook command; refusing every call until the member is refreshed." % cls)
     CLASS = cls
+    who = read_member(sys.argv[1:])
+    if who is None:
+        return refuse(hook, "crown guard: the hook command does not name the member's project and roles in a way the guard can read (--project P --roles a,b); "
+                            "refusing every call until the member is refreshed.")
+    MEMBER["project"], MEMBER["roles"] = who
     try:
         return decide(hook)
     except Exception as e:                                # fail closed: a guard that cannot decide refuses

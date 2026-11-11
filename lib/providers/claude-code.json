@@ -94,7 +94,8 @@
       "format": "json",
       "root_pointer": "/mcpServers",
       "entry": {"type": "http", "url": "{url}"},
-      "permission_rule": "mcp__{server}__{tool}"
+      "permission_rule": "mcp__{server}__{tool}",
+      "name_key": "nonword-underscore"
     },
     "settings": {
       "files": [
@@ -175,7 +176,7 @@
           "value": {
             "PreToolUse": [
               {
-                "matcher": "Bash|Edit|Write|NotebookEdit|Read|Grep",
+                "matcher": "Bash|Edit|Write|NotebookEdit|Read|Grep|mcp__.*",
                 "hooks": [
                   {"type": "command", "command": "{barrier.guard_command}", "timeout": 20, "onFailure": "block"}
                 ]

@@ -44,8 +44,8 @@ fast | par | 300 | 5 | python3 tests/test_cloud.py | lib/cloud.py
 fast | par | 300 | 5 | python3 tests/test_upgrade.py | lib/upgrade.sh
 full | par | 300 | 33 | python3 tests/test_supervise.py | lib/supervise.sh lib/supervise.py
 full | par | 300 | 14 | bash tests/test_prompt.sh
-full | par | 390 | 65 | python3 tests/test_guard.py | lib/guard.py
-fast | par | 300 | 12 | python3 tests/test_guard.py Guard FailsClosed HookProtocol Substitutions GlobBound TrimmedExpansions InPlaceScripts SubprocessContract | lib/guard.py
+full | par | 390 | 65 | python3 tests/test_guard.py | lib/guard.py lib/packs_mcp.py
+fast | par | 300 | 12 | python3 tests/test_guard.py Guard FailsClosed HookProtocol Substitutions GlobBound TrimmedExpansions InPlaceScripts SubprocessContract McpTools | lib/guard.py lib/packs_mcp.py lib/packs_check.py
 full | par | 678 | 113 | bash tests/test_agent.sh | lib/agent.sh
 full | par | 300 | 39 | bash tests/test_agent_cloud.sh | lib/agent*.sh
 full | par | 300 | 36 | bash tests/test_valued_opts.sh
@@ -78,6 +78,8 @@ full | par | 564 | 94 | bash tests/test_local.sh | lib/local.sh
 full | par | 300 | 20 | bash tests/test_local_concurrency.sh | lib/local.sh lib/lib.sh
 full | par | 342 | 57 | bash tests/test_local_run.sh | lib/local*.sh lib/local*.py
 fast | par | 300 | 3 | bash tests/test_cred.sh | lib/cred.sh
+fast | par | 300 | 45 | python3 tests/test_packs_check.py | lib/packs*.sh lib/packs*.py lib/conformance/review.py
+fast | par | 300 | 10 | python3 tests/test_packs_mcp.py | lib/packs_mcp.py lib/packs_check.py lib/packs.sh lib/providers/claude-code.json
 full | par | 480 | 80 | bash tests/test_packs.sh | lib/packs.sh
 full | par | 300 | 42 | bash tests/test_packs_seed.sh | lib/packs*.sh lib/packs*.py
 full | par | 882 | 147 | bash tests/test_packs_render.sh | lib/packs*.sh lib/packs*.py
