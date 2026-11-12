@@ -7,12 +7,13 @@ block), TASK, DONE (an executable check the member can run), BASE (branch), SCOP
 OUT (where your output files go), TMP (optional), PROFILE (optional: gates, rules and review steps for this
 repository), GIT (optional: a git wrapper), MEMORY (optional), OUT_PREFIX (optional), USAGE_IMPACT and UPSTREAM
 (optional: what another member changed).
-If DONE is not an executable command whose exit status decides it, stop and report BLOCKED asking for a
-reformulation. DONE is one line the member runs identically to the lead, so it is written without quoted
-text the guard cannot check before it runs: a DONE carrying a quoted pattern inside a command substitution
-(test "$(grep -c '' fixture.txt)" = "42") can be refused for the member depending on how the command is composed, even though the lead can run it.
-That is a defect in the task block, not in the member — report BLOCKED asking for the quoteless form,
-which decides the same check (test $(wc -l < fixture.txt) -eq 42).
+If DONE is not an executable command whose exit status decides it, stop and report BLOCKED.
+DONE is one line the member runs identically to the lead, as ONE bare command its sandbox
+can check before it runs: no quoted text, no command substitution, no compound. A substitution — quoted
+(test "$(grep -c '' fixture.txt)" = "42") or bare (test $(wc -l < fixture.txt) -eq 42) — can be refused
+for the member though the lead runs it: a defect in the task block, not the member. A check needing
+logic gets a script the lead commits in the clone; DONE is its bare run (bash check.sh) — report BLOCKED
+asking for that form.
 
 # Rules
 - Read the repository's own agent instructions first (CLAUDE.md, AGENTS.md, CONTRIBUTING, README), then the

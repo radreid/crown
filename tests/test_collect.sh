@@ -9,12 +9,12 @@ cd "$(dirname "$0")/.." || exit 1
 T=$(mktemp -d); trap 'rm -rf "$T" "$HERMETIC"' EXIT; fail=0
 export CROWN_CONF=$T/c CROWN_STATE=$T/s CROWN_RUN_TMP=$T
 ok() { echo "ok   $1"; }; no() { echo "FAIL $1"; fail=1; }
-git init -q -b main "$T/r" && printf 'a\nb\nc\n' > "$T/r/names.txt" && git -C "$T/r" add names.txt && git -C "$T/r" -c user.name=t -c user.email=t@example.net commit -q -m one
+git init -q -b main "$T/r" && printf 'a\nb\nc\n' > "$T/r/names.txt" && printf 'test $(wc -l < names.txt) -eq 3\n' > "$T/r/check.sh" && chmod +x "$T/r/check.sh" && git -C "$T/r" add names.txt check.sh && git -C "$T/r" -c user.name=t -c user.email=t@example.net commit -q -m one
 git init -q --bare "$T/remote.git" && git -C "$T/r" remote add origin "$T/remote.git" && git -C "$T/r" push -q origin main
 mkdir -p "$T/c/projects"
 jq -n --arg p "$T/r" '{schema:1,project:"rproj",repo:{url:"https://github.com/example/rproj",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/rproj.json"
 newrun() { ./bin/crown local prepare --repo "$T/r" --base main --slug "$1" --scratch "$T" --role review | sed -n '1,/^$/s/^RUN=//p'; }
-taskblock() { printf 'TASK: count the lines of names.txt and state the count\nDONE: test $(wc -l < names.txt) -eq 3\nBASE: main\n' >> "$1/task.md"; }
+taskblock() { printf 'TASK: count the lines of names.txt and state the count\nDONE: bash check.sh\nBASE: main\n' >> "$1/task.md"; }
 
 # a BLOCKED response in the contract's format collects as BLOCKED and passes the strict gate
 A=$(newrun cola); taskblock "$A"
@@ -39,7 +39,7 @@ B=$(newrun colb); taskblock "$B"
 cat > "$B/out/transcript" <<'EOF'
 DONE
 
-DONE check: `test $(wc -l < names.txt) -eq 3` — exit 0
+DONE check: `bash check.sh` — exit 0
 Files changed: none
 Noticed, not acted on: nothing
 EOF
@@ -58,7 +58,7 @@ D=$(newrun cold); taskblock "$D"
 cat > "$D/response" <<'EOF'
 DONE
 
-DONE check: `test $(wc -l < names.txt) -eq 3` — exit 0
+DONE check: `bash check.sh` — exit 0
 Files changed: none
 Noticed, not acted on: nothing
 EOF
