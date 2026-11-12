@@ -50,7 +50,7 @@ merge_of() { # FEATURE: print a merge commit of feature/FEATURE into develop, ma
 frecord() { # NAME MERGED DONE: write the record of a feature finish whose push reached origin (develop was at $2's parent state before)
   local d0; d0=$(tip develop)
   mkdir -p "$S/finish-intent"
-  jq -nc --arg name "$1" --arg d0 "$d0" --arg m "$2" --arg h "$(tip "feature/$1")" --argjson done "$3" \
+  jq -nc --arg name "$1" --arg d0 "$d0" --arg m "$2" --arg h "$(tip "feature/$1")" --argjson "done" "$3" \
     '{schema:1, verb:"feature:finish", project:"app", name:$name, pushed:true,
       refs:[{ref:"refs/heads/develop", local_old:$d0, origin_old:$d0, new:$m}],
       ctx:{head:$h, keep:"", pushd:"1", pushwhy:"", rdel:"", k:("feature-" + $name + "-into-develop")}, done:$done}' > "$(irec "feature-$1")"

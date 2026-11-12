@@ -187,7 +187,7 @@ if [ -d "$PK/skills" ] && [ -f "$PK/baseline.json" ]; then
   listed=$(jq -r '.packs[].name' "$PK/baseline.json" | sort); present=$(ls "$PK/skills" | sort)
   [ "$listed" = "$present" ] && ok "every packs/skills directory is listed in baseline.json and the reverse" || no "listed [$listed] vs present [$present]"
   # the seven shipped packs: three process packs and four member practice packs, each text-only (a SKILL.md and nothing else)
-  want=$(printf '%s\n' docs-site-member gitflow-member keep-a-changelog crown-contributing review-findings secrets-scan shellcheck-gate)
+  want=$(printf '%s\n' crown-contributing docs-site-member gitflow-member keep-a-changelog review-findings secrets-scan shellcheck-gate)
   [ "$listed" = "$want" ] && ok "the baseline ships exactly the seven expected packs (count $(wc -l <<<"$listed"))" || no "baseline packs are [$listed], expected [$want]"
   textonly=1; for d in "$PK"/skills/*/; do [ "$(find "$d" -type f | wc -l)" = 1 ] && [ -f "${d}SKILL.md" ] || { textonly=0; echo "       | not text-only: $d"; }; done
   [ "$textonly" = 1 ] && ok "every shipped pack is a single SKILL.md" || no "a shipped pack holds more than SKILL.md"

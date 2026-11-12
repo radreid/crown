@@ -189,6 +189,11 @@ lib/packs.sh:packs-apply-claude-code
 lib/packs_render.py:`claude --add-dir DIR`
 lib/packs_render.py:Claude Code: \.claude/skills
 lib/packs_render.py:make Claude Code load it
+# lib/packs_render.py: the guard command of the hook crown was built for takes no --provider; every other hook names its runtime (same comparison as lib/agent.sh)
+lib/packs_render.py:hook != G\.CLAUDE_HOOK
+
+# lib/packs_check.py: a secret scan of an imported skill or tool. The patterns name token shapes (an Anthropic key starts sk-ant-), not a runtime to call
+lib/packs_check.py:sk-ant-
 
 # lib/hook.sh and lib/supervise.py: the hook verbs of the runtime that has hooks (event names, the environment file)
 lib/hook.sh:Claude Code hooks

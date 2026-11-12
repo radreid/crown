@@ -223,7 +223,7 @@ class Guard(HookCase):
         with open(os.path.join(d, "member.md")) as f:
             text = f.read()
         self.assertIn('command: "crown __guard{{GUARD_ARGS}}"', text)
-        self.assertIn('matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep"', text)
+        self.assertIn('matcher: "Bash|Edit|Write|NotebookEdit|Read|Grep|Glob|Monitor|TaskStop|ToolSearch|Skill|mcp__.*"', text)
         tools = [l for l in text.splitlines() if l.startswith("tools:")][0]
         for t in ("Edit", "Write", "Monitor", "ToolSearch", "Skill"):
             self.assertIn(t, tools)
@@ -2565,8 +2565,8 @@ class BashText(HookCase):
         "> /dev/null crown upgrade",
         "FOO=1 crown upgrade",
         "command crown upgrade",
-        '"qarg"i upgrade',
-        "q\\argi upgrade",
+        '"crow"n upgrade',
+        "c\\rown upgrade",
         "'crown' upgrade",
         "\\crown upgrade",
         "exec crown upgrade",
@@ -3253,12 +3253,12 @@ class TextIsData(HookCase):
         "cat > run.sh <<'E'\nthe project set of $X\nE\nxargs sh -c < run.sh",
         "cat > run.sh <<'E'\nthe project set of $X\nE\nenv sh run.sh",
         "cat > run.sh <<'E'\necho x > ~/.bashrc\nE\nbash run.sh",
-        "cat > run.sh <<'E'\nqar\\\ngi upgrade\nE\nchmod +x run.sh",
+        "cat > run.sh <<'E'\ncro\\\nwn upgrade\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\ncrown \\\nupgrade\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\n$'crown' upgrade\nE\nchmod +x run.sh",
-        "cat > run.sh <<'E'\n$'\\x71argi' upgrade\nE\nchmod +x run.sh",
+        "cat > run.sh <<'E'\n$'\\x63rown' upgrade\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\n> out crown upgrade\nE\nchmod +x run.sh",
-        "cat > run.sh <<'E'\nq\"\"argi upgrade\nE\nchmod +x run.sh",
+        "cat > run.sh <<'E'\nc\"\"rown upgrade\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\nnice -n 5 crown upgrade\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\nfind . -exec crown upgrade {} \\;\nE\nchmod +x run.sh",
         "cat > run.sh <<'E'\nx=$(crown upgrade)\nE\nchmod +x run.sh",
@@ -3418,7 +3418,7 @@ class ReviewedReading(HookCase):
         'while read l; do eval "$l"; done <<\'E\'\ncrown upgrade\nE',
         'cat <<E\n`crown upgrade`\nE',
         '"crown" "upgrade"',
-        "q'a'rgi upgrade",
+        "c'r'own upgrade",
         'command -p crown upgrade',
         'exec crown upgrade',
         'nohup crown upgrade &',

@@ -61,6 +61,7 @@ ASKED = opt("--asked", "the request, in your words, that names the cloud instanc
 PLAN = opt("--plan", "the plan token printed by the same command without --approved", "TOKEN")
 APPROVED = opt("--approved", "your go-ahead for exactly that plan, in your words; recorded in the audit log", "WORDS")
 EXEC = opt("--approve-exec", "name every executable the pack holds, separated by commas, to approve running them", "NAMES")
+TOOL_LIST = opt("--tool-list", "also judge the pack by this MCP tools/list result (a file; no server is contacted). For tool import and tool seal only", "FILE", "file")
 TARGET = opt("--target", "claude-code renders for a local session; managed-agents (the default for apply) is the cloud update", "TARGET", ("claude-code", "managed-agents"))
 PREFIX = opt("--prefix", "pick the notes under this path (repeat for several)", "PATH")
 ROLE_SEL = opt("--role", "pick the notes under /roles/ROLE/", "ROLE", ROLES)
@@ -1545,7 +1546,9 @@ SKILL_VERBS["unaccept"] = verb("Remove the acceptance of a skill", [("PROJECT", 
     desc=("Gated like accept. Removes only the record: the skill itself is not touched and shows as unmanaged again. Refused when there is no such "
           "acceptance in that scope."))
 COMMANDS["skill"]["verbs"] = SKILL_VERBS
-COMMANDS["tool"]["verbs"] = PACK_VERBS
+COMMANDS["tool"]["verbs"] = dict(PACK_VERBS)
+for _verb in ("import", "seal"):
+    COMMANDS["tool"]["verbs"][_verb] = dict(PACK_VERBS[_verb], opts=list(PACK_VERBS[_verb]["opts"]) + [TOOL_LIST])
 
 TOPICS = {
     "concepts": ("The model in one page", [

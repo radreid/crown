@@ -825,10 +825,12 @@ class Build(unittest.TestCase):
         t = self.page("releases/index.html")
         self.assertIn('<h2 id="v%s">' % RELEASE.replace(".", "-"), t)
         self.assertIn('<h2 id="v0-1-0">', t)
+        self.assertIn('<h2 id="v0-1-0-2026-10-28">', t)     # the upstream 0.1.0, kept as history, must not reuse the id
         self.assertNotIn('id="vunreleased"', t)
         self.assertNotIn(">Unreleased ", t)
         self.assertIn('href="https://github.com/example/crown/releases/tag/0.1.0"', t)
-        self.assertRegex(t, r'<h3 id="v0-1-0-added">Added')
+        self.assertRegex(t, r'<h3 id="v0-1-0-changed">Changed')
+        self.assertRegex(t, r'<h3 id="v0-1-0-2026-10-28-added">Added')
 
     def test_generated_descriptions_are_the_right_length(self):
         for dirpath, _, files in os.walk(self.out):

@@ -630,15 +630,15 @@ WRAP
     # is the harvest's, and says so in deviations[]: the member's own gates, advice and notes do not exist,
     # and review still re-checks everything. Nothing is verified by this: local verify and review check gate
     # the run exactly as for a collected one.
-    RUN=${1:-}; shift || true
-    [ -f "$RUN/refs.before" ] && [ -f "$RUN/ability" ] || usage_die "harvest needs a RUN dir made by prepare"
-    SUBJECT=''
+    RUN='' SUBJECT=''
     while [ $# -gt 0 ]; do
       case $1 in
         --subject) need_val "$1" $#; SUBJECT=$2; shift 2;;
-        *) usage_die "harvest: unknown option $1";;
+        --*) usage_die "harvest: unknown option $1";;
+        *) [ -z "$RUN" ] || usage_die "harvest: one RUN dir"; RUN=$1; shift;;
       esac
     done
+    [ -n "$RUN" ] && [ -f "$RUN/refs.before" ] && [ -f "$RUN/ability" ] || usage_die "harvest needs a RUN dir made by prepare"
     reg_load; run_record "$RUN" || exit 2
     RCLS=$(run_class "$RUN")
     [ "$RCLS" = write ] || die "harvest: $RUN is a $RCLS run: its product is a report in OUT, there is no series to harvest"
@@ -717,7 +717,7 @@ WRAP
     else STATUS=BLOCKED; BREA="the task DONE check failed when the harvest ran it in the clone"; DONE_JSON=$(jq -n --arg c "$DONEC" --argjson e "$DEXIT" --arg t "$DTAIL" '{command: $c, exit_code: $e, output_tail: $t}'); fi
     jq -n --arg status "$STATUS" --arg brea "$BREA" --arg task "$TASK1" --arg bbranch "$BASEBR" --arg bsha "$BSHA" --arg branch "$CBR" \
       --argjson commits "$COMMITS_JSON" --argjson shas "$SHAS_JSON" --argjson touched "$TOUCHED_JSON" --argjson scope "$SCOPE_JSON" \
-      --argjson done "$DONE_JSON" --argjson dev "$DEV_JSON" --arg why "$ADVICE_WHY" --arg group "$SLUG" \
+      --argjson "done" "$DONE_JSON" --argjson dev "$DEV_JSON" --arg why "$ADVICE_WHY" --arg group "$SLUG" \
       '{status: $status,
         blocked_reason: (if $status == "BLOCKED" then $brea else null end),
         task: $task,

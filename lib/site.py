@@ -403,10 +403,14 @@ class Source:
             for ln, msg in MD.html_starts(text):       # the file is also shown as it is, by other renderers
                 rep.err("CHANGELOG.md:%d" % ln, msg)
             self._split(text)
+        # The first dated section of this version is the release. A later section may
+        # reuse the number: the upstream line's 0.1.0 is kept as history, and it must
+        # not overwrite this release's date.
         self.release_date = None
         for v, d, _, _ in self.sections:
-            if v == release:
+            if v == release and d:
                 self.release_date = d
+                break
         if self.release_date is None and not self.unreleased:
             rep.err("CHANGELOG.md", "no dated section [%s]" % release)
         self.license_id = None
@@ -842,7 +846,16 @@ def generated_pages(src, rep, repo=None):
     if not released:
         rep.err("CHANGELOG.md", "no released section to build the releases page from")
     for ver, date, first, text in released:
-        sid = "v" + re.sub(r"[^0-9A-Za-z]+", "-", ver)
+        sid = "v" + re.sub(r"[^0-9A-Za-z]+", "-", ver).strip("-")
+        if sid in ids:
+            # Crown's 0.1.0 shares a version number with the upstream line's 0.1.0, kept as history.
+            # A repeated version must not reuse an id: the page check refuses a duplicate.
+            extra = re.sub(r"[^0-9A-Za-z]+", "-", date or "").strip("-")
+            sid = sid + ("-" + extra if extra else "")
+            n, base = 2, sid
+            while sid in ids:
+                sid = "%s-%d" % (base, n)
+                n += 1
         ids.add(sid)
         heads.append((2, sid, ver))
         body.append(h_html(2, sid, esc(ver)))

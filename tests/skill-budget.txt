@@ -3,7 +3,7 @@
 # A raised ceiling carries a comment on its line, `PATH N # raised: reason` (the test checks it against the merge base with origin/develop). `lib/providers/NAME.json:notes` is the topic texts of a runtime's notes.
 agents/member.body.md 118
 agents/member.md 183
-contract/contract.md 730 # raised: one sentence, a refused write tool is replaced by the shell for OUT files (a member's report never reached OUT), for review
+contract/contract.md 792 # raised: DONE is one bare command the member and the lead both run (no quotes, substitution or compound); a check needing logic is a script the lead commits, and DONE is bash check.sh (Jonathan 2026-11-12)
 contract/output-format.md 276
 lib/providers/claude-code.json:notes 303 # raised: the member-out topic, the runtime refuses a subagent's Write of a report file; two words more mark it observed, not verified; for review
 lib/providers/claude-code/local-run.md 52 # raised: one line, a refused Write of a report file is done with Bash; three words more mark it observed, not verified; for review

@@ -709,7 +709,9 @@ for nd in "$NEEDLE_A_BEFORE" "$NEEDLE_A2"; do
 done
 [ $N_OK = 1 ] && [ -z "$leaks" ] && ok "key: no line of either private key is in a ref or object, the state, the audit log, a key-init output, the git shim log or the ssh-keygen argument log" || no "SPEC the private key must stay in its file (readable needles: $N_OK; found in:$leaks)"
 grep -q -- '-Y' "$SKLOG" && ok "ssh-keygen shim log: crown used ssh-keygen -Y (the signature goes through the OpenSSH tool)" || no "SPEC signing and verifying go through ssh-keygen -Y; shim log: $(head -c 300 "$SKLOG")"
-grep -q -- '-Y sign' "$SKLOG" && grep -q -- '-Y verify' "$SKLOG" && ! grep -E -- '-Y sign.* -n [^q]|-Y verify.* -n [^q]' "$SKLOG" | grep -q . && ok "ssh-keygen shim log: the namespace is always crown-marshal" || no "SPEC ssh-keygen was called with another namespace: $(grep -E -- '-n [^q]' "$SKLOG" | head -3)"
+y=$(grep -E -- '-Y (sign|verify)' "$SKLOG" || true)
+bad=$(printf '%s\n' "$y" | grep -v -F -- '-n crown-marshal' || true)
+grep -q -- '-Y sign' <<<"$y" && grep -q -- '-Y verify' <<<"$y" && [ -z "$bad" ] && ok "ssh-keygen shim log: the namespace is always crown-marshal" || no "SPEC ssh-keygen was called with another namespace: ${bad:-$(head -c 300 "$SKLOG")}"
 [ "$(stat -c %a "$(KEY a)" 2>/dev/null)" = 600 ] && [ "$(stat -c %a "$(KEY b)" 2>/dev/null)" = 600 ] && ok "key: both key files are still mode 0600 after all the runs" || no "SPEC key mode 0600: $(stat -c %a "$(KEY a)" "$(KEY b)" 2>&1)"
 
 # ============================================================ (16) the review fixes: the result of the world they ran in

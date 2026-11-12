@@ -116,7 +116,7 @@ out=$(inst2 --user --uninstall 2>&1); rc=$?
   && [ ! -e "$H2/.local/share/zsh" ] && [ ! -e "$H2/.config" ] && [ ! -e "$H2/.claude/skills/crown-task" ] && [ ! -e "$H2/.local/share/crown/lib" ]; } && ok "uninstall after --copy removes the skills, command, man page, completions and the copied tool" || no "uninstall after --copy (rc=$rc): $out"
 { [ -f "$H2/.local/share/crown/keep-me.txt" ] && [ -f "$H2/.claude/skills/mine/SKILL.md" ] && [ -f "$H2/.local/share/man/man1/other.1" ] && echo "$out" | grep -q "kept $H2/.local/share/crown"; } && ok "files the install did not write are kept (and a directory holding one is said to be kept)" || no "uninstall removed or hid a file that was not in the manifest: $out"
 files=$(cd "$H2" && find . -type f | sort | tr '\n' ' ')
-[ "$files" = "./.claude/skills/mine/SKILL.md ./.local/share/man/man1/other.1 ./.local/share/crown/keep-me.txt " ] && ok "nothing else of crown's is left under the home" || no "files left under the home: $files"
+[ "$files" = "./.claude/skills/mine/SKILL.md ./.local/share/crown/keep-me.txt ./.local/share/man/man1/other.1 " ] && ok "nothing else of crown's is left under the home" || no "files left under the home: $files"
 rm -rf "$H2"; mkdir -p "$H2"
 [ -d "$CROWN_CONF/packs" ] && ok "uninstall leaves the user's data (the pack library under the config) alone" || no "uninstall removed the pack library"
 

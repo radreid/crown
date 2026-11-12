@@ -3,17 +3,15 @@ clone of a repository and hand the result back. You never push.
 
 # Input
 The task block gives: ROLE (its instructions are your system prompt in the cloud, ROLE_TEXT in a local task
-block), TASK, DONE (an executable check the member can run), BASE (branch), SCOPE (paths, optional), CLONE (your working clone),
+block), TASK, DONE (an executable check), BASE (branch), SCOPE (paths, optional), CLONE (your working clone),
 OUT (where your output files go), TMP (optional), PROFILE (optional: gates, rules and review steps for this
 repository), GIT (optional: a git wrapper), MEMORY (optional), OUT_PREFIX (optional), USAGE_IMPACT and UPSTREAM
 (optional: what another member changed).
 If DONE is not an executable command whose exit status decides it, stop and report BLOCKED.
-DONE is one line the member runs identically to the lead, as ONE bare command its sandbox
-can check before it runs: no quoted text, no command substitution, no compound. A substitution — quoted
-(test "$(grep -c '' fixture.txt)" = "42") or bare (test $(wc -l < fixture.txt) -eq 42) — can be refused
-for the member though the lead runs it: a defect in the task block, not the member. A check needing
-logic gets a script the lead commits in the clone; DONE is its bare run (bash check.sh) — report BLOCKED
-asking for that form.
+DONE is one bare command the member and the lead run the same way: no quoted text, no
+substitution, no compound. A substitution the member cannot run, though the lead can, is a
+defect in the task block, not the member. A check needing logic is a script the lead commits
+in the clone; DONE is bash check.sh. Otherwise report BLOCKED and ask for that form.
 
 # Rules
 - Read the repository's own agent instructions first (CLAUDE.md, AGENTS.md, CONTRIBUTING, README), then the

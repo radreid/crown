@@ -76,7 +76,7 @@ concurrent_round() { # own|shared -> ten prepares at once, ten verifies at once,
   for i in $(seq $n); do
     [ ! -e "${runs[i - 1]}" ] && [ ! -e "${tmps[i - 1]}" ] && [ ! -e "$T/s/runs/$(basename "${runs[i - 1]}")" ] || bad="$bad left($i)"
   done
-  [ -z "$bad" ] && [ "$(find "$scr" -mindepth 1 -maxdepth 1 ! -name 'td*' -printf '%f\n' | sort | tr '\n' ' ')" = "log crown.zzzzzz rt " ] && [ "$(ls -A "$rt")" = crown-run.zzzzzz ] \
+  [ -z "$bad" ] && [ "$(find "$scr" -mindepth 1 -maxdepth 1 ! -name 'td*' -printf '%f\n' | sort | tr '\n' ' ')" = "crown.zzzzzz log rt " ] && [ "$(ls -A "$rt")" = crown-run.zzzzzz ] \
     && ok "one clean --applied removed the $n runs, their $n temporary directories and their saved copies, and nothing else (the lookalikes stay)" \
     || no "concurrent $mode clean:$bad scratch=[$(ls -A "$scr" | tr '\n' ' ')] rt=[$(ls -A "$rt" | tr '\n' ' ')] $o"
   [ "$na" = $((nb + n)) ] && [ "$(jq -r --arg m "$mode-" 'select((.slug | startswith($m)) and (.cleaned | type) == "string") | .run' "$REG" | sort)" = "$(printf '%s\n' "${runs[@]}" | sort)" ] \
