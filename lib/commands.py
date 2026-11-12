@@ -1145,6 +1145,21 @@ COMMANDS = {
                                   "run whose OUT already holds a series or a report, and a clone with no commits past BASE_SHA and a clean tree. Nothing is verified by "
                                   "this: local verify and review check gate the run exactly as for a collected one, and review runs DONE again."),
                             examples=["crown local harvest ./run --subject \"docs: bring the changelog current\""]),
+            "collect": verb("Build, as the lead, the standard record of a read-only run whose member returned its result as a response but wrote no report pair into OUT", [("RUN_DIR", "dir")],
+                            [],
+                            desc=("The read-only counterpart of harvest. The member's captured response is the run's evidence: OUT/transcript for a command "
+                                  "runtime, or a response the dispatching session deposited at RUN/response for an in-session runtime. The collector preserves "
+                                  "that response byte-exact as its own artifact in OUT, extracts the record from it with deterministic patterns against the "
+                                  "contract's final-report format (a value the patterns cannot source is recorded unknown, never inferred), re-runs the task's "
+                                  "DONE in the clone recording its real exit status, and writes report.md (the response under the marked section 'Member "
+                                  "response (verbatim, collected)'), collection-evidence.json (the Crown checks behind every crown-verified grade) and a "
+                                  "manifest whose collection block grades every value member-stated, crown-observed, crown-verified or unknown. A response "
+                                  "that cannot support a complete record collects as INCOMPLETE. Refused for a write run (that is the harvest's ground), a run "
+                                  "already collected, a run whose OUT already holds a member-written report or manifest (collection is a fallback for absent "
+                                  "output, never a replacement), and a run with no captured response. Nothing is verified by this: review check gates a "
+                                  "collected record on a strict path (the pair together, the source hash recomputed, provenance enforced, INCOMPLETE never "
+                                  "passing), and local verify gates the run as for any other."),
+                            examples=["crown local collect ./run"]),
             "close": verb("Close a verified run whose patches you applied by hand (git am): it is no longer open", [("RUN_DIR", "dir")],
                           [opt("--applied-by-am", "the way the run was taken in: you applied its patches by hand with git am (the only way close knows; required)")],
                           desc=("Marks the run in the lead's registry (closed: the time, closed_by: applied-by-am), never in the run directory, which a member can write; the files are kept. "

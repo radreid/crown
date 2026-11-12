@@ -22,6 +22,121 @@ if os.path.isdir(os.path.join(run, "out")) and not os.path.isdir(os.path.join(ru
     run = os.path.join(run, "out")
     N("checked %s (a run directory was given; the output directory is RUN_DIR/out)" % run)
 
+# a collected read-only record (a manifest carrying a "collection" block, written by
+# `crown local collect`) is gated on a strict path, not by the shortcuts below: the report
+# and the manifest are validated as a pair, the preserved response's hash is recomputed
+# against the capture hash recorded at collection, every provenance grade is enforced (a
+# crown-verified grade must resolve to the Crown check that backs it), and the status
+# gates: INCOMPLETE never passes, BLOCKED passes only on the member's own stated
+# blockage, DONE only on a complete sourced record whose DONE passed. A member-written
+# record carries no collection block and keeps the behavior below, unchanged.
+_cman = None
+try:
+    _cman = json.load(open(os.path.join(run, "manifest.json")))
+except Exception:
+    _cman = None
+if isinstance(_cman, dict) and isinstance(_cman.get("collection"), dict):
+    import hashlib
+    man, col = _cman, _cman["collection"]
+    cfails = []
+    CF = lambda m: cfails.append("FAIL " + m)
+    reps = sorted(glob.glob(os.path.join(run, "*report.md")))
+    rep_text = ""
+    if not reps:
+        CF("collected record: no report.md beside its manifest (a collected record is validated as a pair)")
+    else:
+        rep_text = open(reps[0], errors="replace").read()
+        if "## Member response (verbatim, collected)" not in rep_text:
+            CF("collected record: %s does not carry the member's response under the marked section '## Member response (verbatim, collected)'" % os.path.basename(reps[0]))
+    if not col.get("collected_by"): CF("collection block: collected_by is missing")
+    if not col.get("collected_at"): CF("collection block: collected_at is missing")
+    src = col.get("source") if isinstance(col.get("source"), dict) else {}
+    if src.get("kind") not in ("transcript", "session"): CF("collection block: source.kind is %r, not transcript or session" % src.get("kind"))
+    if not src.get("run"): CF("collection block: source.run is missing (the capture must be bound to its run)")
+    sha = src.get("sha256") or ""
+    if not re.fullmatch(r"[0-9a-f]{64}", sha): CF("collection block: source.sha256 is not a SHA-256 hash")
+    ref = src.get("ref") or ""
+    raw_text = None
+    if not ref or "/" in ref or ref in (".", ".."):
+        CF("collection block: source.ref %r is not a plain file name in OUT" % ref)
+    elif not os.path.isfile(os.path.join(run, ref)):
+        CF("collected record: the preserved raw response %s is not in OUT" % ref)
+    else:
+        rawb = open(os.path.join(run, ref), "rb").read()
+        if re.fullmatch(r"[0-9a-f]{64}", sha) and hashlib.sha256(rawb).hexdigest() != sha:
+            CF("collected record: the preserved raw response's SHA-256 does not match the capture hash recorded in the manifest (the evidence was altered after collection)")
+        raw_text = rawb.decode("utf-8", "replace")
+    if reps and re.fullmatch(r"[0-9a-f]{64}", sha) and sha not in rep_text:
+        CF("collected record: report.md does not state the capture hash, so the report and the preserved response are not linked")
+    prov = col.get("provenance")
+    grades = {}
+    if not isinstance(prov, dict):
+        CF("collection block: provenance is missing (a collected record grades every value)")
+    else:
+        for key in ("status", "task", "commits", "artifacts", "deviations"):
+            if key not in prov: CF("provenance does not grade %r" % key)
+        for key, g in prov.items():
+            if isinstance(g, str) and g in ("member-stated", "crown-observed", "unknown"):
+                grades[key] = g
+            elif isinstance(g, dict) and g.get("grade") == "crown-verified":
+                grades[key] = "crown-verified"
+                cref = g.get("ref") or ""
+                fname, _, cname = cref.partition("#")
+                if not g.get("check") or not cname or "/" in fname or not os.path.isfile(os.path.join(run, fname)):
+                    CF("provenance: %r is graded crown-verified but its check reference %r does not resolve to a record in OUT" % (key, cref))
+                else:
+                    try:
+                        ev = json.load(open(os.path.join(run, fname)))
+                        entry = next((c for c in ev.get("checks", []) if c.get("name") == cname), None)
+                    except Exception:
+                        entry = None
+                    if entry is None:
+                        CF("provenance: %r is graded crown-verified but %s holds no check named %r" % (key, fname, cname))
+                    elif key == "done":
+                        d = man.get("done") if isinstance(man.get("done"), dict) else {}
+                        if entry.get("exit_code") != d.get("exit_code"):
+                            CF("provenance: the DONE check recorded in %s exited %r, not the manifest's %r" % (fname, entry.get("exit_code"), d.get("exit_code")))
+            else:
+                CF("provenance: %r carries an unrecognized grade %r" % (key, g))
+    if man.get("commits") != []:
+        CF("collected record: commits is not [] (a collected record is a read-only run's; it carries no commits)")
+    st = man.get("status")
+    if st not in ("DONE", "BLOCKED", "INCOMPLETE"):
+        CF("collected record: status %r is not DONE, BLOCKED or INCOMPLETE" % st)
+    elif st == "INCOMPLETE":
+        CF("collected record is INCOMPLETE: the response did not establish the full contract record (an INCOMPLETE record never passes, even when a check inside it succeeded)")
+    elif st == "BLOCKED":
+        br = man.get("blocked_reason")
+        if not isinstance(br, str) or not br.strip():
+            CF("collected record: status BLOCKED carries no blocked_reason")
+        else:
+            if grades.get("blocked_reason") != "member-stated":
+                CF("collected record: blocked_reason is graded %r, not member-stated (a blockage the member did not state cannot be collected as one)" % grades.get("blocked_reason"))
+            norm = lambda s: re.sub(r"\s+", " ", s).strip()
+            if raw_text is not None and norm(br) not in norm(raw_text):
+                CF("collected record: blocked_reason does not appear in the member's preserved response")
+    elif st == "DONE":
+        d = man.get("done") if isinstance(man.get("done"), dict) else {}
+        if d.get("exit_code") != 0:
+            CF("collected record: status DONE but done is missing or its exit code is not 0 (a passed DONE verifies that command's result, and a DONE record stands on it)")
+        for key in ("status", "task", "commits", "artifacts", "deviations", "touched_paths"):
+            if grades.get(key) == "unknown":
+                CF("collected record: status DONE but %r is graded unknown" % key)
+        if "touched_paths" not in man:
+            CF("collected record: status DONE but the manifest carries no touched_paths")
+    arts = man.get("artifacts") if isinstance(man.get("artifacts"), list) else []
+    apaths = {a.get("path") for a in arts if isinstance(a, dict)}
+    if not any(isinstance(a, dict) and a.get("kind") == "report" for a in arts):
+        CF("collected record: artifacts lists no report")
+    if ref and ref not in apaths:
+        CF("collected record: artifacts does not list the preserved raw response %r" % ref)
+    for line in cfails:
+        print(line)
+    if cfails:
+        print("%d fail, 0 warn" % len(cfails)); sys.exit(1)
+    print("OK collected read-only run: status %s (pair validated, source hash verified, provenance enforced)" % st)
+    sys.exit(0)
+
 patches = sorted(glob.glob(os.path.join(run, "patches", "*.patch")))
 if not patches:
     # a review run returns a report, not patches

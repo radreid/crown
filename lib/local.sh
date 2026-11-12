@@ -14,6 +14,12 @@
 #                                        manifest (the harvest's own, marked in its deviations[]) into OUT, and run the task's DONE in the
 #                                        clone, recording its real exit status. Nothing is verified by this: verify and review check gate
 #                                        the run exactly as for a collected one.
+#   local.sh collect RUN_DIR         build, as the lead, the standard record of a read-only run whose member returned its result
+#                                        as a response but wrote no report pair into OUT (the read-only counterpart of harvest):
+#                                        preserve the captured response byte-exact as its own artifact, extract the record from it
+#                                        deterministically (lib/collect.py), re-run the task's DONE, and grade every value's
+#                                        provenance in the manifest's collection block. A member-written pair refuses the
+#                                        collect, untouched; review check gates a collected record on its strict path.
 #   local.sh close RUN_DIR --applied-by-am   mark a verified run whose patches the lead applied by hand (git am) closed: not open any more, files kept
 #   local.sh clean RUN_DIR [--discard]   remove a collected, verified run and its temporary directory (--discard: whatever verify says)
 #   local.sh clean --applied --scratch DIR   remove every run under DIR whose work is applied and merged; keep and name the others
@@ -739,6 +745,18 @@ WRAP
     echo "harvested $SLUG: $ncm commit(s), $nfiles file(s) -> $OUT/patches, run.bundle, series.md, manifest.json (the manifest is the harvest's; its deviations say what the member did not supply)"
     [ "$STATUS" = BLOCKED ] && echo "crown: the task's DONE failed in the clone (exit $DEXIT): the series is packaged with status BLOCKED" >&2
     echo "next: crown local verify $RUN, then crown review check $OUT";;
+  collect)
+    # build, as the lead, the record of a read-only run whose member answered but wrote no pair into OUT:
+    # its sandboxed runtime either captured the reply outside OUT (a command runtime's transcript) or could
+    # not write there at all, and the response the dispatch holds is the run's evidence. The collector is
+    # deterministic and runs outside the sandbox (lib/collect.py); it refuses a write run (that is the
+    # harvest's ground) and any run whose OUT already holds member-written output.
+    RUN=${1:-}; shift || true
+    [ -f "$RUN/refs.before" ] && [ -f "$RUN/ability" ] || usage_die "collect needs a RUN dir made by prepare"
+    [ $# = 0 ] || usage_die "usage: crown local collect RUN_DIR"
+    RCLS=$(run_class "$RUN")
+    [ "$RCLS" = read-only ] || die "collect: $RUN is a $RCLS run: collection is the read-only counterpart of harvest, and a $RCLS run's record is its member-written pair or a harvest"
+    exec python3 -I "$(dirname "$0")/collect.py" "$RUN";;
   clean)
     # after the series is collected and verified: remove the run (clone, bare copy, output, wrapper) and its temporary directory.
     #   clean RUN [--discard]            one run; --discard drops it on purpose, whatever verify says and whatever it holds
@@ -1043,5 +1061,5 @@ $vout}"
     [ -n "$RPJ" ] || { echo "crown: no stored project has the repository of this run, so no runtime is known: store it (crown project attach) and give it a local provider (crown project set PROJECT models.provider.local NAME)" >&2; exit 2; }
     RPROV=$(project_provider "$RPJ" local) || exit $?
     exec python3 -I "$(dirname "$0")/local_run.py" "$RUN" --project "$RPJ" --runtime "$RPROV" --class "$(run_class "$RUN")" "$@";;
-  *) usage_die "usage: local.sh prepare|verify|harvest|close|clean|list|run ...";;
+  *) usage_die "usage: local.sh prepare|verify|harvest|collect|close|clean|list|run ...";;
 esac
