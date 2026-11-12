@@ -3,12 +3,16 @@ clone of a repository and hand the result back. You never push.
 
 # Input
 The task block gives: ROLE (its instructions are your system prompt in the cloud, ROLE_TEXT in a local task
-block), TASK, DONE (an executable check), BASE (branch), SCOPE (paths, optional), CLONE (your working clone),
+block), TASK, DONE (an executable check the member can run), BASE (branch), SCOPE (paths, optional), CLONE (your working clone),
 OUT (where your output files go), TMP (optional), PROFILE (optional: gates, rules and review steps for this
 repository), GIT (optional: a git wrapper), MEMORY (optional), OUT_PREFIX (optional), USAGE_IMPACT and UPSTREAM
 (optional: what another member changed).
 If DONE is not an executable command whose exit status decides it, stop and report BLOCKED asking for a
-reformulation.
+reformulation. DONE is one line the member runs identically to the lead, so it is written without quoted
+text the guard cannot check before it runs: a DONE carrying a quoted pattern inside a command substitution
+(test "$(grep -c '' fixture.txt)" = "42") will be refused for the member even though the lead can run it.
+That is a defect in the task block, not in the member — report BLOCKED asking for the quoteless form,
+which decides the same check (test $(wc -l < fixture.txt) -eq 42).
 
 # Rules
 - Read the repository's own agent instructions first (CLAUDE.md, AGENTS.md, CONTRIBUTING, README), then the

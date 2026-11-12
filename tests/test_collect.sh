@@ -14,7 +14,7 @@ git init -q --bare "$T/remote.git" && git -C "$T/r" remote add origin "$T/remote
 mkdir -p "$T/c/projects"
 jq -n --arg p "$T/r" '{schema:1,project:"rproj",repo:{url:"https://github.com/example/rproj",path:$p,long_lived:["main"]},roles:{build:{base:"main",push:{mode:"none"}}},models:{provider:{local:"claude-code",cloud:"claude-platform"}},memory:{},budget_cents:500}' > "$T/c/projects/rproj.json"
 newrun() { ./bin/crown local prepare --repo "$T/r" --base main --slug "$1" --scratch "$T" --role review | sed -n '1,/^$/s/^RUN=//p'; }
-taskblock() { printf 'TASK: count the lines of names.txt and state the count\nDONE: test "$(grep -c '"''"' names.txt)" = "3"\nBASE: main\n' >> "$1/task.md"; }
+taskblock() { printf 'TASK: count the lines of names.txt and state the count\nDONE: test $(wc -l < names.txt) -eq 3\nBASE: main\n' >> "$1/task.md"; }
 
 # a BLOCKED response in the contract's format collects as BLOCKED and passes the strict gate
 A=$(newrun cola); taskblock "$A"
@@ -39,7 +39,7 @@ B=$(newrun colb); taskblock "$B"
 cat > "$B/out/transcript" <<'EOF'
 DONE
 
-DONE check: `test "$(grep -c '' names.txt)" = "3"` — exit 0
+DONE check: `test $(wc -l < names.txt) -eq 3` — exit 0
 Files changed: none
 Noticed, not acted on: nothing
 EOF
@@ -58,7 +58,7 @@ D=$(newrun cold); taskblock "$D"
 cat > "$D/response" <<'EOF'
 DONE
 
-DONE check: `test "$(grep -c '' names.txt)" = "3"` — exit 0
+DONE check: `test $(wc -l < names.txt) -eq 3` — exit 0
 Files changed: none
 Noticed, not acted on: nothing
 EOF
