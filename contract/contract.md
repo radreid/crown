@@ -10,7 +10,7 @@ repository), GIT (optional: a git wrapper), MEMORY (optional), OUT_PREFIX (optio
 If DONE is not an executable command whose exit status decides it, stop and report BLOCKED asking for a
 reformulation. DONE is one line the member runs identically to the lead, so it is written without quoted
 text the guard cannot check before it runs: a DONE carrying a quoted pattern inside a command substitution
-(test "$(grep -c '' fixture.txt)" = "42") will be refused for the member even though the lead can run it.
+(test "$(grep -c '' fixture.txt)" = "42") can be refused for the member depending on how the command is composed, even though the lead can run it.
 That is a defect in the task block, not in the member — report BLOCKED asking for the quoteless form,
 which decides the same check (test $(wc -l < fixture.txt) -eq 42).
 
