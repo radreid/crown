@@ -77,6 +77,7 @@ fast | par | 300 | 4 | bash tests/test_project_profile.sh | lib/project_profile.
 full | par | 564 | 94 | bash tests/test_local.sh | lib/local.sh
 full | par | 300 | 20 | bash tests/test_local_concurrency.sh | lib/local.sh lib/lib.sh
 full | par | 342 | 57 | bash tests/test_local_run.sh | lib/local*.sh lib/local*.py
+fast | par | 300 | 9 | bash tests/test_collect.sh | lib/collect.py lib/review_check.py lib/local.sh
 fast | par | 300 | 3 | bash tests/test_cred.sh | lib/cred.sh
 fast | par | 300 | 45 | python3 tests/test_packs_check.py | lib/packs*.sh lib/packs*.py lib/conformance/review.py
 fast | par | 300 | 10 | python3 tests/test_packs_mcp.py | lib/packs_mcp.py lib/packs_check.py lib/packs.sh lib/providers/claude-code.json

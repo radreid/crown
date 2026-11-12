@@ -105,3 +105,4 @@
 1 python3 tests/test_backlog.py
 14 bash tests/test_backlog.sh
 5 bash tests/test_nested_plan.sh
+9 bash tests/test_collect.sh
