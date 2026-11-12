@@ -52,7 +52,7 @@ class Workflow(unittest.TestCase):
 
     def test_triggers_and_no_schedule(self):
         self.assertEqual(sorted(self.on), ["pull_request", "push", "workflow_dispatch"])
-        self.assertEqual(self.on["push"]["branches"], ["develop"])
+        self.assertEqual(self.on["push"]["branches"], ["develop", "hursh-line"])
         self.assertIn("labeled", self.on["pull_request"]["types"])
         self.assertNotIn("schedule", self.on)
         self.assertNotIn("schedule", text(WF).replace("There is no scheduled run", ""))
